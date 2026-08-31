@@ -8,6 +8,7 @@
   };
 
   const eventMap = new Map(GAME_DATA.events.map((event) => [event.id, event]));
+  const fallbackEndingId = GAME_DATA.fallbackEndingId || 'ending_balanced_life';
   const statNames = {
     health: '健康',
     stress: '压力',
@@ -265,9 +266,6 @@
 
     const currentEvent = getCurrentEvent();
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (currentEvent.yearDelta || 0);
-    if (deltaYear > 0) {
-      state.age += deltaYear;
-    }
 
     let targetId = option.target;
     if (option.randomTargets?.length) {
@@ -284,6 +282,8 @@
     if (crisisEndingId) {
       state.currentEventId = crisisEndingId;
       state.stage = 'ending';
+    } else if (deltaYear > 0) {
+      state.age += deltaYear;
     }
 
     const nowEvent = getCurrentEvent();
@@ -356,11 +356,12 @@
       btn.className = 'choice-btn';
       btn.textContent = '进入默认结局';
       btn.addEventListener('click', () => {
-        state.currentEventId = 'ending_balanced_life';
-        state.endingId = 'ending_balanced_life';
+        state.currentEventId = fallbackEndingId;
+        state.endingId = fallbackEndingId;
         state.stage = 'ending';
         recordEnding(state.endingId);
         updateAchievements();
+        clearSaveOnly();
         renderCurrentState();
       });
       refs.options.appendChild(btn);
@@ -402,9 +403,21 @@
   function renderCurrentState() {
     const event = getCurrentEvent();
     if (!event) {
-      state.currentEventId = 'ending_crisis_stress';
-      state.endingId = 'ending_crisis_stress';
-      renderCurrentState();
+      const safeEvent = eventMap.get(fallbackEndingId) || GAME_DATA.events.find((item) => item.type === 'ending');
+      if (!safeEvent) {
+        refs.startScreen.hidden = false;
+        refs.gameScreen.hidden = true;
+        refs.endingScreen.hidden = true;
+        refs.disclaimer.textContent = '数据异常：缺少可用结局事件，请检查 events.js。';
+        return;
+      }
+      state.currentEventId = safeEvent.id;
+      state.endingId = safeEvent.id;
+      state.stage = 'ending';
+      recordEnding(safeEvent.id);
+      updateAchievements();
+      clearSaveOnly();
+      renderEndingScreen(safeEvent);
       return;
     }
 

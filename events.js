@@ -4,6 +4,7 @@
     disclaimer:
       '本作是虚构与讽刺作品，不构成医学、法律或职业建议。不同地区与机构在 DRG/DIP、医保与管理实践上存在差异。',
     startEventId: 'gaokao_choice',
+    fallbackEndingId: 'ending_balanced_life',
     statBounds: {
       health: [0, 100],
       stress: [0, 100],

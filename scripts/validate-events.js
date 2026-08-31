@@ -27,8 +27,8 @@ for (const event of events) {
 
 const reachable = new Set();
 const queue = [gameData.startEventId];
-while (queue.length) {
-  const id = queue.shift();
+for (let i = 0; i < queue.length; i += 1) {
+  const id = queue[i];
   if (reachable.has(id)) continue;
   reachable.add(id);
   const event = map.get(id);
