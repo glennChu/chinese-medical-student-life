@@ -51,11 +51,42 @@
     };
   }
 
+  // ===== 成长边际递减：医术/人脉/科研越高，越难继续增长 =====
+  const DIMINISHING_STATS = new Set(['skill', 'network', 'research']);
+  const DIMINISHING_TIERS = [
+    { from: 95, factor: 0.15 },
+    { from: 85, factor: 0.35 },
+    { from: 70, factor: 0.6 },
+    { from: 0, factor: 1 }
+  ];
+
+  function getDiminishingFactor(current) {
+    for (const tier of DIMINISHING_TIERS) {
+      if (current >= tier.from) return tier.factor;
+    }
+    return 1;
+  }
+
+  // 增益按当前值分段衰减；扣减不受影响。
+  function applyDiminishingReturns(stat, current, delta) {
+    if (!DIMINISHING_STATS.has(stat)) return delta;
+    if (typeof delta !== 'number' || delta <= 0) return delta;
+    const factor = getDiminishingFactor(current);
+    if (factor >= 1) return delta;
+    const scaled = delta * factor;
+    // 保证高成本事件仍能推动 95+，但普通事件基本被磨平
+    if (scaled <= 0) return 0;
+    return scaled < 1 ? (delta >= 6 ? 1 : 0) : Math.round(scaled);
+  }
+
   const api = {
     STAT_KEYS,
+    DIMINISHING_STATS,
     clamp,
     normalizeCheck,
-    computeCheckDetails
+    computeCheckDetails,
+    getDiminishingFactor,
+    applyDiminishingReturns
   };
 
   if (typeof module !== 'undefined' && module.exports) {
