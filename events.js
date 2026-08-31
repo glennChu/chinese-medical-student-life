@@ -3534,7 +3534,7 @@
   const specialtyProfiles = {
     pediatrics: {
       name: '儿科',
-      group: 'care',
+      group: 'acute',
       intensity: 5,
       dispute: 5,
       learning: 4,
@@ -3948,7 +3948,7 @@
   };
 
   insertEventAfter('drg_bootcamp', specialtyDirectionChoice);
-  for (const event of specialtySubChoices.reverse()) {
+  for (const event of specialtySubChoices.slice().reverse()) {
     insertEventAfter('specialty_direction_choice', event);
   }
   insertEventAfter('ending_crisis_pc_crash', startIntroEvent);
@@ -4018,8 +4018,6 @@
     }
   );
 
-  const specialtyForcedStart = new Set();
-
   function createSpecialtyEvent(id, stage, suffix, title, text, options) {
     randomEvents.push({
       id: `re_sp_${id}_${suffix}`,
@@ -4078,8 +4076,6 @@
         { text: '重新评估是否转岗/转科/转去更能承受的环境', label: '均衡', effects: { health: 4 + controlBonus, stress: -(2 + controlBonus), money: -2, network: -1 }, flagsSet: ['consider_switching_specialty'] }
       ]
     );
-
-    specialtyForcedStart.add(`re_sp_${id}_frontline`);
   }
 
   randomEvents.push(

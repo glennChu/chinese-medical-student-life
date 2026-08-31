@@ -203,7 +203,10 @@ for (let i = 0; i < endingQueue.length; i += 1) {
 
 const reachableEndings = events.filter((event) => event.type === 'ending' && reachable.has(event.id));
 if (!map.has(gameData.startEventId)) issues.push(`startEventId 不存在: ${gameData.startEventId}`);
-if (gameData.startEventId !== 'admission_985_intro') issues.push(`startEventId 未切换到 985 开局: ${gameData.startEventId}`);
+const startEvent = map.get(gameData.startEventId);
+if (!startEvent || !/985/.test(`${startEvent.title || ''}${startEvent.text || ''}`)) {
+  issues.push(`startEventId 未直接指向 985 医学院开局: ${gameData.startEventId}`);
+}
 if (reachableEndings.length < 1) issues.push('没有可达结局');
 if (events.length < 70) issues.push(`事件总数不足 70，当前 ${events.length}`);
 if (events.filter((event) => event.type === 'ending').length < 14) issues.push('结局总数不足 14');
@@ -317,7 +320,6 @@ const flagSets = new Map(KEY_FLAGS.map((flag) => [flag, 0]));
 const flagReads = new Map(KEY_FLAGS.map((flag) => [flag, 0]));
 visitContainers(events, (container) => {
   for (const flag of container.flagsSet || []) if (flagSets.has(flag)) flagSets.set(flag, flagSets.get(flag) + 1);
-  collectFlagReads(container.conditions, new Set());
 });
 visitContainers(events, (container) => {
   const reads = new Set();

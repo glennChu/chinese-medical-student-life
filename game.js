@@ -733,7 +733,7 @@
       triggerInterruptEvent('re_forced_financial_crisis', 'forced', `因为你的经济状况已经跌到 ${state.stats.money}，财务危机被立刻触发。`);
     }
 
-    if (!crisisEndingId && !wasRandom && !retriedStay) {
+    if (!crisisEndingId && !wasRandom && !retriedStay && !state.inRandomEvent) {
       if (!maybeTriggerScheduledEvent()) {
         maybeInjectRandomEvent();
       }
