@@ -96,7 +96,9 @@
   }
 
   function formatMoney(value, signed) {
-    const prefix = signed ? (value > 0 ? '+' : value < 0 ? '-' : '') : '';
+    const prefix = signed
+      ? (value > 0 ? '+' : value < 0 ? '-' : '')
+      : (value < 0 ? '-' : '');
     return `${prefix}¥${Math.abs(value).toFixed(1)} 万`;
   }
 
@@ -353,7 +355,7 @@
     const feedback = branch.feedback || (success ? '你顶住了关键节点。' : '这次没能如愿，只能转向补救路线。');
     const resultText = `${success ? '判定成功' : '判定失败'}（掷骰 ${roll} / 成功率 ${details.chance}%）：${feedback}`;
     const logPrefix = currentEvent.major ? '✦' : '•';
-    const extraLog = typeof branch.log === 'string' && !/^判定[成功失败]/.test(branch.log) ? ` ${branch.log}` : '';
+    const extraLog = typeof branch.log === 'string' && !/^判定(成功|失败)/.test(branch.log) ? ` ${branch.log}` : '';
 
     state.lastChanges.unshift(resultText);
     if (summary) {
@@ -466,7 +468,7 @@
 
   function renderFeedback() {
     refs.feedback.innerHTML = '';
-    for (const line of state.lastChanges.slice(0, 4)) {
+    for (const line of state.lastChanges.slice(0, 5)) {
       const item = document.createElement('div');
       item.className = 'feedback-line';
       item.textContent = line;

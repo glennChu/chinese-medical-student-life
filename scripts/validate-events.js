@@ -135,7 +135,7 @@ for (let i = 0; i < queue.length; i += 1) {
 const reverse = new Map(events.map((event) => [event.id, []]));
 for (const [from, targets] of adjacency.entries()) {
   for (const to of targets) {
-    reverse.get(to).push(from);
+    reverse.get(to)?.push(from);
   }
 }
 
