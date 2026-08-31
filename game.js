@@ -7,8 +7,11 @@
     achievements: 'cmsl_achievements_v1'
   };
 
+  const checkSystem = window.CHECK_SYSTEM || globalThis.CHECK_SYSTEM;
   const eventMap = new Map(GAME_DATA.events.map((event) => [event.id, event]));
   const fallbackEndingId = GAME_DATA.fallbackEndingId || 'ending_balanced_life';
+  const positiveStats = new Set(['health', 'skill', 'research', 'network', 'ethics']);
+  const negativeStats = new Set(['stress', 'legalRisk']);
   const statNames = {
     health: '健康',
     stress: '压力',
@@ -46,6 +49,8 @@
     options: document.getElementById('options'),
     stageTag: document.getElementById('stage-tag'),
     ageTag: document.getElementById('age-tag'),
+    timelineTag: document.getElementById('timeline-tag'),
+    majorTag: document.getElementById('major-tag'),
     logList: document.getElementById('log-list'),
     feedback: document.getElementById('change-feedback'),
     stats: document.getElementById('stats'),
@@ -55,7 +60,8 @@
     endingStats: document.getElementById('ending-stats'),
     unlockedEndings: document.getElementById('unlocked-endings'),
     unlockedAchievements: document.getElementById('unlocked-achievements'),
-    restartFromEndingBtn: document.getElementById('restart-from-ending')
+    restartFromEndingBtn: document.getElementById('restart-from-ending'),
+    eventCard: document.querySelector('.event-card')
   };
 
   let state = null;
@@ -86,7 +92,18 @@
 
   function clampStat(stat, value) {
     const [min, max] = GAME_DATA.statBounds[stat];
-    return Math.min(max, Math.max(min, value));
+    return checkSystem.clamp(value, min, max);
+  }
+
+  function formatMoney(value, signed) {
+    const prefix = signed ? (value > 0 ? '+' : value < 0 ? '-' : '') : '';
+    return `${prefix}¥${Math.abs(value).toFixed(1)} 万`;
+  }
+
+  function formatStatValue(stat, value, signed) {
+    if (stat === 'money') return formatMoney(value, signed);
+    if (!signed) return `${value}`;
+    return `${value > 0 ? '+' : ''}${value}`;
   }
 
   function randomByWeight(items) {
@@ -139,6 +156,25 @@
     return chunks.length ? `（${chunks.join('，')}）` : '';
   }
 
+  function describeFactor(factor) {
+    const rounded = Math.round(Math.abs(factor.contribution));
+    if (rounded === 0) return '';
+
+    if (factor.contribution >= 0) {
+      return `${statNames[factor.stat]}助力 +${rounded}%`;
+    }
+
+    return `${statNames[factor.stat]}拖累 -${rounded}%`;
+  }
+
+  function describeCheckSummary(details, limit) {
+    return details.factors
+      .map(describeFactor)
+      .filter(Boolean)
+      .slice(0, limit)
+      .join('、');
+  }
+
   function applyEffects(effects, sourceName) {
     if (!effects) return;
     const notes = [];
@@ -150,7 +186,7 @@
       state.stats[stat] = next;
       const actualDelta = next - prev;
       if (actualDelta !== 0) {
-        notes.push(`${statNames[stat]} ${actualDelta > 0 ? '+' : ''}${actualDelta}`);
+        notes.push(`${statNames[stat]} ${formatStatValue(stat, actualDelta, true)}`);
       }
     }
 
@@ -164,6 +200,11 @@
     for (const flag of flags) {
       state.flags[flag] = true;
     }
+  }
+
+  function queueDelayedConsequences(delayed) {
+    if (!delayed?.length) return;
+    state.delayedConsequences.push(...delayed.map((item) => ({ ...item })));
   }
 
   function processDelayedConsequences() {
@@ -206,13 +247,50 @@
     localStorage.removeItem(STORAGE_KEYS.achievements);
   }
 
+  function normalizeDelayedConsequences(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        turns: typeof item.turns === 'number' ? item.turns : 0,
+        effects: item.effects && typeof item.effects === 'object' ? item.effects : undefined,
+        flagsSet: Array.isArray(item.flagsSet) ? item.flagsSet : undefined,
+        log: typeof item.log === 'string' ? item.log : undefined
+      }));
+  }
+
+  function normalizeGameState(rawState) {
+    const initial = getInitialState();
+    const nextState = rawState && typeof rawState === 'object' ? rawState : {};
+    const stats = { ...initial.stats };
+
+    for (const stat of Object.keys(initial.stats)) {
+      const rawValue = nextState.stats?.[stat];
+      stats[stat] = typeof rawValue === 'number' ? clampStat(stat, rawValue) : initial.stats[stat];
+    }
+
+    return {
+      currentEventId: eventMap.has(nextState.currentEventId) ? nextState.currentEventId : initial.currentEventId,
+      age: typeof nextState.age === 'number' ? Math.max(18, Math.round(nextState.age)) : initial.age,
+      stage: typeof nextState.stage === 'string' ? nextState.stage : initial.stage,
+      stats,
+      flags: nextState.flags && typeof nextState.flags === 'object' ? nextState.flags : {},
+      delayedConsequences: normalizeDelayedConsequences(nextState.delayedConsequences),
+      log: Array.isArray(nextState.log) && nextState.log.length ? nextState.log.slice(0, 80) : initial.log.slice(),
+      endingId: typeof nextState.endingId === 'string' ? nextState.endingId : null,
+      turn: typeof nextState.turn === 'number' ? Math.max(0, Math.round(nextState.turn)) : 0,
+      lastChanges: Array.isArray(nextState.lastChanges) ? nextState.lastChanges.slice(0, 10) : []
+    };
+  }
+
   function tryLoadSave() {
     const raw = localStorage.getItem(STORAGE_KEYS.save);
     if (!raw) return false;
     try {
       const parsed = JSON.parse(raw);
       if (!eventMap.has(parsed.currentEventId)) return false;
-      state = parsed;
+      state = normalizeGameState(parsed);
+      saveProgress();
       return true;
     } catch (_err) {
       return false;
@@ -252,6 +330,40 @@
     return eventMap.get(state.currentEventId);
   }
 
+  function resolveTarget(target, randomTargets) {
+    let resolvedTarget = target;
+    if (randomTargets?.length) {
+      resolvedTarget = randomByWeight(randomTargets).target;
+      state.lastChanges.push('随机事件：命运骰子已生效');
+    }
+    return resolvedTarget;
+  }
+
+  function applyCheckOutcome(option, currentEvent) {
+    const details = checkSystem.computeCheckDetails(option.check, state.stats);
+    const roll = Math.floor(Math.random() * 100) + 1;
+    const success = roll <= details.chance;
+    const branch = success ? details.check.success : details.check.failure;
+
+    applyEffects(branch.effects, success ? '判定成功' : '判定失败');
+    applyFlags(branch.flagsSet);
+    queueDelayedConsequences(branch.delayed);
+
+    const summary = describeCheckSummary(details, 3);
+    const feedback = branch.feedback || (success ? '你顶住了关键节点。' : '这次没能如愿，只能转向补救路线。');
+    const resultText = `${success ? '判定成功' : '判定失败'}（掷骰 ${roll} / 成功率 ${details.chance}%）：${feedback}`;
+    const logPrefix = currentEvent.major ? '✦' : '•';
+    const extraLog = typeof branch.log === 'string' && !/^判定[成功失败]/.test(branch.log) ? ` ${branch.log}` : '';
+
+    state.lastChanges.unshift(resultText);
+    if (summary) {
+      state.lastChanges.splice(1, 0, `主要因素：${summary}`);
+    }
+
+    state.log.unshift(`${logPrefix} ${resultText}${extraLog}`);
+    return resolveTarget(branch.target, branch.randomTargets);
+  }
+
   function advanceByOption(option) {
     state.turn += 1;
     state.lastChanges = [];
@@ -259,24 +371,23 @@
     processDelayedConsequences();
     applyEffects(option.effects, '本次选择');
     applyFlags(option.flagsSet);
-
-    if (option.delayed?.length) {
-      state.delayedConsequences.push(...option.delayed.map((item) => ({ ...item })));
-    }
+    queueDelayedConsequences(option.delayed);
 
     const currentEvent = getCurrentEvent();
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (currentEvent.yearDelta || 0);
+    const choicePrefix = currentEvent.major ? '◆' : '•';
 
     let targetId = option.target;
-    if (option.randomTargets?.length) {
-      targetId = randomByWeight(option.randomTargets).target;
-      state.lastChanges.push('随机事件：命运骰子已生效');
+    if (option.check) {
+      targetId = applyCheckOutcome(option, currentEvent);
+    } else {
+      targetId = resolveTarget(option.target, option.randomTargets);
     }
 
-    state.currentEventId = targetId;
-    const targetEvent = eventMap.get(targetId);
+    state.currentEventId = targetId || fallbackEndingId;
+    const targetEvent = eventMap.get(state.currentEventId);
     state.stage = targetEvent?.stage || state.stage;
-    state.log.unshift(`你选择了：${option.text}`);
+    state.log.unshift(`${choicePrefix} 你选择了：${option.text}`);
 
     const crisisEndingId = checkCrisisEnding();
     if (crisisEndingId) {
@@ -299,20 +410,63 @@
     }
   }
 
+  function getStatStatus(stat, value) {
+    if (stat === 'money') {
+      if (value < 0) return { icon: '⚠', label: '赤字', tone: 'danger' };
+      if (value < 6) return { icon: '◔', label: '紧张', tone: 'warn' };
+      if (value < 20) return { icon: '●', label: '尚可', tone: 'stable' };
+      return { icon: '▲', label: '宽裕', tone: 'good' };
+    }
+
+    if (positiveStats.has(stat)) {
+      if (value <= 15) return { icon: '⚠', label: '危险', tone: 'danger' };
+      if (value <= 35) return { icon: '◔', label: '偏低', tone: 'warn' };
+      if (value <= 65) return { icon: '●', label: '正常', tone: 'stable' };
+      return { icon: '▲', label: '良好', tone: 'good' };
+    }
+
+    if (negativeStats.has(stat)) {
+      if (value >= 85) return { icon: '⚠', label: '危险', tone: 'danger' };
+      if (value >= 60) return { icon: '▲', label: '警戒', tone: 'warn' };
+      if (value >= 30) return { icon: '●', label: '可控', tone: 'stable' };
+      return { icon: '✓', label: '安全', tone: 'good' };
+    }
+
+    return { icon: '●', label: '正常', tone: 'stable' };
+  }
+
+  function buildStatRow(key, name, value) {
+    const li = document.createElement('li');
+    const [min, max] = GAME_DATA.statBounds[key];
+    const width = ((value - min) / (max - min)) * 100;
+    const status = getStatStatus(key, value);
+
+    li.className = `stat-row stat-${status.tone}`;
+    li.innerHTML = `
+      <div class="stat-head">
+        <span>${name}</span>
+        <strong>${formatStatValue(key, value, false)}</strong>
+      </div>
+      <div class="stat-bar" aria-hidden="true">
+        <span class="stat-fill stat-fill-${status.tone}" style="width:${Math.max(0, Math.min(100, width)).toFixed(1)}%"></span>
+      </div>
+      <div class="stat-meta">
+        <span class="stat-status">${status.icon} ${status.label}</span>
+      </div>
+    `;
+    return li;
+  }
+
   function renderStats() {
     refs.stats.innerHTML = '';
     for (const [key, name] of Object.entries(statNames)) {
-      const value = state.stats[key];
-      const li = document.createElement('li');
-      li.className = 'stat-row';
-      li.innerHTML = `<span>${name}</span><strong>${value}</strong>`;
-      refs.stats.appendChild(li);
+      refs.stats.appendChild(buildStatRow(key, name, state.stats[key]));
     }
   }
 
   function renderFeedback() {
     refs.feedback.innerHTML = '';
-    for (const line of state.lastChanges.slice(0, 3)) {
+    for (const line of state.lastChanges.slice(0, 4)) {
       const item = document.createElement('div');
       item.className = 'feedback-line';
       item.textContent = line;
@@ -329,20 +483,46 @@
     }
   }
 
+  function optionHasTarget(option) {
+    if (option.target || option.randomTargets?.length) return true;
+    if (!option.check) return false;
+    return Boolean(
+      option.check.success?.target ||
+      option.check.success?.randomTargets?.length ||
+      option.check.failure?.target ||
+      option.check.failure?.randomTargets?.length
+    );
+  }
+
+  function getTimelineLabel(event) {
+    if (event.timeLabel) return event.timeLabel;
+    const deltaYear = typeof event.yearDelta === 'number' ? event.yearDelta : 0;
+    if (deltaYear <= 0) return '阶段事件';
+    return `约 ${deltaYear} 年`;
+  }
+
   function renderOptions(event) {
     refs.options.innerHTML = '';
-    const validOptions = (event.options || []).filter((option) => {
-      if (!option.target || !eventMap.has(option.target)) return false;
-      return true;
-    });
+    const validOptions = (event.options || []).filter(optionHasTarget);
 
     for (const option of validOptions) {
       const btn = document.createElement('button');
       const available = evaluateConditions(option.conditions);
-      btn.className = 'choice-btn';
+      const hints = [];
+      if (option.check) {
+        const details = checkSystem.computeCheckDetails(option.check, state.stats);
+        hints.push(`预计成功率 ${details.chance}%`);
+        const factorSummary = describeCheckSummary(details, 2);
+        if (factorSummary) hints.push(`主要因素：${factorSummary}`);
+      }
+      if (!available) {
+        hints.push(describeRequirements(option));
+      }
+
+      btn.className = `choice-btn${option.check ? ' check-choice' : ''}`;
       btn.type = 'button';
       btn.disabled = !available;
-      btn.innerHTML = `${option.text}${available ? '' : `<small>${describeRequirements(option)}</small>`}`;
+      btn.innerHTML = `${option.text}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
       btn.addEventListener('click', () => {
         advanceByOption(option);
         renderCurrentState();
@@ -371,6 +551,9 @@
   function renderGameScreen(event) {
     refs.stageTag.textContent = `${GAME_DATA.stages[event.stage] || event.stage}`;
     refs.ageTag.textContent = `年龄 ${state.age}`;
+    refs.timelineTag.textContent = getTimelineLabel(event);
+    refs.majorTag.hidden = !event.major;
+    refs.eventCard.classList.toggle('major-event', !!event.major);
     refs.eventTitle.textContent = event.title;
     refs.eventText.textContent = event.text;
     renderStats();
@@ -385,9 +568,7 @@
 
     refs.endingStats.innerHTML = '';
     Object.entries(statNames).forEach(([key, name]) => {
-      const li = document.createElement('li');
-      li.textContent = `${name}：${state.stats[key]}`;
-      refs.endingStats.appendChild(li);
+      refs.endingStats.appendChild(buildStatRow(key, name, state.stats[key]));
     });
 
     const endings = JSON.parse(localStorage.getItem(STORAGE_KEYS.endings) || '[]');
@@ -464,6 +645,23 @@
     });
   }
 
+  function collectTargets(option) {
+    const targets = [];
+
+    if (option.target) targets.push(option.target);
+    for (const item of option.randomTargets || []) targets.push(item.target);
+
+    if (option.check) {
+      for (const branch of [option.check.success, option.check.failure]) {
+        if (!branch) continue;
+        if (branch.target) targets.push(branch.target);
+        for (const item of branch.randomTargets || []) targets.push(item.target);
+      }
+    }
+
+    return targets;
+  }
+
   function runDataSelfCheck() {
     const ids = new Set();
     const issues = [];
@@ -471,11 +669,8 @@
       if (ids.has(event.id)) issues.push(`重复事件ID: ${event.id}`);
       ids.add(event.id);
       for (const option of event.options || []) {
-        if (option.target && !eventMap.has(option.target)) {
-          issues.push(`事件 ${event.id} 指向不存在目标 ${option.target}`);
-        }
-        for (const rt of option.randomTargets || []) {
-          if (!eventMap.has(rt.target)) issues.push(`事件 ${event.id} 的随机目标不存在: ${rt.target}`);
+        for (const targetId of collectTargets(option)) {
+          if (!eventMap.has(targetId)) issues.push(`事件 ${event.id} 指向不存在目标 ${targetId}`);
         }
       }
     }
