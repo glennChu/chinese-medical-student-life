@@ -9,6 +9,9 @@
 
   const checkSystem = window.CHECK_SYSTEM || globalThis.CHECK_SYSTEM;
   const eventMap = new Map(GAME_DATA.events.map((event) => [event.id, event]));
+  const randomEventMap = new Map((GAME_DATA.randomEvents || []).map((event) => [event.id, event]));
+  const RANDOM_EVENT_CHANCE = 0.3;
+  const MAX_GENERATION = 3;
   const fallbackEndingId = GAME_DATA.fallbackEndingId || 'ending_balanced_life';
   const positiveStats = new Set(['health', 'skill', 'research', 'network', 'ethics']);
   const negativeStats = new Set(['stress', 'legalRisk']);
@@ -33,7 +36,12 @@
     { id: 'networker', name: '会诊通讯录', desc: '以人脉≥75通关', check: (s) => !!s.endingId && s.stats.network >= 75 },
     { id: 'community', name: '社区守门人', desc: '触发基层深耕标记', check: (s) => s.flags.community_trust === true },
     { id: 'switcher', name: '赛道切换大师', desc: '达成任一转行结局', check: (s) => ['ending_industry_ma', 'ending_internet_health', 'ending_public_service'].includes(s.endingId) },
-    { id: 'collector', name: '人生样本库', desc: '累计解锁 5 个不同结局', check: (_s, meta) => meta.unlockedEndings.length >= 5 }
+    { id: 'collector', name: '人生样本库', desc: '累计解锁 5 个不同结局', check: (_s, meta) => meta.unlockedEndings.length >= 5 },
+    { id: 'family_founded', name: '成家', desc: '建立了家庭', check: (s) => s.flags.married === true },
+    { id: 'has_child_achievement', name: '为人父母', desc: '有了孩子', check: (s) => s.flags.has_child === true },
+    { id: 'second_gen', name: '薪火相传', desc: '开启了下一代', check: (s) => (s.generation || 1) >= 2 },
+    { id: 'single_proud', name: '单身无憾', desc: '选择单身并抵达良好结局', check: (s) => s.flags.single_choice === true && !!s.endingId && s.stats.health >= 60 && s.stats.ethics >= 50 && !String(s.endingId).includes('crisis') },
+    { id: 'dink_success', name: '丁克美满', desc: '选择丁克并抵达良好结局', check: (s) => s.flags.dink === true && !!s.endingId && s.stats.health >= 60 && !String(s.endingId).includes('crisis') }
   ];
 
   const refs = {
@@ -66,27 +74,49 @@
 
   let state = null;
 
-  function getInitialState() {
+  function getInitialState(legacy) {
+    const stats = {
+      health: 80,
+      stress: 20,
+      money: 10,
+      skill: 10,
+      research: 5,
+      network: 8,
+      ethics: 70,
+      legalRisk: 5
+    };
+
+    const generation = legacy && typeof legacy.generation === 'number' ? legacy.generation : 1;
+    const log = ['你站在高考志愿填报界面前。'];
+
+    if (legacy && generation > 1) {
+      stats.ethics = clampStat('ethics', stats.ethics + (legacy.ethicsBonus || 0));
+      stats.skill = clampStat('skill', stats.skill + (legacy.skillBonus || 0));
+      stats.research = clampStat('research', stats.research + (legacy.researchBonus || 0));
+      stats.network = clampStat('network', stats.network + (legacy.networkBonus || 0));
+      stats.money = clampStat('money', stats.money + (legacy.moneyBonus || 0));
+      log.unshift(`👶 第 ${generation} 代人生开启：你继承了上一代留下的一部分底蕴。`);
+    }
+
     return {
       currentEventId: GAME_DATA.startEventId,
       age: 18,
       stage: 'gaokao',
-      stats: {
-        health: 80,
-        stress: 20,
-        money: 10,
-        skill: 10,
-        research: 5,
-        network: 8,
-        ethics: 70,
-        legalRisk: 5
-      },
+      stats,
       flags: {},
       delayedConsequences: [],
-      log: ['你站在高考志愿填报界面前。'],
+      log,
       endingId: null,
       turn: 0,
-      lastChanges: []
+      lastChanges: [],
+      seenRandomEvents: [],
+      retryState: {},
+      inRandomEvent: false,
+      randomEventReturnTo: null,
+      generation,
+      legacy: legacy && generation > 1 ? legacy : {},
+      generationLog: legacy && Array.isArray(legacy.generationLog) ? legacy.generationLog.slice(0, MAX_GENERATION) : [],
+      family: { partner: false, married: false, child: false, dink: false, single: false }
     };
   }
 
@@ -197,11 +227,23 @@
     }
   }
 
+  function syncFamily() {
+    if (!state.family) {
+      state.family = { partner: false, married: false, child: false, dink: false, single: false };
+    }
+    state.family.partner = !!state.flags.has_partner || !!state.flags.married;
+    state.family.married = !!state.flags.married;
+    state.family.child = !!state.flags.has_child;
+    state.family.dink = !!state.flags.dink;
+    state.family.single = !!state.flags.single_choice;
+  }
+
   function applyFlags(flags) {
     if (!flags) return;
     for (const flag of flags) {
       state.flags[flag] = true;
     }
+    syncFamily();
   }
 
   function queueDelayedConsequences(delayed) {
@@ -271,17 +313,49 @@
       stats[stat] = typeof rawValue === 'number' ? clampStat(stat, rawValue) : initial.stats[stat];
     }
 
+    const validRandomId = (id) => randomEventMap.has(id) || eventMap.has(id);
+    const currentValid = eventMap.has(nextState.currentEventId) || randomEventMap.has(nextState.currentEventId);
+    const flags = nextState.flags && typeof nextState.flags === 'object' ? nextState.flags : {};
+
+    const retryState = {};
+    if (nextState.retryState && typeof nextState.retryState === 'object') {
+      for (const [key, value] of Object.entries(nextState.retryState)) {
+        if (value && typeof value === 'object') {
+          retryState[key] = {
+            attempts: typeof value.attempts === 'number' ? Math.max(0, Math.round(value.attempts)) : 0,
+            bonus: typeof value.bonus === 'number' ? value.bonus : 0
+          };
+        }
+      }
+    }
+
+    const generation = typeof nextState.generation === 'number'
+      ? Math.min(MAX_GENERATION, Math.max(1, Math.round(nextState.generation)))
+      : 1;
+
     return {
-      currentEventId: eventMap.has(nextState.currentEventId) ? nextState.currentEventId : initial.currentEventId,
+      currentEventId: currentValid ? nextState.currentEventId : initial.currentEventId,
       age: typeof nextState.age === 'number' ? Math.max(18, Math.round(nextState.age)) : initial.age,
       stage: typeof nextState.stage === 'string' ? nextState.stage : initial.stage,
       stats,
-      flags: nextState.flags && typeof nextState.flags === 'object' ? nextState.flags : {},
+      flags,
       delayedConsequences: normalizeDelayedConsequences(nextState.delayedConsequences),
       log: Array.isArray(nextState.log) && nextState.log.length ? nextState.log.slice(0, 80) : initial.log.slice(),
       endingId: typeof nextState.endingId === 'string' ? nextState.endingId : null,
       turn: typeof nextState.turn === 'number' ? Math.max(0, Math.round(nextState.turn)) : 0,
-      lastChanges: Array.isArray(nextState.lastChanges) ? nextState.lastChanges.slice(0, 10) : []
+      lastChanges: Array.isArray(nextState.lastChanges) ? nextState.lastChanges.slice(0, 10) : [],
+      seenRandomEvents: Array.isArray(nextState.seenRandomEvents)
+        ? nextState.seenRandomEvents.filter((id) => randomEventMap.has(id))
+        : [],
+      retryState,
+      inRandomEvent: randomEventMap.has(nextState.currentEventId),
+      randomEventReturnTo: validRandomId(nextState.randomEventReturnTo) ? nextState.randomEventReturnTo : null,
+      generation,
+      legacy: nextState.legacy && typeof nextState.legacy === 'object' ? nextState.legacy : {},
+      generationLog: Array.isArray(nextState.generationLog) ? nextState.generationLog.slice(0, MAX_GENERATION) : [],
+      family: nextState.family && typeof nextState.family === 'object'
+        ? nextState.family
+        : { partner: !!flags.has_partner, married: !!flags.married, child: !!flags.has_child, dink: !!flags.dink, single: !!flags.single_choice }
     };
   }
 
@@ -290,7 +364,7 @@
     if (!raw) return false;
     try {
       const parsed = JSON.parse(raw);
-      if (!eventMap.has(parsed.currentEventId)) return false;
+      if (!eventMap.has(parsed.currentEventId) && !randomEventMap.has(parsed.currentEventId)) return false;
       state = normalizeGameState(parsed);
       saveProgress();
       return true;
@@ -322,14 +396,68 @@
 
   function checkCrisisEnding() {
     if (state.stats.health <= 0) return 'ending_crisis_health';
-    if (state.stats.stress >= 100) return 'ending_crisis_stress';
     if (state.stats.legalRisk >= 100) return 'ending_crisis_legal';
     if (state.stats.ethics <= 5) return 'ending_ethics_fall';
+    if (state.stats.stress >= 100) return pickStressCrisisEnding();
     return null;
   }
 
+  function pickStressCrisisEnding() {
+    const s = state.stats;
+    if (s.health <= 30) return 'ending_crisis_night_shift_ghost';
+    if (s.legalRisk >= 40) return 'ending_crisis_pc_crash';
+    if (s.network >= 40) return 'ending_crisis_badge_off';
+    if (s.health >= 40 && s.network >= 30) return 'ending_crisis_read_receipts';
+    if (s.ethics >= 50) return 'ending_crisis_phone_reflex';
+    return 'ending_crisis_stress';
+  }
+
   function getCurrentEvent() {
-    return eventMap.get(state.currentEventId);
+    return eventMap.get(state.currentEventId) || randomEventMap.get(state.currentEventId);
+  }
+
+  function isRandomEligible(re) {
+    const c = re.conditions;
+    if (!c) return true;
+    if (Array.isArray(c.flags)) {
+      for (const flag of c.flags) {
+        if (!state.flags[flag]) return false;
+      }
+    }
+    if (Array.isArray(c.notFlags)) {
+      for (const flag of c.notFlags) {
+        if (state.flags[flag]) return false;
+      }
+    }
+    if (c.stats) {
+      for (const [key, range] of Object.entries(c.stats)) {
+        const val = state.stats[key];
+        if (typeof range.min === 'number' && val < range.min) return false;
+        if (typeof range.max === 'number' && val > range.max) return false;
+      }
+    }
+    return true;
+  }
+
+  function maybeInjectRandomEvent() {
+    const cur = getCurrentEvent();
+    if (!cur || cur.type === 'ending') return;
+    if (Math.random() > RANDOM_EVENT_CHANCE) return;
+
+    const candidates = (GAME_DATA.randomEvents || []).filter((re) =>
+      re.stage === state.stage &&
+      !state.seenRandomEvents.includes(re.id) &&
+      isRandomEligible(re)
+    );
+    if (!candidates.length) return;
+
+    const chosen = randomByWeight(candidates.map((re) => ({ ...re, weight: re.weight || 1 })));
+    state.seenRandomEvents.push(chosen.id);
+    state.randomEventReturnTo = state.currentEventId;
+    state.inRandomEvent = true;
+    state.currentEventId = chosen.id;
+    state.stage = chosen.stage || state.stage;
+    state.log.unshift(`🎲 随机事件：${String(chosen.title || '').replace(/^🎲\s*/, '')}`);
   }
 
   function resolveTarget(target, randomTargets) {
@@ -341,8 +469,11 @@
     return resolvedTarget;
   }
 
-  function applyCheckOutcome(option, currentEvent) {
-    const details = checkSystem.computeCheckDetails(option.check, state.stats);
+  function applyCheckOutcome(option, currentEvent, bonus) {
+    const effectiveCheck = bonus
+      ? { ...option.check, baseChance: option.check.baseChance + bonus }
+      : option.check;
+    const details = checkSystem.computeCheckDetails(effectiveCheck, state.stats);
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= details.chance;
     const branch = success ? details.check.success : details.check.failure;
@@ -363,31 +494,74 @@
     }
 
     state.log.unshift(`${logPrefix} ${resultText}${extraLog}`);
-    return resolveTarget(branch.target, branch.randomTargets);
+    return { targetId: resolveTarget(branch.target, branch.randomTargets), success };
+  }
+
+  function handleRetryFailure(option, event) {
+    const cfg = option.retry;
+    const record = state.retryState[event.id] || { attempts: 0, bonus: 0 };
+    record.attempts += 1;
+    record.bonus = (record.bonus || 0) + (cfg.bonusPerRetry || 0);
+    state.retryState[event.id] = record;
+
+    if (record.attempts >= cfg.maxAttempts) {
+      state.log.unshift(`⏳ 重试次数已用尽（${record.attempts}/${cfg.maxAttempts}），转入备选路线。`);
+      delete state.retryState[event.id];
+      return false;
+    }
+
+    applyEffects(cfg.costPerRetry, '重试代价');
+    if (typeof cfg.yearCostPerRetry === 'number' && cfg.yearCostPerRetry > 0) {
+      state.age += cfg.yearCostPerRetry;
+    }
+    state.log.unshift(`🔁 你决定明年再战（第 ${record.attempts + 1}/${cfg.maxAttempts} 次），成功率已提升。`);
+    return true;
   }
 
   function advanceByOption(option) {
     state.turn += 1;
     state.lastChanges = [];
 
+    const currentEvent = getCurrentEvent();
+    const wasRandom = randomEventMap.has(state.currentEventId);
+
     processDelayedConsequences();
     applyEffects(option.effects, '本次选择');
     applyFlags(option.flagsSet);
     queueDelayedConsequences(option.delayed);
 
-    const currentEvent = getCurrentEvent();
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (currentEvent.yearDelta || 0);
     const choicePrefix = currentEvent.major ? '◆' : '•';
 
-    let targetId = option.target;
+    let targetId;
+    let retriedStay = false;
+
     if (option.check) {
-      targetId = applyCheckOutcome(option, currentEvent);
+      const bonus = option.retry ? (state.retryState[currentEvent.id]?.bonus || 0) : 0;
+      const outcome = applyCheckOutcome(option, currentEvent, bonus);
+      targetId = outcome.targetId;
+
+      if (option.retry && !wasRandom) {
+        if (outcome.success) {
+          delete state.retryState[currentEvent.id];
+        } else {
+          retriedStay = handleRetryFailure(option, currentEvent);
+          targetId = retriedStay ? currentEvent.id : option.retry.alternativeTarget;
+        }
+      }
     } else {
       targetId = resolveTarget(option.target, option.randomTargets);
     }
 
-    state.currentEventId = targetId || fallbackEndingId;
-    const targetEvent = eventMap.get(state.currentEventId);
+    if (wasRandom) {
+      state.currentEventId = state.randomEventReturnTo || currentEvent.returnTo || fallbackEndingId;
+      state.inRandomEvent = false;
+      state.randomEventReturnTo = null;
+    } else {
+      state.currentEventId = targetId || fallbackEndingId;
+    }
+
+    const targetEvent = getCurrentEvent();
     state.stage = targetEvent?.stage || state.stage;
     state.log.unshift(`${choicePrefix} 你选择了：${option.text}`);
 
@@ -395,8 +569,12 @@
     if (crisisEndingId) {
       state.currentEventId = crisisEndingId;
       state.stage = 'ending';
-    } else if (deltaYear > 0) {
+    } else if (!retriedStay && deltaYear > 0) {
       state.age += deltaYear;
+    }
+
+    if (!crisisEndingId && !wasRandom && !retriedStay) {
+      maybeInjectRandomEvent();
     }
 
     const nowEvent = getCurrentEvent();
@@ -505,14 +683,19 @@
 
   function renderOptions(event) {
     refs.options.innerHTML = '';
-    const validOptions = (event.options || []).filter(optionHasTarget);
+    const isRandom = randomEventMap.has(event.id);
+    const validOptions = (event.options || []).filter((option) => isRandom || optionHasTarget(option));
 
     for (const option of validOptions) {
       const btn = document.createElement('button');
       const available = evaluateConditions(option.conditions);
       const hints = [];
+      const retryRecord = option.retry ? state.retryState[event.id] : null;
+
       if (option.check) {
-        const details = checkSystem.computeCheckDetails(option.check, state.stats);
+        const bonus = retryRecord ? (retryRecord.bonus || 0) : 0;
+        const effectiveCheck = bonus ? { ...option.check, baseChance: option.check.baseChance + bonus } : option.check;
+        const details = checkSystem.computeCheckDetails(effectiveCheck, state.stats);
         hints.push(`预计成功率 ${details.chance}%`);
         const factorSummary = describeCheckSummary(details, 2);
         if (factorSummary) hints.push(`主要因素：${factorSummary}`);
@@ -521,10 +704,18 @@
         hints.push(describeRequirements(option));
       }
 
-      btn.className = `choice-btn${option.check ? ' check-choice' : ''}`;
+      const tags = [];
+      if (option.safeChoice) tags.push('<span class="choice-tag choice-tag-safe">稳妥</span>');
+      if (option.riskyChoice) tags.push('<span class="choice-tag choice-tag-risky">高风险</span>');
+      if (option.retry && retryRecord && retryRecord.attempts > 0) {
+        tags.push(`<span class="choice-tag choice-tag-retry">第 ${retryRecord.attempts + 1}/${option.retry.maxAttempts} 次尝试</span>`);
+      }
+      const tagHtml = tags.length ? `<span class="choice-tags">${tags.join(' ')}</span>` : '';
+
+      btn.className = `choice-btn${option.check ? ' check-choice' : ''}${option.safeChoice ? ' safe-choice' : ''}${option.riskyChoice ? ' risky-choice' : ''}`;
       btn.type = 'button';
       btn.disabled = !available;
-      btn.innerHTML = `${option.text}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
+      btn.innerHTML = `${tagHtml}${option.text}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
       btn.addEventListener('click', () => {
         advanceByOption(option);
         renderCurrentState();
@@ -551,9 +742,11 @@
   }
 
   function renderGameScreen(event) {
-    refs.stageTag.textContent = `${GAME_DATA.stages[event.stage] || event.stage}`;
+    const isRandom = randomEventMap.has(event.id);
+    refs.stageTag.textContent = isRandom ? '🎲 随机事件' : `${GAME_DATA.stages[event.stage] || event.stage}`;
+    refs.stageTag.classList.toggle('random-tag', isRandom);
     refs.ageTag.textContent = `年龄 ${state.age}`;
-    refs.timelineTag.textContent = getTimelineLabel(event);
+    refs.timelineTag.textContent = isRandom ? '插曲' : getTimelineLabel(event);
     refs.majorTag.hidden = !event.major;
     refs.eventCard.classList.toggle('major-event', !!event.major);
     refs.eventTitle.textContent = event.title;
@@ -581,6 +774,51 @@
       .filter((item) => unlockedAchievementIds.includes(item.id))
       .map((item) => `${item.name}（${item.desc}）`);
     refs.unlockedAchievements.textContent = unlockedAchievementNames.join(' / ') || '暂无';
+
+    if (refs.nextGenBtn) {
+      refs.nextGenBtn.remove();
+      refs.nextGenBtn = null;
+    }
+    if (state.flags && state.flags.has_child && (state.generation || 1) < MAX_GENERATION) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'nextgen-btn';
+      btn.textContent = `以孩子身份开启下一代 →（第 ${(state.generation || 1) + 1} 代）`;
+      btn.addEventListener('click', () => {
+        startNextGeneration();
+        renderCurrentState();
+      });
+      refs.endingScreen.appendChild(btn);
+      refs.nextGenBtn = btn;
+    }
+  }
+
+  function buildLifeSummary(source) {
+    const endingTitle = eventMap.get(source.endingId)?.title || '未竟的人生';
+    return `第${source.generation || 1}代 · ${endingTitle}（医术${source.stats.skill}/医德${source.stats.ethics}）`;
+  }
+
+  function startNextGeneration() {
+    const parentMoney = state.stats.money;
+    const nextGen = Math.min(MAX_GENERATION, (state.generation || 1) + 1);
+    const genLog = [buildLifeSummary(state), ...(state.generationLog || [])].slice(0, MAX_GENERATION);
+
+    const legacy = {
+      generation: nextGen,
+      ethicsBonus: 8,
+      skillBonus: 6,
+      researchBonus: 3,
+      networkBonus: 4,
+      moneyBonus: parentMoney > 0 ? Math.min(15, Math.round(parentMoney * 0.15)) : 0,
+      parentEnding: eventMap.get(state.endingId)?.title || '上一代人生',
+      generationLog: genLog
+    };
+
+    state = getInitialState(legacy);
+    for (const line of state.generationLog) {
+      state.log.push(`　└ 上代回顾：${line}`);
+    }
+    saveProgress();
   }
 
   function renderCurrentState() {
