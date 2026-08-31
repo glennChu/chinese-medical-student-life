@@ -13,6 +13,8 @@
   const randomEventMap = new Map((GAME_DATA.randomEvents || []).map((event) => [event.id, event]));
   const RANDOM_EVENT_CHANCE = 0.3;
   const MAX_GENERATION = 3;
+  const SPECIALTY_CHAPTER_QUOTA = 3;
+  const ROMANCE_GUARANTEE_AGE = 32;
   const fallbackEndingId = GAME_DATA.fallbackEndingId || 'ending_balanced_life';
   const positiveStats = new Set(['health', 'skill', 'research', 'network', 'ethics']);
   const negativeStats = new Set(['stress', 'legalRisk']);
@@ -173,7 +175,22 @@
       generation,
       legacy: legacy && generation > 1 ? legacy : {},
       generationLog: legacy && Array.isArray(legacy.generationLog) ? legacy.generationLog.slice(0, MAX_GENERATION) : [],
-      family: { partner: false, married: false, child: false, dink: false, single: false }
+      family: { partner: false, married: false, child: false, dink: false, single: false },
+      lastOutcomeNarrative: null,
+      lastOutcomeType: null,
+      lastOutcomeSource: null,
+      specialtyChapter: { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [] }
+    };
+  }
+
+  function normalizeSpecialtyChapter(raw) {
+    const base = { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [] };
+    if (!raw || typeof raw !== 'object') return base;
+    return {
+      active: !!raw.active,
+      done: typeof raw.done === 'number' ? Math.max(0, Math.round(raw.done)) : 0,
+      quota: typeof raw.quota === 'number' ? Math.max(1, Math.round(raw.quota)) : SPECIALTY_CHAPTER_QUOTA,
+      seen: Array.isArray(raw.seen) ? raw.seen.filter((id) => typeof id === 'string').slice(0, 30) : []
     };
   }
 
@@ -321,6 +338,12 @@
       if (typeof conditions.generation.max === 'number' && generation > conditions.generation.max) return false;
     }
 
+    if (conditions.age) {
+      const age = current.age || 0;
+      if (typeof conditions.age.min === 'number' && age < conditions.age.min) return false;
+      if (typeof conditions.age.max === 'number' && age > conditions.age.max) return false;
+    }
+
     return true;
   }
 
@@ -400,11 +423,16 @@
     for (const [stat, delta] of Object.entries(effects)) {
       if (!(stat in state.stats)) continue;
       const prev = state.stats[stat];
-      const next = clampStat(stat, prev + delta);
+      const adjusted = checkSystem.applyDiminishingReturns
+        ? checkSystem.applyDiminishingReturns(stat, prev, delta)
+        : delta;
+      const next = clampStat(stat, prev + adjusted);
       state.stats[stat] = next;
       const actualDelta = next - prev;
       if (actualDelta !== 0) {
         notes.push(`${statNames[stat]} ${formatStatValue(stat, actualDelta, true)}`);
+      } else if (delta > 0 && adjusted === 0 && checkSystem.DIMINISHING_STATS?.has(stat)) {
+        notes.push(`${statNames[stat]} 已接近天花板，收益被稀释`);
       }
     }
 
