@@ -16,6 +16,14 @@ const RANDOM_EVENT_CHANCE = 0.25;
 const REQUIRED_SPECIALTY_FIELDS = ['name', 'group', 'intensity', 'dispute', 'learning', 'procedure', 'research', 'demand', 'income', 'control', 'risk', 'opportunity'];
 const KEY_FLAGS = ['questionable_research', 'record_shortcut', 'ai_overtrust', 'over_controlled_cost', 'has_child', 'grassroots_path', 'tier3_path'];
 const FINANCE_ENDINGS = new Set(['ending_finance_debt_loop', 'ending_finance_forced_exit']);
+const careerMeta = gameData.careerMeta || {};
+const careerEnums = Object.fromEntries(
+  Object.entries(careerMeta.enums || {}).map(([key, values]) => [key, new Set(values)])
+);
+const tierCoverage = {
+  hospitalTier: new Set(),
+  cityTier: new Set()
+};
 
 function collectTargets(option) {
   const targets = [];
@@ -56,6 +64,68 @@ function collectFlagReads(conditions, bucket) {
   }
   for (const flag of conditions.notFlags || []) bucket.add(flag);
   for (const flag of conditions.forbidFlags || []) bucket.add(flag);
+}
+
+function applyCareer(state, container) {
+  if (!container || typeof container !== 'object') return;
+  const updates = { ...(container.career || {}) };
+  for (const key of Object.keys(careerEnums)) {
+    if (Object.prototype.hasOwnProperty.call(container, key)) updates[key] = container[key];
+  }
+  for (const [key, value] of Object.entries(updates)) {
+    if (value == null || careerEnums[key]?.has(value)) {
+      state[key] = value ?? null;
+    }
+  }
+}
+
+function validateCareerEnums(eventId, label, container) {
+  if (!container || typeof container !== 'object') return;
+  const updates = { ...(container.career || {}) };
+  for (const key of Object.keys(careerEnums)) {
+    if (Object.prototype.hasOwnProperty.call(container, key)) updates[key] = container[key];
+  }
+  for (const [key, value] of Object.entries(updates)) {
+    if (value == null) continue;
+    if (!careerEnums[key]?.has(value)) issues.push(`事件 ${eventId} 的 ${label} 使用了非法 career 枚举 ${key}: ${value}`);
+  }
+}
+
+function validateConditionEnums(eventId, conditions) {
+  if (!conditions) return;
+  const mapList = [
+    ['requireUndergradTier', 'undergradInstitutionTier'],
+    ['requireHospitalTier', 'hospitalTier'],
+    ['forbidHospitalTier', 'hospitalTier'],
+    ['requireCityTier', 'cityTier'],
+    ['requireGraduateTier', 'graduateInstitutionTier'],
+    ['requireCareerTitle', 'careerTitle']
+  ];
+  for (const [condKey, enumKey] of mapList) {
+    if (!conditions[condKey]) continue;
+    if (!Array.isArray(conditions[condKey]) || !conditions[condKey].length) {
+      issues.push(`事件 ${eventId} 的条件 ${condKey} 非法`);
+      continue;
+    }
+    for (const value of conditions[condKey]) {
+      if (!careerEnums[enumKey]?.has(value)) {
+        issues.push(`事件 ${eventId} 的条件 ${condKey} 使用了非法枚举值: ${value}`);
+      } else if (condKey === 'requireHospitalTier' || condKey === 'requireCityTier') {
+        tierCoverage[enumKey].add(value);
+      }
+    }
+  }
+  if (conditions.anyStats) {
+    if (!Array.isArray(conditions.anyStats) || !conditions.anyStats.length) {
+      issues.push(`事件 ${eventId} 的条件 anyStats 非法`);
+    } else {
+      for (const ranges of conditions.anyStats) {
+        for (const stat of Object.keys(ranges || {})) {
+          if (!validStats.has(stat)) issues.push(`事件 ${eventId} 的 anyStats 使用了未知属性 ${stat}`);
+        }
+      }
+    }
+  }
 }
 
 function validateRandomTargets(eventId, label, randomTargets) {
@@ -146,8 +216,8 @@ for (const event of randomEvents) {
 
 for (const event of events) {
   const options = event.options || [];
-  if (event.type !== 'ending' && (options.length < 2 || options.length > 4)) {
-    issues.push(`事件 ${event.id} 选项数不在 2-4: ${options.length}`);
+  if (event.type !== 'ending' && (options.length < 2 || options.length > 5)) {
+    issues.push(`事件 ${event.id} 选项数不在 2-5: ${options.length}`);
   }
   for (const [index, option] of options.entries()) {
     if (!option.target && !option.randomTargets?.length && !option.check) {
@@ -159,6 +229,10 @@ for (const event of events) {
     validateRandomTargets(event.id, `选项 ${index + 1}`, option.randomTargets);
     validateScheduledEvents(event.id, `选项 ${index + 1}`, option.scheduledEvents);
     validateCheck(event, option, index);
+    validateCareerEnums(event.id, `选项 ${index + 1}`, option);
+    validateCareerEnums(event.id, `选项 ${index + 1} success`, option.check?.success);
+    validateCareerEnums(event.id, `选项 ${index + 1} failure`, option.check?.failure);
+    validateConditionEnums(`${event.id} 选项 ${index + 1}`, option.conditions);
     if (option.specialty && !gameData.specialties?.[option.specialty]) {
       issues.push(`事件 ${event.id} 选项 ${index + 1} 使用了未知 specialty: ${option.specialty}`);
     }
@@ -269,6 +343,7 @@ for (const re of randomEvents) {
   if (typeof re.weight !== 'number' || re.weight <= 0) issues.push(`随机事件 ${re.id} 的 weight 非法`);
   if (re.rarity && !validRarities.has(re.rarity)) issues.push(`随机事件 ${re.id} 的 rarity 非法: ${re.rarity}`);
   if (!map.has(re.returnTo)) issues.push(`随机事件 ${re.id} 的 returnTo 目标不存在: ${re.returnTo}`);
+  validateConditionEnums(`随机事件 ${re.id}`, re.conditions);
   const reOptions = re.options || [];
   if (reOptions.length < 2 || reOptions.length > 4) issues.push(`随机事件 ${re.id} 选项数不在 2-4: ${reOptions.length}`);
   for (const [index, option] of reOptions.entries()) {
@@ -283,10 +358,23 @@ for (const re of randomEvents) {
       if (Object.keys(option.check.stats || {}).length === 0) issues.push(`随机事件 ${re.id} 选项 ${index + 1} 的 check 缺少属性权重`);
     }
     validateScheduledEvents(re.id, `随机选项 ${index + 1}`, option.scheduledEvents);
+    validateCareerEnums(re.id, `随机选项 ${index + 1}`, option);
+    validateCareerEnums(re.id, `随机选项 ${index + 1} success`, option.check?.success);
+    validateCareerEnums(re.id, `随机选项 ${index + 1} failure`, option.check?.failure);
+    validateConditionEnums(`随机事件 ${re.id} 选项 ${index + 1}`, option.conditions);
   }
 }
 for (const [stage, min] of Object.entries(stageMins)) {
   if ((stageCounts[stage] || 0) < min) issues.push(`随机事件 ${stage} 阶段不足 ${min} 个，当前 ${stageCounts[stage] || 0}`);
+}
+const contextConditionKeys = ['requireUndergradTier', 'requireHospitalTier', 'forbidHospitalTier', 'requireCityTier', 'requireGraduateTier', 'requireCareerTitle'];
+const contextEventCount = randomEvents.filter((event) => contextConditionKeys.some((key) => event.conditions?.[key]?.length)).length;
+if (contextEventCount < 60) issues.push(`带职业上下文条件的随机事件不足 60 个，当前 ${contextEventCount}`);
+for (const value of careerEnums.cityTier || []) {
+  if (!tierCoverage.cityTier.has(value)) issues.push(`缺少覆盖城市层级 ${value} 的上下文随机事件`);
+}
+for (const value of careerEnums.hospitalTier || []) {
+  if (!tierCoverage.hospitalTier.has(value)) issues.push(`缺少覆盖医院层级 ${value} 的上下文随机事件`);
 }
 
 visitContainers(events, (container, event) => {
@@ -304,6 +392,34 @@ for (const endingId of FINANCE_ENDINGS) {
 }
 if (!randomMap.has('re_forced_financial_crisis')) issues.push('缺少财务危机事件 re_forced_financial_crisis');
 if (!randomMap.has('re_financial_recovery_window')) issues.push('缺少财务恢复事件 re_financial_recovery_window');
+for (const eventId of ['hospital_job_application', 'hospital_tier_fallback', 'career_mobility_window', 'career_mobility_private', 'career_mobility_county_chief']) {
+  if (!map.has(eventId)) issues.push(`缺少关键职业路径事件: ${eventId}`);
+}
+for (const endingId of ['ending_county_dept_head', 'ending_premium_private_expert', 'ending_regional_backbone', 'ending_talent_return']) {
+  if (!map.has(endingId)) issues.push(`缺少新增职业结局: ${endingId}`);
+}
+function hasCareerPayload(container, fields) {
+  const updates = { ...(container?.career || {}) };
+  for (const key of Object.keys(careerEnums)) {
+    if (container && Object.prototype.hasOwnProperty.call(container, key)) updates[key] = container[key];
+  }
+  return fields.every((field) => Object.prototype.hasOwnProperty.call(updates, field));
+}
+const hospitalJobEvent = map.get('hospital_job_application');
+for (const [index, option] of (hospitalJobEvent?.options || []).entries()) {
+  const branch = option.check ? option.check.success : option;
+  if (!hasCareerPayload(branch, ['cityTier', 'hospitalTier', 'hospitalType', 'careerTitle'])) {
+    issues.push(`hospital_job_application 选项 ${index + 1} 缺少完整职业字段更新`);
+  }
+}
+const mobilityEvent = map.get('career_mobility_window');
+for (const [index, option] of (mobilityEvent?.options || []).entries()) {
+  if (index === 4) continue;
+  const branch = option.check ? option.check.success : option;
+  if (!hasCareerPayload(branch, ['cityTier', 'hospitalTier', 'hospitalType', 'careerTitle'])) {
+    issues.push(`career_mobility_window 选项 ${index + 1} 缺少完整职业字段更新`);
+  }
+}
 
 const specialtyProfiles = gameData.specialties || {};
 const specialtyIds = Object.keys(specialtyProfiles);
@@ -353,34 +469,44 @@ visitContainers(randomEvents, (container, event, branchType) => {
 });
 
 const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-for (const keyword of ['百分制', '财务危机', '科室', '必然后果', '重大抉择']) {
+for (const keyword of ['百分制', '财务危机', '科室', '必然后果', '重大抉择', '游戏化抽象']) {
   if (!readme.includes(keyword)) issues.push(`README 缺少关键词说明: ${keyword}`);
 }
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-for (const id of ['timeline-banner', 'specialty-tag', 'origin-tag', 'major-tag']) {
+for (const id of ['timeline-banner', 'specialty-tag', 'origin-tag', 'major-tag', 'resume-card', 'resume-list']) {
   if (!html.includes(`id="${id}"`)) issues.push(`index.html 缺少 UI 元素: ${id}`);
 }
 const css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 if (!css.includes('[hidden]')) issues.push('styles.css 缺少 [hidden] 修复');
 if (!css.includes('prefers-reduced-motion')) issues.push('styles.css 缺少 reduced motion 处理');
 if (!css.includes('.timeline-banner')) issues.push('styles.css 缺少年份横幅样式');
+if (!css.includes('.resume-list')) issues.push('styles.css 缺少履历卡样式');
 
 function evaluateConditions(conditions, state) {
   if (!conditions) return true;
+  const matchStats = (ranges) => {
+    for (const [key, range] of Object.entries(ranges || {})) {
+      const value = state.stats[key];
+      if (typeof range.min === 'number' && value < range.min) return false;
+      if (typeof range.max === 'number' && value > range.max) return false;
+    }
+    return true;
+  };
   if (conditions.flags) for (const flag of conditions.flags) if (!state.flags[flag]) return false;
   if (conditions.requireFlags) for (const flag of conditions.requireFlags) if (!state.flags[flag]) return false;
   for (const flag of conditions.notFlags || []) if (state.flags[flag]) return false;
   for (const flag of conditions.forbidFlags || []) if (state.flags[flag]) return false;
   if (conditions.anyFlags?.length && !conditions.anyFlags.some((flag) => state.flags[flag])) return false;
-  if (conditions.stats) {
-    for (const [key, range] of Object.entries(conditions.stats)) {
-      const value = state.stats[key];
-      if (typeof range.min === 'number' && value < range.min) return false;
-      if (typeof range.max === 'number' && value > range.max) return false;
-    }
-  }
+  if (conditions.stats && !matchStats(conditions.stats)) return false;
+  if (conditions.anyStats?.length && !conditions.anyStats.some((ranges) => matchStats(ranges))) return false;
   const specialties = conditions.specialties || (typeof conditions.specialty === 'string' ? [conditions.specialty] : conditions.specialty);
   if (specialties?.length && !specialties.includes(state.specialty)) return false;
+  if (conditions.requireUndergradTier && !conditions.requireUndergradTier.includes(state.undergradInstitutionTier)) return false;
+  if (conditions.requireHospitalTier && !conditions.requireHospitalTier.includes(state.hospitalTier)) return false;
+  if (conditions.forbidHospitalTier && conditions.forbidHospitalTier.includes(state.hospitalTier)) return false;
+  if (conditions.requireCityTier && !conditions.requireCityTier.includes(state.cityTier)) return false;
+  if (conditions.requireGraduateTier && !conditions.requireGraduateTier.includes(state.graduateInstitutionTier)) return false;
+  if (conditions.requireCareerTitle && !conditions.requireCareerTitle.includes(state.careerTitle)) return false;
   return true;
 }
 
@@ -506,6 +632,13 @@ function simulateRun(desiredSpecialty) {
     age: 18,
     careerYear: 1,
     specialty: null,
+    undergradInstitutionTier: 'tier985',
+    graduateInstitutionTier: null,
+    degreeTrack: 'undergrad',
+    cityTier: null,
+    hospitalTier: null,
+    hospitalType: null,
+    careerTitle: null,
     financialCrises: 0,
     retryState: {}
   };
@@ -520,6 +653,7 @@ function simulateRun(desiredSpecialty) {
     applyEffects(state, option.effects);
     applyFlags(state, option.flagsSet);
     if (option.specialty) state.specialty = option.specialty;
+    applyCareer(state, option);
     queueScheduled(state, option.scheduledEvents);
 
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (event.yearDelta || 0);
@@ -532,6 +666,7 @@ function simulateRun(desiredSpecialty) {
       applyEffects(state, branchResult.container.effects);
       applyFlags(state, branchResult.container.flagsSet);
       if (branchResult.container.specialty) state.specialty = branchResult.container.specialty;
+      applyCareer(state, branchResult.container);
       queueScheduled(state, branchResult.container.scheduledEvents);
       if (option.retry && !state.inRandom && branchResult.success === false) {
         const record = state.retryState[event.id] || { attempts: 0, bonus: 0 };
