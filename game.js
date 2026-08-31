@@ -417,6 +417,17 @@
   }
 
   function isRandomEligible(re) {
+    // Support top-level requireFlags shorthand
+    if (Array.isArray(re.requireFlags)) {
+      for (const flag of re.requireFlags) {
+        if (!state.flags[flag]) return false;
+      }
+    }
+    if (Array.isArray(re.forbidFlags)) {
+      for (const flag of re.forbidFlags) {
+        if (state.flags[flag]) return false;
+      }
+    }
     const c = re.conditions;
     if (!c) return true;
     if (Array.isArray(c.flags)) {
@@ -681,6 +692,15 @@
     return `约 ${deltaYear} 年`;
   }
 
+  const STRATEGY_LABEL_MAP = {
+    '稳妥': 'safe',
+    '均衡': 'balanced',
+    '激进': 'risky',
+    '团队协作': 'team',
+    '长期主义': 'longterm',
+    '休息': 'rest'
+  };
+
   function renderOptions(event) {
     refs.options.innerHTML = '';
     const isRandom = randomEventMap.has(event.id);
@@ -705,14 +725,21 @@
       }
 
       const tags = [];
-      if (option.safeChoice) tags.push('<span class="choice-tag choice-tag-safe">稳妥</span>');
-      if (option.riskyChoice) tags.push('<span class="choice-tag choice-tag-risky">高风险</span>');
+      if (option.label && STRATEGY_LABEL_MAP[option.label]) {
+        tags.push(`<span class="choice-tag choice-tag-strategy choice-tag-${STRATEGY_LABEL_MAP[option.label]}">${option.label}</span>`);
+      } else if (option.safeChoice) {
+        tags.push('<span class="choice-tag choice-tag-strategy choice-tag-safe">稳妥</span>');
+      } else if (option.riskyChoice) {
+        tags.push('<span class="choice-tag choice-tag-strategy choice-tag-risky">激进</span>');
+      }
       if (option.retry && retryRecord && retryRecord.attempts > 0) {
         tags.push(`<span class="choice-tag choice-tag-retry">第 ${retryRecord.attempts + 1}/${option.retry.maxAttempts} 次尝试</span>`);
       }
       const tagHtml = tags.length ? `<span class="choice-tags">${tags.join(' ')}</span>` : '';
 
-      btn.className = `choice-btn${option.check ? ' check-choice' : ''}${option.safeChoice ? ' safe-choice' : ''}${option.riskyChoice ? ' risky-choice' : ''}`;
+      const isRisky = option.label === '激进' || option.riskyChoice;
+      const isSafe = option.label === '稳妥' || option.safeChoice;
+      btn.className = `choice-btn${option.check ? ' check-choice' : ''}${isSafe ? ' safe-choice' : ''}${isRisky ? ' risky-choice' : ''}`;
       btn.type = 'button';
       btn.disabled = !available;
       btn.innerHTML = `${tagHtml}${option.text}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
@@ -743,7 +770,13 @@
 
   function renderGameScreen(event) {
     const isRandom = randomEventMap.has(event.id);
-    refs.stageTag.textContent = isRandom ? '🎲 随机事件' : `${GAME_DATA.stages[event.stage] || event.stage}`;
+    const rarityLabels = { common: '普通', uncommon: '稀有', rare: '罕见', 'very-rare': '极罕见' };
+    if (isRandom && event.rarity) {
+      const rl = rarityLabels[event.rarity] || event.rarity;
+      refs.stageTag.textContent = `🎲 随机事件｜${rl}`;
+    } else {
+      refs.stageTag.textContent = isRandom ? '🎲 随机事件' : `${GAME_DATA.stages[event.stage] || event.stage}`;
+    }
     refs.stageTag.classList.toggle('random-tag', isRandom);
     refs.ageTag.textContent = `年龄 ${state.age}`;
     refs.timelineTag.textContent = isRandom ? '插曲' : getTimelineLabel(event);
