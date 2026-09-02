@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  const STAT_KEYS = ['health', 'stress', 'money', 'skill', 'research', 'network', 'ethics', 'legalRisk'];
+  const STAT_KEYS = ['health', 'stress', 'money', 'skill', 'research', 'network', 'ethics', 'legalRisk', 'strength'];
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
