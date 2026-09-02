@@ -1199,7 +1199,7 @@
     if (healthDeltas.some((v) => v <= -8)) parts.push('⚠ 健康代价较高');
 
     const moneyWarning = getProjectedMoneyWarning(option);
-    if (moneyWarning) parts.push(moneyWarning.replace('⚠ ', '⚠ '));
+    if (moneyWarning) parts.push(moneyWarning);
 
     if (careerUpdateHasLock(option)) parts.push('⚠ 涉及履历锁定');
 
