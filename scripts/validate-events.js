@@ -1066,6 +1066,30 @@ for (const id of specialtyIds) {
   chapterCompletionBySpecialty[id] = runsOfSpecialty.length ? `${completed}/${runsOfSpecialty.length}` : '0/0';
 }
 
+// ===== 需求9：幽默/讽刺文案密度抽查 =====
+const HUMOR_MARKERS = ['Excel', '群里', '群消息', 'KPI', '绩效', '指标', 'OA', '通知', '排班', '考核', '系统', '医保', '质控', 'DRG', '飞检', '打卡', '红头文件', '表格', '汇报', '复盘', '截图', '已阅', '会议纪要'];
+let humorScanTotal = 0;
+let humorScanHit = 0;
+function scanHumorText(text) {
+  if (!text) return;
+  humorScanTotal += 1;
+  if (HUMOR_MARKERS.some((marker) => text.includes(marker))) humorScanHit += 1;
+}
+for (const event of [...events, ...randomEvents]) {
+  scanHumorText(event.text);
+  for (const option of event.options || []) {
+    scanHumorText(option.resultText);
+    if (option.check) {
+      scanHumorText(option.check.success?.resultText);
+      scanHumorText(option.check.failure?.resultText);
+    }
+  }
+}
+const humorDensity = humorScanTotal ? humorScanHit / humorScanTotal : 0;
+if (humorDensity < 0.15) {
+  issues.push(`幽默/讽刺文案密度过低（${(humorDensity * 100).toFixed(1)}%），行业梗未实际接入正文`);
+}
+
 if (issues.length) {
   console.error('❌ 数据校验失败:');
   for (const issue of issues) console.error('-', issue);
@@ -1086,4 +1110,5 @@ console.log(`network: 均值 ${networkStat.mean.toFixed(1)}，中位数 ${networ
 console.log(`伴侣关系达成率: ${(partnerRate * 100).toFixed(1)}%，下一代入口达成率: ${(nextGenRate * 100).toFixed(1)}%`);
 console.log(`科室体验 3/3 达成率（总体）: ${(chapterCompletionRate * 100).toFixed(1)}%`);
 console.log(`科室体验 3/3 达成率（分科室）: ${JSON.stringify(chapterCompletionBySpecialty)}`);
+console.log(`幽默/讽刺文案密度: ${(humorDensity * 100).toFixed(1)}%（${humorScanHit}/${humorScanTotal} 条含行业梗关键词）`);
 
