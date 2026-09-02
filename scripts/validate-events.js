@@ -321,6 +321,68 @@ for (const event of events) {
   }
 }
 
+// ===== 需求5：晋升长链（副高 → 主任医师 → 科室负责人）可达性 =====
+const PROMOTION_CHAIN_EVENTS = [
+  'career_mobility_county_chief', 'promotion_gate', 'chief_competition', 'promotion_setback',
+  'assoc_subspecialty_focus', 'assoc_duty_portfolio', 'assoc_faction_alignment',
+  'chief_title_qualification', 'chief_title_review', 'chief_title_setback', 'chief_title_outcome',
+  'dept_head_competition', 'dept_head_coordination', 'dept_head_external_recruit', 'dept_head_outcome',
+  'ending_department_chief', 'ending_county_dept_head', 'ending_chief_physician_expert',
+  'ending_dept_head_builder', 'ending_dept_head_handover', 'ending_dept_head_reckoning'
+];
+const promotionChainPresent = PROMOTION_CHAIN_EVENTS.filter((id) => map.has(id));
+const promotionChainReachable = promotionChainPresent.filter((id) => reachable.has(id));
+if (promotionChainPresent.length < PROMOTION_CHAIN_EVENTS.length) {
+  issues.push(`晋升链事件缺失: ${PROMOTION_CHAIN_EVENTS.filter((id) => !map.has(id)).join(', ')}`);
+}
+if (promotionChainReachable.length < 8) {
+  issues.push(`晋升链实际可达事件不足 8 个，当前 ${promotionChainReachable.length}`);
+}
+const promotionEndingIds = ['ending_department_chief', 'ending_county_dept_head', 'ending_chief_physician_expert', 'ending_dept_head_builder', 'ending_dept_head_handover', 'ending_dept_head_reckoning'];
+const promotionEndingsReachable = promotionEndingIds.filter((id) => reachable.has(id) && map.has(id));
+if (promotionEndingsReachable.length < 3) {
+  issues.push(`晋升链结局可达数量不足 3 个，当前 ${promotionEndingsReachable.length}`);
+}
+
+// ===== 需求3：早期经济压力/转行与私立路线可达性 =====
+const CAREER_SWITCH_EVENTS = [
+  'career_mobility_window', 'career_mobility_private', 'private_track',
+  'career_switch_gateway', 'career_switch_industry_pick', 'career_switch_private_pick',
+  'career_switch_public_pick', 'career_switch_probation', 'career_switch_settled', 'career_switch_unemployed'
+];
+const CAREER_SWITCH_SUCCESS_ENDINGS = [
+  'ending_switch_industry_lead', 'ending_switch_ops_stable', 'ending_switch_content_editor',
+  'ending_switch_return_clinic', 'ending_switch_reemployed', 'ending_switch_grassroots_return',
+  'ending_switch_freelance', 'ending_premium_private_expert'
+];
+const CAREER_SWITCH_FAILURE_ENDINGS = [
+  'ending_switch_probation_out', 'ending_switch_long_unemployed', 'ending_switch_gig_drift',
+  'ending_finance_debt_loop', 'ending_finance_forced_exit'
+];
+const switchEventsMissing = CAREER_SWITCH_EVENTS.filter((id) => !map.has(id));
+if (switchEventsMissing.length) issues.push(`转行/私立路线事件缺失: ${switchEventsMissing.join(', ')}`);
+const switchEventsReachable = CAREER_SWITCH_EVENTS.filter((id) => reachable.has(id));
+if (switchEventsReachable.length < CAREER_SWITCH_EVENTS.length) {
+  issues.push(`转行/私立路线事件不可达: ${CAREER_SWITCH_EVENTS.filter((id) => !reachable.has(id)).join(', ')}`);
+}
+const switchSuccessReachable = CAREER_SWITCH_SUCCESS_ENDINGS.filter((id) => map.has(id) && reachable.has(id));
+if (switchSuccessReachable.length < 3) {
+  issues.push(`转行/私立正向结局可达数量不足 3 个，当前 ${switchSuccessReachable.length}`);
+}
+const switchFailureReachable = CAREER_SWITCH_FAILURE_ENDINGS.filter((id) => map.has(id) && reachable.has(id));
+if (switchFailureReachable.length < 3) {
+  issues.push(`转行/私立失败（试用期淘汰/裁撤/失业等）结局可达数量不足 3 个，当前 ${switchFailureReachable.length}`);
+}
+const RECOVERY_AFTER_FAILURE_EVENTS = ['career_switch_unemployed'];
+for (const id of RECOVERY_AFTER_FAILURE_EVENTS) {
+  const event = map.get(id);
+  if (!event) continue;
+  const recoveryOptions = (event.options || []).filter((option) => option.check || option.target);
+  if (recoveryOptions.length < 2) {
+    issues.push(`失败恢复事件 ${id} 缺少足够的再就业/恢复路线选项`);
+  }
+}
+
 const probabilityTestCheck = {
   baseChance: 50,
   stats: { skill: 0.5, stress: -0.4, legalRisk: -0.3 },
