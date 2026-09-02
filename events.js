@@ -2163,7 +2163,7 @@
         },
         {
           text: '和同学组建备考互助小组',
-          label: '团队协作',
+          label: '均衡',
           target: 'entrance_exam_prep',
           effects: { network: 10, skill: 8, stress: -4 },
           flagsSet: ['postgrad_track']
@@ -4343,9 +4343,553 @@
     }
   });
 
+
+  const careerEnums = {
+    undergradInstitutionTier: ['tier985'],
+    graduateInstitutionTier: ['top_national', 'regional_strong', 'regular', 'diaoji'],
+    degreeTrack: ['undergrad', 'masters_pro', 'masters_academic', 'phd', 'direct_work'],
+    cityTier: ['mega', 'strong_province', 'prefecture', 'county_rural'],
+    hospitalTier: ['top_tier3', 'regular_tier3', 'prefecture_tier3_strong2', 'regular_tier2', 'county_basic', 'premium_private', 'international'],
+    hospitalType: ['public_general', 'public_specialist', 'grassroots', 'private', 'international', 'academic_research', 'industry'],
+    careerTitle: ['trainee', 'resident', 'attending', 'associate_chief', 'chief', 'dept_head']
+  };
+
+  const careerDisplayNames = {
+    undergradInstitutionTier: { tier985: '985医学院本科' },
+    graduateInstitutionTier: { top_national: '全国头部平台', regional_strong: '区域强校', regular: '普通院校', diaoji: '调剂平台' },
+    degreeTrack: { undergrad: '本科', masters_pro: '专业型硕士', masters_academic: '学术型硕士', phd: '博士/直博', direct_work: '直接就业' },
+    cityTier: { mega: '超大城市', strong_province: '强省会/区域中心', prefecture: '普通地级市', county_rural: '县域/基层' },
+    hospitalTier: { top_tier3: '全国头部/强三甲', regular_tier3: '省会普通三甲', prefecture_tier3_strong2: '地市中心/强二甲', regular_tier2: '普通二级医院', county_basic: '县域/基层医院', premium_private: '高端私立/连锁专科', international: '国际部/高端医疗' },
+    hospitalType: { public_general: '公立综合医院', public_specialist: '公立专科医院', grassroots: '基层医疗机构', private: '民营医院', international: '国际部/高端医疗', academic_research: '科研教学单位', industry: '医疗产业相关' },
+    careerTitle: { trainee: '规培医师', resident: '住院医师', attending: '主治医师', associate_chief: '副主任医师', chief: '主任医师', dept_head: '科室负责人' }
+  };
+
+  function mergeCareer(container, career) {
+    if (!container || !career) return container;
+    container.career = { ...(container.career || {}), ...career };
+    return container;
+  }
+
+  function setCareerOnOption(eventId, index, career) {
+    const event = findEvent(eventId);
+    if (!event?.options?.[index]) return;
+    mergeCareer(event.options[index], career);
+  }
+
+  function setCareerOnBranch(eventId, index, branchName, career) {
+    const event = findEvent(eventId);
+    const branch = event?.options?.[index]?.check?.[branchName];
+    if (!branch) return;
+    mergeCareer(branch, career);
+  }
+
+  setCareerOnOption('mentor_choice', 3, { degreeTrack: 'direct_work', graduateInstitutionTier: null, careerTitle: 'trainee' });
+  setCareerOnBranch('recommendation_panel', 0, 'success', { graduateInstitutionTier: 'regional_strong', degreeTrack: 'masters_academic' });
+  setCareerOnBranch('recommendation_panel', 1, 'success', { graduateInstitutionTier: 'regional_strong', degreeTrack: 'masters_academic' });
+  setCareerOnBranch('entrance_exam_prep', 0, 'success', { graduateInstitutionTier: 'regional_strong', degreeTrack: 'masters_pro' });
+  setCareerOnBranch('entrance_exam_prep', 1, 'success', { graduateInstitutionTier: 'top_national', degreeTrack: 'phd' });
+  setCareerOnBranch('entrance_exam_prep', 2, 'success', { graduateInstitutionTier: 'regional_strong', degreeTrack: 'masters_pro' });
+  setCareerOnBranch('license_exam_prep', 0, 'success', { careerTitle: 'trainee' });
+  setCareerOnBranch('license_exam_prep', 1, 'success', { careerTitle: 'trainee' });
+  setCareerOnBranch('license_exam_prep', 2, 'success', { careerTitle: 'trainee' });
+  setCareerOnBranch('license_exam_prep', 3, 'success', { careerTitle: 'trainee' });
+
+  const gradWaitingYear = findEvent('grad_waiting_year');
+  if (gradWaitingYear) {
+    gradWaitingYear.yearDelta = 0;
+    gradWaitingYear.text = '调剂系统、普通院校补录、二战群与招聘会同时向你招手。你不只是决定“上不上岸”，而是在决定未来平台、专业边界与人生节奏。';
+    gradWaitingYear.options = [
+      {
+        text: '接受调剂：先保住医学赛道，但接受热门方向名额受限',
+        label: '稳妥',
+        target: 'grad_admission',
+        effects: { skill: 6, research: 3, stress: 4 },
+        flagsSet: ['adjusted_specialty'],
+        career: { graduateInstitutionTier: 'diaoji', degreeTrack: 'masters_pro' },
+        consequenceHint: '后续定科时，部分热门方向会显示调剂平台限制'
+      },
+      {
+        text: '接受普通院校补录，换一个节奏把学位读完',
+        label: '均衡',
+        target: 'grad_admission',
+        effects: { health: 4, stress: -2, skill: 4, research: 4 },
+        career: { graduateInstitutionTier: 'regular', degreeTrack: 'masters_academic' }
+      },
+      {
+        text: '二战一年，继续冲更高平台',
+        label: '激进',
+        target: 'entrance_exam_prep',
+        yearDelta: 1,
+        effects: { stress: 12, skill: 8, money: -12, health: -5 }
+      },
+      {
+        text: '直接就业：先拿执医、先去医院，把学位放到以后再说',
+        label: '长期主义',
+        target: 'license_exam_prep',
+        effects: { money: 8, skill: 7, stress: 2 },
+        flagsSet: ['direct_training'],
+        career: { graduateInstitutionTier: null, degreeTrack: 'direct_work', careerTitle: 'trainee' }
+      }
+    ];
+  }
+
+  const licenseExamResult = findEvent('license_exam_result');
+  if (licenseExamResult) {
+    licenseExamResult.options.push({
+      text: '如果前面已经签了就业/定向协议，直接进入正式定岗选择',
+      label: '稳妥',
+      safeChoice: true,
+      target: 'hospital_job_application',
+      effects: { stress: -3, network: 4 },
+      conditions: { requireFlags: ['direct_training'] }
+    });
+  }
+
+  const hospitalJobApplication = {
+    id: 'hospital_job_application',
+    stage: 'training',
+    major: true,
+    title: '正式求职：选择执业医院',
+    text: '规培结束，执医在手。你的第一份正式工作选择，将决定未来十年的起点：城市、平台、工作强度与晋升空间，每一项都不一样。',
+    yearDelta: 0,
+    options: [
+      {
+        text: '冲头部强三甲：赌平台天花板，也赌自己能扛住密度',
+        label: '激进',
+        riskyChoice: true,
+        effects: { skill: 8, research: 5, stress: 10, health: -4 },
+        flagsSet: ['tier3_path'],
+        check: {
+          baseChance: 42,
+          stats: { skill: 0.35, research: 0.25, network: 0.25, stress: -0.25 },
+          minChance: 18,
+          maxChance: 82,
+          success: {
+            target: 'specialty_direction_choice',
+            effects: { skill: 10, network: 8, stress: 6 },
+            feedback: '你拿到了头部强三甲的 offer，代价是高密度竞争从此成为日常。',
+            log: '判定成功（求职）：你冲进了头部强三甲平台。',
+            career: { cityTier: 'mega', hospitalTier: 'top_tier3', hospitalType: 'public_general', careerTitle: 'resident' }
+          },
+          failure: {
+            target: 'hospital_tier_fallback',
+            effects: { stress: 10, health: -4, network: 3 },
+            feedback: '简历进了终面，但最终名额还是给了更亮眼的人。',
+            log: '判定失败（求职）：头部强三甲没有给你留下位置。',
+            flagsSet: ['failed_top_hospital_application']
+          }
+        }
+      },
+      {
+        text: '省会普通三甲：平台够用，也尽量给生活留余地',
+        label: '均衡',
+        effects: { skill: 6, network: 4, stress: 4 },
+        check: {
+          baseChance: 68,
+          stats: { skill: 0.25, network: 0.2, ethics: 0.15, stress: -0.2 },
+          minChance: 45,
+          maxChance: 90,
+          success: {
+            target: 'specialty_direction_choice',
+            effects: { skill: 8, money: 5, stress: -3 },
+            feedback: '你在省会普通三甲站稳了第一份正式岗位。',
+            log: '判定成功（求职）：你进入了省会普通三甲。',
+            career: { cityTier: 'strong_province', hospitalTier: 'regular_tier3', hospitalType: 'public_general', careerTitle: 'resident' }
+          },
+          failure: {
+            target: 'hospital_tier_fallback',
+            effects: { stress: 6, money: -3 },
+            feedback: '这一轮岗位收紧得比往年更快，你需要及时降一个目标。',
+            log: '判定失败（求职）：省会普通三甲岗位收紧，你只能重新评估。'
+          }
+        }
+      },
+      {
+        text: '地市中心医院：稳妥起步，争取更早拿到独立空间',
+        label: '稳妥',
+        safeChoice: true,
+        effects: { health: 5, stress: -4, skill: 6 },
+        check: {
+          baseChance: 82,
+          stats: { skill: 0.2, ethics: 0.15, health: 0.15, stress: -0.15 },
+          minChance: 62,
+          maxChance: 95,
+          success: {
+            target: 'specialty_direction_choice',
+            effects: { skill: 8, money: 6, stress: -4 },
+            feedback: '地市中心医院愿意给你岗位，也愿意比较早放手让你成长。',
+            log: '判定成功（求职）：你在地市中心医院拿到了不错的起点。',
+            career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general', careerTitle: 'resident' }
+          },
+          failure: {
+            target: 'hospital_tier_fallback',
+            effects: { stress: 4, network: 3 },
+            feedback: '编制和岗位临时缩紧，但你仍有别的窗口。',
+            log: '判定失败（求职）：稳妥目标也开始卷起来了。'
+          }
+        }
+      },
+      {
+        text: '县域/基层龙头：赌长期主义，换更快的话语权和更低生活成本',
+        label: '长期主义',
+        target: 'specialty_direction_choice',
+        effects: { money: 10, health: 6, stress: -6, ethics: 6, skill: 4 },
+        flagsSet: ['grassroots_path', 'community_trust'],
+        career: { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots', careerTitle: 'resident' }
+      },
+      {
+        text: '民营/高端私立：用专业能力换更灵活的收入与赛道',
+        label: '灵活',
+        effects: { money: 8, network: 6, stress: 3 },
+        conditions: { anyStats: [{ research: { min: 30 } }, { ethics: { min: 60 } }] },
+        check: {
+          baseChance: 60,
+          stats: { research: 0.25, network: 0.3, ethics: 0.2, stress: -0.15 },
+          minChance: 36,
+          maxChance: 88,
+          success: {
+            target: 'specialty_direction_choice',
+            effects: { money: 10, stress: -4, skill: 5 },
+            feedback: '高端私立看重你的履历与沟通能力，愿意给你更灵活的 package。',
+            log: '判定成功（求职）：你切进了高端私立/连锁专科赛道。',
+            career: { cityTier: 'strong_province', hospitalTier: 'premium_private', hospitalType: 'private', careerTitle: 'resident' }
+          },
+          failure: {
+            target: 'hospital_tier_fallback',
+            effects: { stress: 5, ethics: 2 },
+            feedback: '民营高端岗位更看重成熟履历，你暂时还差半步。',
+            log: '判定失败（求职）：高端私立岗位要求比你想得更苛刻。'
+          }
+        }
+      }
+    ]
+  };
+
+  const hospitalTierFallback = {
+    id: 'hospital_tier_fallback',
+    stage: 'training',
+    title: '求职降级选择',
+    text: '头部医院的竞争比你预期更激烈。这一年的机会窗口已经过去，你必须重新评估目标。',
+    yearDelta: 0,
+    options: [
+      {
+        text: '改投省会普通三甲，先保住城市与平台',
+        label: '均衡',
+        target: 'specialty_direction_choice',
+        effects: { stress: -3, network: 4, skill: 4 },
+        career: { cityTier: 'strong_province', hospitalTier: 'regular_tier3', hospitalType: 'public_general', careerTitle: 'resident' }
+      },
+      {
+        text: '直接去地市中心医院，把成长速度放在第一位',
+        label: '稳妥',
+        safeChoice: true,
+        target: 'specialty_direction_choice',
+        effects: { health: 4, stress: -5, skill: 5 },
+        career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general', careerTitle: 'resident' }
+      },
+      {
+        text: '先去基层，明年再战更高平台',
+        label: '长期主义',
+        target: 'specialty_direction_choice',
+        effects: { money: 8, ethics: 6, stress: -4, skill: 4 },
+        flagsSet: ['grassroots_path'],
+        career: { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots', careerTitle: 'resident' }
+      },
+      {
+        text: '尝试民营/国际部，把第一份正式岗位先拿下来',
+        label: '团队协作',
+        target: 'specialty_direction_choice',
+        effects: { money: 8, network: 5, stress: 2 },
+        career: { cityTier: 'strong_province', hospitalTier: 'premium_private', hospitalType: 'private', careerTitle: 'resident' }
+      }
+    ]
+  };
+
+  const careerMobilityWindow = {
+    id: 'career_mobility_window',
+    stage: 'resident',
+    major: true,
+    title: '职业流动窗口',
+    text: '随着你积累了一定临床经验，一些新的职业路口出现了。从平台到城市，从公立到私立，从大城市到小地方当大主任——每个方向都有它的逻辑。',
+    yearDelta: 0,
+    options: [
+      {
+        text: '从大城市顶尖医院转去省会普通三甲，换取生活平衡',
+        label: '均衡',
+        target: 'promotion_gate',
+        effects: { stress: -7, health: 6, money: -2, skill: 3 },
+        conditions: { requireCityTier: ['mega'], requireHospitalTier: ['top_tier3'] },
+        career: { cityTier: 'strong_province', hospitalTier: 'regular_tier3', hospitalType: 'public_general', careerTitle: 'resident' }
+      },
+      {
+        text: '从大城市去地市/县域龙头医院，争取科室骨干或负责人岗位',
+        label: '长期主义',
+        target: 'career_mobility_county_chief',
+        effects: { network: 8, ethics: 6, stress: -4, money: 8 },
+        conditions: { requireCityTier: ['mega', 'strong_province'] },
+        career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general', careerTitle: 'associate_chief' }
+      },
+      {
+        text: '从公立医院转去高端私立/国际部',
+        label: '团队协作',
+        target: 'career_mobility_private',
+        effects: { money: 14, network: 8, stress: -2, ethics: -2 },
+        conditions: { forbidHospitalTier: ['premium_private', 'international'], stats: { ethics: { min: 60 } } },
+        career: { cityTier: 'strong_province', hospitalTier: 'premium_private', hospitalType: 'private', careerTitle: 'attending' }
+      },
+      {
+        text: '从普通医院再冲更高层级平台',
+        label: '激进',
+        effects: { skill: 8, research: 6, stress: 8, health: -4 },
+        conditions: { requireHospitalTier: ['regular_tier3', 'prefecture_tier3_strong2', 'regular_tier2', 'county_basic'], stats: { skill: { min: 65 }, research: { min: 45 } } },
+        check: {
+          baseChance: 52,
+          stats: { skill: 0.3, research: 0.25, network: 0.2, stress: -0.2 },
+          minChance: 24,
+          maxChance: 86,
+          success: {
+            target: 'promotion_gate',
+            effects: { network: 8, stress: -3, skill: 6 },
+            feedback: '你靠几年积累重新撬开了更高层级的平台。',
+            log: '判定成功（流动）：你完成了平台跃迁。',
+            career: { cityTier: 'mega', hospitalTier: 'top_tier3', hospitalType: 'public_general', careerTitle: 'resident' }
+          },
+          failure: {
+            target: 'promotion_gate',
+            effects: { stress: 10, health: -4 },
+            feedback: '简历被认真看过，但这次还不足以完成向上跳。',
+            log: '判定失败（流动）：更高平台没有立刻接住你。'
+          }
+        }
+      },
+      {
+        text: '继续原来的路，暂不跳槽',
+        label: '稳妥',
+        safeChoice: true,
+        target: 'promotion_gate',
+        effects: { stress: -5, ethics: 3 }
+      }
+    ]
+  };
+
+  const careerMobilityPrivate = {
+    id: 'career_mobility_private',
+    stage: 'senior',
+    title: '高端私立 / 国际部的新剧本',
+    text: '新的平台不再只看疑难重症处理速度，也看服务体验、沟通、合规与转诊协同。你得决定，要做哪一种核心人物。',
+    yearDelta: 1,
+    options: [
+      {
+        text: '守住服务与合规，做高端私立的稳定骨干',
+        label: '稳妥',
+        safeChoice: true,
+        target: 'ending_premium_private_expert',
+        effects: { money: 18, stress: -6, ethics: 6, network: 6 },
+        career: { hospitalTier: 'premium_private', hospitalType: 'private', careerTitle: 'attending' }
+      },
+      {
+        text: '转去国际部/高端医疗，主打双语沟通与长期管理',
+        label: '均衡',
+        target: 'ending_premium_private_expert',
+        effects: { money: 16, network: 8, stress: -4, skill: 4 },
+        career: { hospitalTier: 'international', hospitalType: 'international', careerTitle: 'attending', cityTier: 'mega' }
+      },
+      {
+        text: '保留转诊与教学合作，做区域高端医疗网络枢纽',
+        label: '团队协作',
+        target: 'ending_regional_backbone',
+        effects: { network: 12, ethics: 5, money: 10, stress: 2 },
+        career: { hospitalTier: 'premium_private', hospitalType: 'private', careerTitle: 'associate_chief' }
+      }
+    ]
+  };
+
+  const careerMobilityCountyChief = {
+    id: 'career_mobility_county_chief',
+    stage: 'senior',
+    title: '地方平台的上升窗口',
+    text: '小地方并不意味着小人生。资源更紧，但学科建设、带教、转诊网络和个人影响力都更直接地落在你身上。',
+    yearDelta: 1,
+    options: [
+      {
+        text: '接下县域龙头医院科室负责人岗位',
+        label: '长期主义',
+        target: 'ending_county_dept_head',
+        effects: { network: 10, ethics: 8, money: 10, stress: 4 },
+        career: { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots', careerTitle: 'dept_head' }
+      },
+      {
+        text: '留在地市中心做区域三甲骨干，先把亚专科做起来',
+        label: '均衡',
+        target: 'ending_regional_backbone',
+        effects: { skill: 10, network: 8, stress: 3, money: 6 },
+        career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_specialist', careerTitle: 'associate_chief' }
+      },
+      {
+        text: '接受返乡人才引进计划，把资源和口碑带回家乡',
+        label: '稳妥',
+        safeChoice: true,
+        target: 'ending_talent_return',
+        effects: { ethics: 12, network: 8, health: 6, money: 5 },
+        flagsSet: ['community_trust'],
+        career: { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'public_general', careerTitle: 'dept_head' }
+      }
+    ]
+  };
+
+  insertEventAfter('drg_bootcamp', hospitalJobApplication);
+  insertEventAfter('hospital_job_application', hospitalTierFallback);
+  insertEventAfter('ai_and_online', careerMobilityWindow);
+  insertEventAfter('career_mobility_window', careerMobilityPrivate);
+  insertEventAfter('career_mobility_private', careerMobilityCountyChief);
+
+  const drgBootcampUpdated = findEvent('drg_bootcamp');
+  for (const option of drgBootcampUpdated?.options || []) {
+    if (option.target === 'specialty_direction_choice' || option.target === 'night_shift_call') {
+      option.target = 'hospital_job_application';
+      mergeCareer(option, { careerTitle: 'trainee' });
+    }
+  }
+
+  const grassrootsEarly = findEvent('grassroots_early');
+  for (const option of grassrootsEarly?.options || []) {
+    mergeCareer(option, { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots', careerTitle: 'trainee' });
+  }
+
+  setCareerOnBranch('residency_match', 0, 'success', { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general', careerTitle: 'trainee' });
+  setCareerOnBranch('residency_match', 1, 'success', { cityTier: 'strong_province', hospitalTier: 'regular_tier3', hospitalType: 'public_general', careerTitle: 'trainee' });
+  setCareerOnOption('residency_match', 2, { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots', careerTitle: 'trainee' });
+  setCareerOnBranch('residency_match', 3, 'success', { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general', careerTitle: 'trainee' });
+
+  setCareerOnBranch('promotion_gate', 0, 'success', { careerTitle: 'attending' });
+  setCareerOnBranch('promotion_gate', 2, 'success', { careerTitle: 'attending' });
+  setCareerOnBranch('chief_competition', 0, 'success', { careerTitle: 'associate_chief' });
+  setCareerOnBranch('chief_competition', 1, 'success', { careerTitle: 'chief' });
+  setCareerOnBranch('chief_competition', 2, 'success', { careerTitle: 'associate_chief' });
+
+  const aiAndOnline = findEvent('ai_and_online');
+  for (const option of aiAndOnline?.options || []) {
+    if (option.target === 'promotion_gate') option.target = 'career_mobility_window';
+  }
+
+  events.push(
+    {
+      id: 'ending_county_dept_head',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：县域/地市科室负责人',
+      text: '你没有留在最耀眼的平台，却在更需要人的地方把一个科室真正带了起来。患者认识你，年轻医生也开始照着你的标准做事。'
+    },
+    {
+      id: 'ending_premium_private_expert',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：高端私立 / 国际医疗骨干',
+      text: '你在新的医疗服务体系里找到了自己的位置。节奏、收入与患者关系都改写了，但你的专业判断依然是最硬的底牌。'
+    },
+    {
+      id: 'ending_regional_backbone',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：区域三甲临床骨干',
+      text: '你不一定在全国最顶尖的平台，却成为区域内最值得信赖的那批医生。复杂病例、教学查房和跨院协作里，总有人第一个想到你。'
+    },
+    {
+      id: 'ending_talent_return',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：返乡人才引进',
+      text: '你把一路学到的东西带回了家乡。这里资源不如大城市充裕，但你让更多人第一次在本地就看到了更好的医疗可能。'
+    }
+  );
+
+  const contextRandomEvents = [
+    { id: 're_985_research_competition', stage: 'undergrad', title: '🎲 本科科研竞赛机会', text: '学院把一个高含金量的大学生医学创新竞赛名额放到了年级群里。你知道，985 里的机会从来和竞争绑在一起。', returnTo: 'clerkship_intro', conditions: { requireUndergradTier: ['tier985'] }, options: [{ text: '咬牙报名，拿周末换成果', label: '激进', effects: { research: 8, stress: 6, health: -3 } }, { text: '找老师和学长组队，稳扎稳打准备', label: '团队协作', effects: { research: 6, network: 6, stress: 2 } }] },
+    { id: 're_985_affiliated_hospital_shadowing', stage: 'undergrad', title: '🎲 附属强三甲见习', text: '附属医院开放了一批见习旁听位。老师说，真正的临床节奏，站进去才知道。', returnTo: 'clerkship_intro', conditions: { requireUndergradTier: ['tier985'] }, options: [{ text: '抢最忙的科室去看真实节奏', label: '激进', effects: { skill: 8, stress: 5, health: -3 } }, { text: '选带教口碑好的老师，先把观察做扎实', label: '稳妥', effects: { skill: 6, ethics: 4, network: 4 } }] },
+    { id: 're_985_peer_pressure_ranking', stage: 'undergrad', title: '🎲 同辈排名竞争', text: '年级排名悄悄流传出来，周围人看上去都比你更早、更快、更会规划。', returnTo: 'biochem_week', conditions: { requireUndergradTier: ['tier985'] }, options: [{ text: '把压力转成计划，重新安排学习节奏', label: '长期主义', effects: { skill: 7, stress: 5 } }, { text: '先停一下，别让比较毁掉自己', label: '休息', effects: { health: 6, stress: -8, ethics: 2 } }] },
+    { id: 're_985_graduate_mentor_fair', stage: 'undergrad', title: '🎲 研究生导师招募展', text: '几位附院导师来学院做宣讲，PPT 上写着“平台、论文、留院机会”。', returnTo: 'mentor_choice', conditions: { requireUndergradTier: ['tier985'] }, options: [{ text: '主动去聊，尽早让导师记住你', label: '团队协作', effects: { network: 7, research: 4, stress: 2 } }, { text: '先记下方向，回去评估自己适不适合', label: '均衡', effects: { skill: 4, research: 4, stress: -2 } }] },
+    { id: 're_985_scholarship_competition', stage: 'undergrad', title: '🎲 985 奖学金竞争', text: '奖学金名单前的安静，比任何讨论都更让人紧张。', returnTo: 'campus_meme_night', conditions: { requireUndergradTier: ['tier985'] }, options: [{ text: '复盘综合测评，把每个加分点都做细', label: '长期主义', effects: { money: 6, skill: 5, stress: 3 } }, { text: '告诉自己别被奖学金定义价值', label: '休息', effects: { health: 5, stress: -6, ethics: 3 } }] },
+
+    { id: 're_topgrad_elite_supervisor', stage: 'graduate', title: '🎲 强导师的高要求', text: '导师的消息总在深夜发来，而且默认你会在第二天早上把方案改好。头部平台的资源从不白给。', returnTo: 'paper_deadline', conditions: { requireGraduateTier: ['top_national'] }, options: [{ text: '顶住节奏，把要求拆成可执行任务', label: '长期主义', effects: { research: 8, stress: 6, health: -3 } }, { text: '主动约导师面谈，争取更清晰的预期', label: '团队协作', effects: { network: 6, research: 5, stress: 2 } }] },
+    { id: 're_topgrad_top_lab', stage: 'graduate', title: '🎲 顶级课题组资源', text: '你第一次在组会上听见“这个样本我们和全国多中心一起做”。平台差距，被摆在了最具体的地方。', returnTo: 'lab_entry', conditions: { requireGraduateTier: ['top_national'] }, options: [{ text: '主动扛一个核心子课题', label: '激进', effects: { research: 9, stress: 6, network: 3 } }, { text: '先把协作流程学懂，别浪费平台资源', label: '稳妥', effects: { research: 6, skill: 3, ethics: 3 } }] },
+    { id: 're_topgrad_paper_pressure', stage: 'graduate', title: '🎲 顶级期刊投稿压力', text: '同门讨论的不是能不能发，而是发在哪个分区。你知道这会慢慢改写对“合格”的定义。', returnTo: 'paper_deadline', conditions: { requireGraduateTier: ['top_national'] }, options: [{ text: '按高标准磨数据和表达', label: '长期主义', effects: { research: 8, stress: 7 } }, { text: '给自己设一道底线，别被比较拖垮', label: '稳妥', effects: { health: 4, stress: -5, ethics: 2 } }] },
+    { id: 're_topgrad_stay_competition', stage: 'graduate', title: '🎲 留院 / 留所竞争', text: '越是头部平台，留院名额越像最后一道暗门。老师不明说，但每个人都在算。', returnTo: 'conference_choice', conditions: { requireGraduateTier: ['top_national'] }, options: [{ text: '把临床、科研和表达一起补齐', label: '激进', effects: { skill: 5, research: 7, stress: 6 } }, { text: '同时准备外部平台，别把人生押一处', label: '均衡', effects: { network: 6, stress: -2, money: 2 } }] },
+    { id: 're_topgrad_international_conf', stage: 'graduate', title: '🎲 国际会议机会', text: '课题组拿到一个国际会议壁报名额。真正稀缺的不是出国，而是被看见。', returnTo: 'conference_choice', conditions: { requireGraduateTier: ['top_national'] }, options: [{ text: '去现场讲，逼自己站上更大的讨论场', label: '激进', effects: { network: 8, research: 6, money: -6, stress: 4 } }, { text: '线上参与，把预算留给后续实验', label: '稳妥', effects: { research: 4, money: 3, stress: -2 } }] },
+
+    { id: 're_diaoji_specialty_limit', stage: 'graduate', title: '🎲 专业选择受限', text: '调剂名单出来后，你发现能选的导师与方向比想象中窄得多。不是不能走，只是路变细了。', returnTo: 'grad_admission', conditions: { requireGraduateTier: ['diaoji', 'regular'] }, options: [{ text: '先接受现实，把能做的资源用到极致', label: '稳妥', effects: { skill: 5, ethics: 3, stress: 2 } }, { text: '主动找临床轮转机会，补足平台短板', label: '激进', effects: { network: 5, skill: 6, stress: 4 } }] },
+    { id: 're_diaoji_resource_gap', stage: 'graduate', title: '🎲 导师资源差异', text: '同样读研，有人的实验平台像机场，有人的像临时拼起来的转运站。差距肉眼可见。', returnTo: 'lab_entry', conditions: { requireGraduateTier: ['diaoji', 'regular'] }, options: [{ text: '把有限资源排出优先级，别白耗', label: '长期主义', effects: { research: 5, stress: 3, ethics: 2 } }, { text: '跨组借设备和方法，主动补位', label: '团队协作', effects: { network: 7, research: 4, stress: 2 } }] },
+    { id: 're_diaoji_proactive_clinical', stage: 'graduate', title: '🎲 主动争取临床机会', text: '平台不够强时，很多能力只能靠你自己去病房一点点抢。', returnTo: 'lab_entry', conditions: { requireGraduateTier: ['diaoji', 'regular'] }, options: [{ text: '多去门诊和病房，多看多问', label: '激进', effects: { skill: 7, stress: 5, health: -2 } }, { text: '跟着带教做记录和复盘，把每次机会吃透', label: '稳妥', effects: { skill: 5, ethics: 4, stress: 2 } }] },
+    { id: 're_diaoji_alternative_advantage', stage: 'graduate', title: '🎲 发现调剂路线的优势', text: '因为人少、层级短，你反而比一些同龄人更早摸到真正的临床细节。', returnTo: 'paper_revision_year', conditions: { requireGraduateTier: ['diaoji', 'regular'] }, options: [{ text: '把这份早接触临床的优势做成口碑', label: '长期主义', effects: { skill: 7, network: 4, stress: -2 } }, { text: '顺势争取成为老师最放心带的人', label: '团队协作', effects: { network: 6, skill: 4, research: 2 } }] },
+    { id: 're_diaoji_peer_comparison', stage: 'graduate', title: '🎲 和非调剂同学的比较', text: '聚餐时聊到平台和导师，有些落差不需要谁故意强调，也会自己浮上来。', returnTo: 'conference_choice', conditions: { requireGraduateTier: ['diaoji', 'regular'] }, options: [{ text: '允许失落，但把心思拉回自己的路', label: '稳妥', effects: { ethics: 3, stress: -5, health: 4 } }, { text: '把比较变成动力，补能力不补情绪', label: '激进', effects: { skill: 5, research: 4, stress: 4 } }] },
+
+    { id: 're_mega_high_rent', stage: 'resident', title: '🎲 高房租压力', text: '银行卡提醒你，房租又涨了一点。在超大城市，住得离医院近，几乎就是在买睡眠。', returnTo: 'ward_rounds', conditions: { requireCityTier: ['mega'] }, options: [{ text: '换更远一点的房子，把现金流稳住', label: '稳妥', effects: { money: 8, stress: 3, health: -2 } }, { text: '继续住近一点，把时间从路上买回来', label: '均衡', effects: { health: 3, money: -6, stress: -2 } }] },
+    { id: 're_mega_commute_grind', stage: 'resident', title: '🎲 超长通勤', text: '早高峰地铁里，你一边站着补觉，一边想今天晚上的夜班还没开始。', returnTo: 'night_shift_call', conditions: { requireCityTier: ['mega'] }, options: [{ text: '花钱换更方便的通勤方式', label: '均衡', effects: { money: -5, health: 4, stress: -3 } }, { text: '忍住通勤，把预算留给别处', label: '稳妥', effects: { money: 3, stress: 5, health: -3 } }] },
+    { id: 're_mega_international_conference', stage: 'resident', title: '🎲 国际医学会议', text: '会场就在城里最贵的会展中心，来的人很多，真正能聊成的合作很少。', returnTo: 'performance_review', conditions: { requireCityTier: ['mega'] }, options: [{ text: '去认识真正相关的人，不追求面面俱到', label: '团队协作', effects: { network: 8, research: 4, money: -4 } }, { text: '只听核心专场，省时间省体力', label: '稳妥', effects: { skill: 5, stress: -2, money: -2 } }] },
+    { id: 're_mega_competition_density', stage: 'resident', title: '🎲 密集竞争环境', text: '你发现身边几乎每个人都在上课、写文章、考证、争指标。这里的正常值被悄悄抬高了。', returnTo: 'performance_review', conditions: { requireCityTier: ['mega'] }, options: [{ text: '接受高标准，把自己的节奏再往前拧一点', label: '激进', effects: { skill: 6, research: 4, stress: 6 } }, { text: '只和昨天的自己比，不把自己扔进无底比较', label: '稳妥', effects: { health: 4, stress: -5, ethics: 2 } }] },
+    { id: 're_mega_top_platform_access', stage: 'resident', title: '🎲 顶尖平台机会', text: '头部科室开放联合门诊、病例讨论或短期进修名额。超大城市的好处，常常就在这种信息密度里。', returnTo: 'promotion_gate', conditions: { requireCityTier: ['mega'] }, options: [{ text: '主动报名，哪怕多扛一点排班', label: '激进', effects: { skill: 8, network: 5, stress: 5 } }, { text: '挑最适合自己方向的一项去做', label: '均衡', effects: { skill: 5, research: 3, stress: 2 } }] },
+
+    { id: 're_province_regional_network', stage: 'resident', title: '🎲 区域医疗网络资源', text: '省会平台不像全国头部那样拥挤，但上下转诊、协作会诊和区域培训体系正在给你加杠杆。', returnTo: 'ward_rounds', conditions: { requireCityTier: ['strong_province'] }, options: [{ text: '把区域协作名单记清楚，主动建立联系', label: '团队协作', effects: { network: 7, skill: 3, stress: 1 } }, { text: '先把本院的基本盘做好，再慢慢外拓', label: '稳妥', effects: { skill: 5, ethics: 3, stress: -2 } }] },
+    { id: 're_province_platform_life_balance', stage: 'resident', title: '🎲 平台与生活平衡', text: '你第一次意识到，这座城市也许不是天花板最高的，但可能是长期活下去最稳的地方。', returnTo: 'performance_review', conditions: { requireCityTier: ['strong_province'] }, options: [{ text: '把生活稳定下来，换更长的续航', label: '休息', effects: { health: 7, stress: -7 } }, { text: '趁环境可控，把副高前的硬指标补齐', label: '长期主义', effects: { skill: 4, research: 4, stress: 3 } }] },
+    { id: 're_province_regional_conference', stage: 'resident', title: '🎲 省级学术会议', text: '省级会没有全国会那么耀眼，但真正会成为未来协作对象的人，往往都在这里。', returnTo: 'promotion_gate', conditions: { requireCityTier: ['strong_province'] }, options: [{ text: '带着病例和问题去结识同行', label: '团队协作', effects: { network: 8, skill: 3, money: -3 } }, { text: '专注听最对口的内容，稳稳吸收', label: '稳妥', effects: { skill: 5, stress: -2 } }] },
+
+    { id: 're_prefecture_familiar_society', stage: 'resident', title: '🎲 熟人社会关系', text: '在地市和县域，患者、同事、领导，甚至朋友的朋友，常常会在同一张关系网里相遇。', returnTo: 'patient_talk', conditions: { requireCityTier: ['prefecture', 'county_rural'] }, options: [{ text: '守住边界，把规矩说在前面', label: '稳妥', effects: { ethics: 6, legalRisk: -4, stress: 2 } }, { text: '适度讲人情，但别把底线拿去交换', label: '均衡', effects: { network: 6, stress: 2, ethics: 1 } }] },
+    { id: 're_prefecture_quick_backbone', stage: 'resident', title: '🎲 快速成为科室骨干', text: '平台不算最大，但人手更缺。很多本应更晚落到你头上的事情，提前来了。', returnTo: 'ward_rounds', conditions: { requireCityTier: ['prefecture', 'county_rural'] }, options: [{ text: '接下来，把骨干位置做实', label: '长期主义', effects: { skill: 8, stress: 5, network: 4 } }, { text: '挑核心工作扛，别把自己一次耗空', label: '稳妥', effects: { health: 4, skill: 5, stress: 1 } }] },
+    { id: 're_prefecture_housing_advantage', stage: 'resident', title: '🎲 住房和生活成本优势', text: '同样的收入，在这里终于能换来一套像样的居住空间和一点生活感。', returnTo: 'performance_review', conditions: { requireCityTier: ['prefecture', 'county_rural'] }, options: [{ text: '把节省下来的钱用来改善生活', label: '休息', effects: { health: 6, stress: -5, money: 4 } }, { text: '把节省下来的钱投进进修和学习', label: '长期主义', effects: { money: 2, skill: 5, research: 3 } }] },
+    { id: 're_county_referral_pressure', stage: 'resident', title: '🎲 转诊边界和设备限制', text: '你知道该做的检查和治疗方案，但机器、床位和上级医院接收能力常常不配合。', returnTo: 'complaint_case', conditions: { requireCityTier: ['prefecture', 'county_rural'] }, options: [{ text: '把每次转诊理由和风险交代都写清楚', label: '稳妥', effects: { legalRisk: -5, ethics: 5, stress: 3 } }, { text: '尽量在本地先稳住，再争取转上去', label: '激进', effects: { skill: 6, stress: 6, legalRisk: 2 } }] },
+    { id: 're_county_talent_program', stage: 'senior', title: '🎲 人才引进机会', text: '地方政府的人才计划把你的名字放上了讨论名单。资源未必多，但尊重与空间都很直接。', returnTo: 'senior_outcome', conditions: { requireCityTier: ['county_rural'] }, options: [{ text: '认真谈条件，把平台建设需求说清楚', label: '团队协作', effects: { network: 8, money: 6, ethics: 4 } }, { text: '先不急着接，评估家庭与职业能不能一起承受', label: '稳妥', effects: { health: 4, stress: -3, skill: 2 } }] },
+
+    { id: 're_top3_complex_case', stage: 'resident', title: '🎲 疑难复杂病例会诊', text: '在头部强三甲，真正让人长大的，往往不是量，而是那些一屋子人都皱眉的病例。', returnTo: 'complex_case_turnaround', conditions: { requireHospitalTier: ['top_tier3'] }, options: [{ text: '主动准备病例摘要，逼自己把逻辑理顺', label: '长期主义', effects: { skill: 8, stress: 5, research: 3 } }, { text: '多听多记，把高手的取舍学回来', label: '稳妥', effects: { skill: 6, stress: 2, ethics: 2 } }] },
+    { id: 're_top3_research_kpi', stage: 'resident', title: '🎲 科研考核压力', text: '临床已经很满，考核表却提醒你：头部医院从来不只考临床。', returnTo: 'performance_review', conditions: { requireHospitalTier: ['top_tier3'] }, options: [{ text: '把科研拆到每个月，慢慢补硬指标', label: '长期主义', effects: { research: 7, stress: 6, health: -2 } }, { text: '先保临床口碑，科研走稳一点的合作路线', label: '团队协作', effects: { network: 6, research: 4, stress: 2 } }] },
+    { id: 're_top3_stay_competition', stage: 'resident', title: '🎲 留院晋升竞争', text: '越好的平台越不缺人，想留下来的人几乎都像在跑一场没有终点线的比赛。', returnTo: 'promotion_gate', conditions: { requireHospitalTier: ['top_tier3'] }, options: [{ text: '继续卷，把名额当成必须拿下的目标', label: '激进', effects: { skill: 6, network: 4, stress: 7 } }, { text: '同步看外部机会，别让平台定义全部价值', label: '均衡', effects: { stress: -3, network: 5, ethics: 2 } }] },
+    { id: 're_top3_night_shift_density', stage: 'resident', title: '🎲 高强度夜班频率', text: '夜班表排出来后，你发现自己对“这个月有几天能完整睡觉”已经没有太大把握。', returnTo: 'night_shift_call', conditions: { requireHospitalTier: ['top_tier3'] }, options: [{ text: '硬扛，同时把值班流程练到更稳', label: '激进', effects: { skill: 6, stress: 8, health: -5 } }, { text: '主动和团队协调排班与交接', label: '团队协作', effects: { network: 6, stress: -2, health: -1 } }] },
+    { id: 're_top3_multidisciplinary', stage: 'resident', title: '🎲 多学科团队会诊', text: '真正的 MDT 不只是“大家坐一起”，而是每个人都得在最短时间内给出最稳的判断。', returnTo: 'ward_rounds', conditions: { requireHospitalTier: ['top_tier3'] }, options: [{ text: '主动准备自己这一段，别在会上一问三不知', label: '稳妥', effects: { skill: 6, network: 4, stress: 3 } }, { text: '借会诊认识关键科室的人', label: '团队协作', effects: { network: 8, skill: 3, stress: 1 } }] },
+
+    { id: 're_reg3_clinical_volume', stage: 'resident', title: '🎲 稳定临床量', text: '这里没有最顶级平台那种名声压力，但病人数足够稳定，足够把一个人慢慢练扎实。', returnTo: 'ward_rounds', conditions: { requireHospitalTier: ['regular_tier3'] }, options: [{ text: '把每个常见病都做到流程熟、质量稳', label: '稳妥', effects: { skill: 7, stress: 2, ethics: 2 } }, { text: '在稳定量里顺便补教学与论文', label: '长期主义', effects: { skill: 4, research: 5, stress: 4 } }] },
+    { id: 're_reg3_regional_patient', stage: 'resident', title: '🎲 区域特色患者群体', text: '你开始熟悉这座城市真正高发、最常见、最被忽视的那批病。', returnTo: 'patient_talk', conditions: { requireHospitalTier: ['regular_tier3'] }, options: [{ text: '把本地常见问题做成自己的强项', label: '长期主义', effects: { skill: 6, ethics: 3, network: 3 } }, { text: '和基层建立随访与转诊联系', label: '团队协作', effects: { network: 7, skill: 3, stress: 1 } }] },
+    { id: 're_reg3_performance_pressure', stage: 'resident', title: '🎲 绩效与稳定性', text: '这里最大的拉扯，不是能不能活下来，而是怎样在“稳定”里不变得麻木。', returnTo: 'performance_review', conditions: { requireHospitalTier: ['regular_tier3'] }, options: [{ text: '接受稳态，把每年都做成可积累的一年', label: '稳妥', effects: { health: 4, stress: -4, skill: 4 } }, { text: '主动给自己加一点项目和突破口', label: '激进', effects: { research: 4, network: 4, stress: 4 } }] },
+
+    { id: 're_lower_hospital_independent_op', stage: 'resident', title: '🎲 更早独立操作机会', text: '在资源和人手都更紧的地方，你比同龄人更早被推到了独立承担的边缘。', returnTo: 'complex_case_turnaround', conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '抓住机会，但把每一步都做成可回看', label: '长期主义', effects: { skill: 8, stress: 4, legalRisk: -1 } }, { text: '遇到不确定就多请示，别把早上手变成早翻车', label: '稳妥', effects: { skill: 5, network: 4, legalRisk: -3 } }] },
+    { id: 're_lower_hospital_equipment_limit', stage: 'resident', title: '🎲 设备与资源限制', text: '你不缺判断，缺的是马上能用的设备、床位和备用方案。', returnTo: 'complaint_case', conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '把资源边界和患者预期都讲清楚', label: '稳妥', effects: { ethics: 5, legalRisk: -4, stress: 2 } }, { text: '尽量用现有条件多扛一步', label: '激进', effects: { skill: 6, stress: 5, legalRisk: 2 } }] },
+    { id: 're_lower_hospital_talent_recruit', stage: 'senior', title: '🎲 医院人才引进压力', text: '领导开始问你：能不能带人、能不能把学科做起来、能不能别让好苗子又流回大城市。', returnTo: 'senior_outcome', conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '认真带教，先把梯队留住', label: '长期主义', effects: { network: 8, ethics: 5, stress: 4 } }, { text: '先争取资源，不然留不住人也做不成事', label: '团队协作', effects: { network: 9, money: 4, stress: 3 } }] },
+
+    { id: 're_private_service_expectation', stage: 'resident', title: '🎲 患者服务体验要求', text: '在高端私立，患者期待的不只是不出错，还包括流程、解释、回应速度和“被重视”的感觉。', returnTo: 'patient_talk', conditions: { requireHospitalTier: ['premium_private', 'international'] }, options: [{ text: '把沟通做细，让专业和体验一起成立', label: '稳妥', effects: { ethics: 5, network: 4, stress: 2 } }, { text: '先把医疗质量扛住，其他交给团队', label: '团队协作', effects: { skill: 5, network: 5, stress: 1 } }] },
+    { id: 're_private_contract_performance', stage: 'resident', title: '🎲 合同绩效压力', text: '这里没有编制焦虑，但合同指标会用另一种方式告诉你：任何自由都不是没有代价。', returnTo: 'performance_review', conditions: { requireHospitalTier: ['premium_private', 'international'] }, options: [{ text: '按节奏完成指标，别把服务做成透支', label: '稳妥', effects: { money: 8, stress: 3, health: -1 } }, { text: '主动争取更多项目和病人，拉高收入线', label: '激进', effects: { money: 12, stress: 6, health: -3 } }] },
+    { id: 're_private_language_communication', stage: 'resident', title: '🎲 语言 / 国际沟通', text: '病人问得更细、资料更全、背景更多元，你发现“会不会解释”在这里和“会不会做”一样重要。', returnTo: 'ward_rounds', conditions: { requireHospitalTier: ['premium_private', 'international'] }, options: [{ text: '补沟通与英文表达，让自己更适配这套场域', label: '长期主义', effects: { network: 6, skill: 4, stress: 3 } }, { text: '依靠团队分工，把自己最强的专业部分做好', label: '团队协作', effects: { skill: 5, network: 5, stress: -1 } }] },
+    { id: 're_private_insurance_compliance', stage: 'resident', title: '🎲 保险审核与合规', text: '病人、医院和保险方的期待并不总是一致。写病历时，你开始更频繁地想到“可解释性”这个词。', returnTo: 'complaint_case', conditions: { requireHospitalTier: ['premium_private', 'international'] }, options: [{ text: '按合规要求把证据链写扎实', label: '稳妥', effects: { legalRisk: -6, stress: 3, ethics: 3 } }, { text: '先满足患者，再想办法补文件', label: '激进', effects: { ethics: 2, legalRisk: 4, stress: 4 } }] },
+    { id: 're_private_income_advantage', stage: 'resident', title: '🎲 收入优势体验', text: '第一次发薪时，你确实感受到赛道差异。但你也知道，这份差异永远伴随着平台逻辑。', returnTo: 'performance_review', conditions: { requireHospitalTier: ['premium_private', 'international'] }, options: [{ text: '把多出来的收入换成更稳的生活缓冲', label: '稳妥', effects: { money: 10, stress: -3, health: 3 } }, { text: '继续冲更高绩效，把窗口吃满', label: '激进', effects: { money: 14, stress: 5, ethics: -2 } }] },
+
+    { id: 're_sp_pediatrics_top_complex', stage: 'resident', title: '🎲 儿科头部中心的疑难重症', text: '大平台儿科收进来的，往往都不是只打一针就能回家的孩子。家属焦虑和病情复杂一起上来了。', returnTo: 'complex_case_turnaround', conditions: { specialty: 'pediatrics', requireHospitalTier: ['top_tier3'] }, options: [{ text: '把评估和沟通都做得更细', label: '稳妥', effects: { skill: 7, ethics: 5, stress: 4 } }, { text: '主动跟上级争取参与核心处置', label: '激进', effects: { skill: 9, stress: 6, health: -2 } }] },
+    { id: 're_sp_pediatrics_county_surge', stage: 'resident', title: '🎲 儿科在地市 / 县域的季节性高峰', text: '流感季一来，门急诊像突然涨潮。没有多的人手，只有更多的家长。', returnTo: 'night_shift_call', conditions: { specialty: 'pediatrics', requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '先把分诊和宣教流程拉起来', label: '团队协作', effects: { network: 6, ethics: 4, stress: 3 } }, { text: '自己多顶几班，先把高峰扛过去', label: '激进', effects: { skill: 6, stress: 7, health: -4 } }] },
+    { id: 're_sp_surgery_subspecialty', stage: 'resident', title: '🎲 外科在大平台的亚专科压力', text: '在大平台，连“外科”都只是起点。真正的竞争来自更细的亚专科和更长的培养链。', returnTo: 'ward_rounds', conditions: { specialty: 'surgery', requireHospitalTier: ['top_tier3', 'regular_tier3'] }, options: [{ text: '尽快选准亚方向，别在大平台里发散', label: '长期主义', effects: { skill: 8, research: 3, stress: 4 } }, { text: '先把基本盘做厚，再决定细分', label: '稳妥', effects: { skill: 6, stress: 2, ethics: 2 } }] },
+    { id: 're_sp_surgery_county_pioneer', stage: 'resident', title: '🎲 外科在小地方更早主刀', text: '在小地方，很多手术没有更多人替你上。成长很快，责任也很快。', returnTo: 'complex_case_turnaround', conditions: { specialty: 'surgery', requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '每台术前都做足准备，慢一点也值', label: '稳妥', effects: { skill: 7, legalRisk: -3, stress: 3 } }, { text: '多接台，尽快把自己的主刀线拉起来', label: '激进', effects: { skill: 9, stress: 6, health: -3 } }] },
+    { id: 're_sp_radiology_ai_big', stage: 'resident', title: '🎲 影像在大平台的 AI 与科研', text: 'AI 在大平台不是新闻，而是日常。真正的区别在于：你能不能判断模型什么时候不该被信。', returnTo: 'ai_and_online', conditions: { specialty: 'imaging_ultrasound', requireHospitalTier: ['top_tier3', 'regular_tier3'] }, options: [{ text: '把 AI 当二读工具，提升准确性', label: '稳妥', effects: { skill: 7, research: 4, legalRisk: -3 } }, { text: '主动做 AI 相关科研，争取更高平台认知度', label: '激进', effects: { research: 8, stress: 4, network: 3 } }] },
+    { id: 're_sp_radiology_rural_shortage', stage: 'resident', title: '🎲 影像在基层的人手短缺', text: '机器未必少，真正缺的是能看、能写、能解释的人。你开始被更多科室同时盯着。', returnTo: 'ward_rounds', conditions: { specialty: 'imaging_ultrasound', requireHospitalTier: ['regular_tier2', 'county_basic'] }, options: [{ text: '建立模板和优先级，先把周转稳住', label: '稳妥', effects: { skill: 6, stress: 3, network: 2 } }, { text: '主动承担更多会诊，尽快把自己做成关键节点', label: '激进', effects: { skill: 8, stress: 5, health: -2 } }] },
+    { id: 're_sp_psychiatry_stigma', stage: 'resident', title: '🎲 精神科的社会偏见', text: '有些病人家属悄悄问你：“是不是别让别人知道挂了这个科？”专业之外的偏见，落到了你面前。', returnTo: 'patient_talk', conditions: { specialty: 'psychiatry' }, options: [{ text: '把解释做得更耐心，先接住羞耻感', label: '稳妥', effects: { ethics: 7, stress: 3, network: 2 } }, { text: '主动做科普，把误解往前推一寸', label: '长期主义', effects: { network: 6, ethics: 5, stress: 4 } }] },
+    { id: 're_sp_gp_chronic_disease', stage: 'resident', title: '🎲 全科在基层的慢病管理', text: '复诊名单一长串地排开来，你逐渐明白，全科的难不在惊险，而在年复一年把每个细节都做对。', returnTo: 'ward_rounds', conditions: { specialty: 'general_practice', requireHospitalTier: ['county_basic', 'regular_tier2'] }, options: [{ text: '做随访台账，把长期照护真正跑起来', label: '长期主义', effects: { ethics: 7, network: 5, stress: 2 } }, { text: '抓高风险患者，先把最关键的守住', label: '稳妥', effects: { skill: 5, legalRisk: -3, stress: 2 } }] },
+    { id: 're_sp_dental_private_vs_public', stage: 'resident', title: '🎲 口腔在公立 vs 私立', text: '同样是做口腔，公立看学科体系，私立看服务和转化。你开始感到路线分叉。', returnTo: 'career_mobility_window', conditions: { specialty: 'dental', requireHospitalTier: ['regular_tier3', 'premium_private', 'international'] }, options: [{ text: '留在体系里，慢慢把技术和资历做深', label: '稳妥', effects: { skill: 7, stress: 2, ethics: 2 } }, { text: '认真研究服务与品牌逻辑，为以后转平台做准备', label: '长期主义', effects: { money: 5, network: 5, stress: 3 } }] },
+    { id: 're_sp_obgyn_night_rush', stage: 'resident', title: '🎲 妇产夜间急救', text: '产房的呼叫不会问你困不困。很多决定，都是在凌晨做出的。', returnTo: 'night_shift_call', conditions: { specialty: 'obgyn' }, options: [{ text: '按流程稳住抢救和交接', label: '稳妥', effects: { skill: 7, legalRisk: -4, stress: 4 } }, { text: '主动多顶几次，把自己练成可靠的人', label: '激进', effects: { skill: 8, stress: 6, health: -3 } }] },
+    { id: 're_sp_pathology_quality', stage: 'resident', title: '🎲 病理诊断质量责任', text: '你所在的平台也许不在台前，但一份报告上的一句话，能改变很多后续决策。', returnTo: 'complaint_case', conditions: { specialty: 'pathology_lab' }, options: [{ text: '每个边界性结论都反复核对', label: '稳妥', effects: { legalRisk: -5, skill: 6, stress: 3 } }, { text: '主动拉临床沟通，把报告背后的场景弄清楚', label: '团队协作', effects: { network: 6, skill: 4, stress: 2 } }] },
+
+    { id: 're_headhunter_call', stage: 'resident', title: '🎲 猎头来电', text: '一个并不熟的号码直接打来，开口就是：“老师，您最近考虑职业流动吗？”', returnTo: 'career_mobility_window', conditions: { requireCareerTitle: ['resident', 'attending', 'associate_chief'] }, options: [{ text: '先听完，把外部市场当情报来源', label: '均衡', effects: { network: 6, stress: -2, money: 2 } }, { text: '直接拒绝，不让当前工作节奏被打断', label: '稳妥', effects: { ethics: 2, stress: -1 } }] },
+    { id: 're_talent_introduction_offer', stage: 'senior', title: '🎲 人才引进邀请', text: '一座熟悉又陌生的城市发来邀请：岗位、补贴、住房、团队编制，都写得比很多公示更具体。', returnTo: 'senior_outcome', conditions: { requireCareerTitle: ['attending', 'associate_chief'] }, options: [{ text: '认真谈，看看是否值得重新布局人生', label: '长期主义', effects: { network: 8, money: 6, stress: 2 } }, { text: '暂时不动，把现平台的上升窗口再看一年', label: '稳妥', effects: { stress: -3, skill: 2 } }] },
+    { id: 're_private_recruitment', stage: 'resident', title: '🎲 民营医院招募', text: '一个民营专科链把岗位说明书发给你，字里行间都在强调成长快、收入高、机制灵活。', returnTo: 'career_mobility_window', conditions: { forbidHospitalTier: ['premium_private', 'international'] }, options: [{ text: '把它当成谈判筹码，也当成真实备选', label: '均衡', effects: { network: 5, money: 3, stress: 1 } }, { text: '先不看，等自己资历再厚一点', label: '稳妥', effects: { skill: 3, stress: -2 } }] },
+    { id: 're_county_chief_opportunity', stage: 'senior', title: '🎲 地方科主任机会', text: '地方医院缺的不是职位名字，而是真能把科室带起来的人。有人直接问你：愿不愿意回来试一把。', returnTo: 'career_mobility_county_chief', conditions: { requireHospitalTier: ['top_tier3', 'regular_tier3', 'prefecture_tier3_strong2'] }, options: [{ text: '认真评估，这是向上还是向外的一次跃迁', label: '长期主义', effects: { network: 6, ethics: 4, stress: 2 } }, { text: '先压住冲动，别被头衔两个字带跑', label: '稳妥', effects: { health: 3, stress: -3 } }] },
+    { id: 're_international_dept_offer', stage: 'senior', title: '🎲 国际部邀请', text: '国际部门诊希望你兼任核心医生。平台更轻一些，要求却并不轻。', returnTo: 'career_mobility_private', conditions: { requireHospitalTier: ['premium_private', 'regular_tier3', 'top_tier3'] }, options: [{ text: '去谈合作模式，争取兼顾专业与生活', label: '均衡', effects: { money: 8, network: 6, stress: -2 } }, { text: '留在原体系，继续吃平台的确定性', label: '稳妥', effects: { skill: 4, ethics: 2 } }] },
+
+    { id: 're_attending_promotion_prep', stage: 'senior', title: '🎲 主治升副高准备', text: '你已经不是最年轻的那拨人了，材料、年限、病例、论文，终于一起追上来。', returnTo: 'chief_competition', conditions: { requireCareerTitle: ['attending'] }, options: [{ text: '把每份材料都往经得起追问的方向做', label: '稳妥', effects: { skill: 5, ethics: 4, stress: 3 } }, { text: '找前辈模拟答辩，提前把短板暴露出来', label: '团队协作', effects: { network: 6, stress: 2, skill: 4 } }] },
+    { id: 're_associate_chief_milestone', stage: 'senior', title: '🎲 副高里程碑', text: '胸牌上的字变化不大，但很多人看你的眼神变了：年轻医生开始等你一句话，科里也开始把更重的事压给你。', returnTo: 'senior_outcome', conditions: { requireCareerTitle: ['associate_chief'] }, options: [{ text: '把权力感变成带教和兜底能力', label: '长期主义', effects: { network: 7, ethics: 5, stress: 3 } }, { text: '顺势争取更大的平台与资源', label: '激进', effects: { network: 6, money: 5, stress: 5 } }] },
+    { id: 're_dept_management_challenge', stage: 'senior', title: '🎲 科室管理挑战', text: '当你成了科室负责人，麻烦不再只来自病人，还来自排班、绩效、梯队、耗材、投诉和每个人的期待。', returnTo: 'senior_outcome', conditions: { requireCareerTitle: ['dept_head'] }, options: [{ text: '把制度建起来，别靠自己一个人燃烧', label: '团队协作', effects: { network: 8, stress: 4, ethics: 4 } }, { text: '亲自盯最关键的部分，先把底线守住', label: '稳妥', effects: { skill: 5, legalRisk: -4, stress: 5 } }] }
+  ];
+
+  randomEvents.push(...contextRandomEvents.map((event) => ({
+    rarity: 'uncommon',
+    weight: 5,
+    ...event
+  })));
+
   const GAME_DATA = {
     title: '一个中国医学生的一生',
-    disclaimer: '本作是虚构与讽刺作品，不构成医学、法律或职业建议。不同地区与机构在 DRG/DIP、医保与管理实践上存在差异。',
+    disclaimer: '本作是虚构与讽刺作品，不构成医学、法律或职业建议。不同地区与机构在 DRG/DIP、医保与管理实践上存在差异；院校层级、城市层级与医院层级均为游戏化抽象。',
     startEventId: 'admission_985_intro',
     startStage: 'undergrad',
     startLog: '你已经收到 985 医学院录取通知书，真正的人生抉择从报到日开始。',
@@ -4370,6 +4914,7 @@
       ending: '人生终局'
     },
     specialties: specialtyProfiles,
+    careerMeta: { enums: careerEnums, labels: careerDisplayNames },
     randomEvents,
     events
   };

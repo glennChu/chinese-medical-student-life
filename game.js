@@ -26,6 +26,43 @@
     ethics: '医德/初心',
     legalRisk: '法律风险'
   };
+  const careerFieldLabels = {
+    undergradInstitutionTier: '本科平台',
+    graduateInstitutionTier: '研究生平台',
+    degreeTrack: '培养路径',
+    cityTier: '城市',
+    hospitalTier: '医院',
+    hospitalType: '单位类型',
+    careerTitle: '职称'
+  };
+  const defaultCareerDisplayNames = {
+    undergradInstitutionTier: { tier985: '985医学院本科' },
+    graduateInstitutionTier: { top_national: '全国头部平台', regional_strong: '区域强校', regular: '普通院校', diaoji: '调剂平台' },
+    degreeTrack: { undergrad: '本科', masters_pro: '专业型硕士', masters_academic: '学术型硕士', phd: '博士/直博', direct_work: '直接就业' },
+    cityTier: { mega: '超大城市', strong_province: '强省会/区域中心', prefecture: '普通地级市', county_rural: '县域/基层' },
+    hospitalTier: { top_tier3: '全国头部/强三甲', regular_tier3: '省会普通三甲', prefecture_tier3_strong2: '地市中心/强二甲', regular_tier2: '普通二级医院', county_basic: '县域/基层医院', premium_private: '高端私立/连锁专科', international: '国际部/高端医疗' },
+    hospitalType: { public_general: '公立综合医院', public_specialist: '公立专科医院', grassroots: '基层医疗机构', private: '民营医院', international: '国际部/高端医疗', academic_research: '科研教学单位', industry: '医疗产业相关' },
+    careerTitle: { trainee: '规培医师', resident: '住院医师', attending: '主治医师', associate_chief: '副主任医师', chief: '主任医师', dept_head: '科室负责人' }
+  };
+  const careerDisplayNames = GAME_DATA.careerMeta?.labels || defaultCareerDisplayNames;
+  const careerEnumValues = Object.fromEntries(
+    Object.entries(GAME_DATA.careerMeta?.enums || Object.fromEntries(
+      Object.entries(careerDisplayNames).map(([key, values]) => [key, Object.keys(values)])
+    )).map(([key, values]) => [key, new Set(values)])
+  );
+  const specialtyRestrictionNotes = {
+    acute: '（调剂平台，热门方向竞争名额受限）',
+    surgery: '（调剂平台，热门方向竞争名额受限）',
+    platform: '（调剂平台，竞争名额受限）',
+    pediatrics: '（调剂平台，竞争名额受限）',
+    emergency_critical: '（调剂平台，竞争名额受限）',
+    surgery_sp: '（调剂平台，竞争名额受限）',
+    obgyn: '（调剂平台，竞争名额受限）',
+    anesthesia: '（调剂平台，竞争名额受限）',
+    dental: '（调剂平台，竞争名额受限）',
+    ent_oph: '（调剂平台，竞争名额受限）',
+    imaging_ultrasound: '（调剂平台，竞争名额受限）'
+  };
 
   const achievementsCatalog = [
     { id: 'start', name: '白袍启程', desc: '完成第一局', check: (s) => !!s.endingId },
@@ -65,6 +102,8 @@
     majorTag: document.getElementById('major-tag'),
     logList: document.getElementById('log-list'),
     feedback: document.getElementById('change-feedback'),
+    resumeCard: document.getElementById('resume-card'),
+    resumeList: document.getElementById('resume-list'),
     stats: document.getElementById('stats'),
     disclaimer: document.getElementById('disclaimer-text'),
     endingTitle: document.getElementById('ending-title'),
@@ -123,6 +162,13 @@
       randomEventReturnTo: null,
       eventOrigin: 'main',
       specialty: null,
+      undergradInstitutionTier: 'tier985',
+      graduateInstitutionTier: null,
+      degreeTrack: 'undergrad',
+      cityTier: null,
+      hospitalTier: null,
+      hospitalType: null,
+      careerTitle: null,
       financialCrises: 0,
       generation,
       legacy: legacy && generation > 1 ? legacy : {},
@@ -216,6 +262,14 @@
   function evaluateConditions(conditions, snapshot) {
     const current = snapshot || state;
     if (!conditions) return true;
+    const matchStats = (ranges) => {
+      for (const [key, range] of Object.entries(ranges || {})) {
+        const val = current.stats[key];
+        if (typeof range.min === 'number' && val < range.min) return false;
+        if (typeof range.max === 'number' && val > range.max) return false;
+      }
+      return true;
+    };
 
     if (conditions.flags) {
       for (const flag of conditions.flags) {
@@ -240,11 +294,11 @@
     }
 
     if (conditions.stats) {
-      for (const [key, range] of Object.entries(conditions.stats)) {
-        const val = current.stats[key];
-        if (typeof range.min === 'number' && val < range.min) return false;
-        if (typeof range.max === 'number' && val > range.max) return false;
-      }
+      if (!matchStats(conditions.stats)) return false;
+    }
+
+    if (conditions.anyStats?.length) {
+      if (!conditions.anyStats.some((ranges) => matchStats(ranges))) return false;
     }
 
     const specialties = conditions.specialties
@@ -254,6 +308,12 @@
     }
 
     if (conditions.stage && current.stage !== conditions.stage) return false;
+    if (conditions.requireUndergradTier && !conditions.requireUndergradTier.includes(current.undergradInstitutionTier)) return false;
+    if (conditions.requireHospitalTier && !conditions.requireHospitalTier.includes(current.hospitalTier)) return false;
+    if (conditions.forbidHospitalTier && conditions.forbidHospitalTier.includes(current.hospitalTier)) return false;
+    if (conditions.requireCityTier && !conditions.requireCityTier.includes(current.cityTier)) return false;
+    if (conditions.requireGraduateTier && !conditions.requireGraduateTier.includes(current.graduateInstitutionTier)) return false;
+    if (conditions.requireCareerTitle && !conditions.requireCareerTitle.includes(current.careerTitle)) return false;
 
     if (conditions.generation) {
       const generation = current.generation || 1;
@@ -279,10 +339,36 @@
       }
     }
 
+    if (option.conditions.anyStats?.length) {
+      const variants = option.conditions.anyStats.map((ranges) => Object.entries(ranges).map(([k, range]) => {
+        const bits = [];
+        if (typeof range.min === 'number') bits.push(`${statNames[k]}≥${range.min}`);
+        if (typeof range.max === 'number') bits.push(`${statNames[k]}≤${range.max}`);
+        return bits.join(' ');
+      }).filter(Boolean).join(' 且 ')).filter(Boolean);
+      if (variants.length) chunks.push(`满足其一：${variants.join(' / ')}`);
+    }
+
     if (option.conditions.specialty || option.conditions.specialties) {
       const specialties = option.conditions.specialties
         || (typeof option.conditions.specialty === 'string' ? [option.conditions.specialty] : option.conditions.specialty);
       chunks.push(`需科室：${specialties.map(getSpecialtyName).join('、')}`);
+    }
+
+    if (option.conditions.requireGraduateTier?.length) {
+      chunks.push(`需研究生平台：${option.conditions.requireGraduateTier.map((value) => getCareerDisplayName('graduateInstitutionTier', value)).join('、')}`);
+    }
+    if (option.conditions.requireUndergradTier?.length) {
+      chunks.push(`需本科平台：${option.conditions.requireUndergradTier.map((value) => getCareerDisplayName('undergradInstitutionTier', value)).join('、')}`);
+    }
+    if (option.conditions.requireCityTier?.length) {
+      chunks.push(`需城市：${option.conditions.requireCityTier.map((value) => getCareerDisplayName('cityTier', value)).join('、')}`);
+    }
+    if (option.conditions.requireHospitalTier?.length) {
+      chunks.push(`需医院层级：${option.conditions.requireHospitalTier.map((value) => getCareerDisplayName('hospitalTier', value)).join('、')}`);
+    }
+    if (option.conditions.requireCareerTitle?.length) {
+      chunks.push(`需职称：${option.conditions.requireCareerTitle.map((value) => getCareerDisplayName('careerTitle', value)).join('、')}`);
     }
 
     return chunks.length ? `（${chunks.join('，')}）` : '';
@@ -349,6 +435,63 @@
   function applySpecialty(specialtyId) {
     if (!specialtyId || !GAME_DATA.specialties?.[specialtyId]) return;
     state.specialty = specialtyId;
+  }
+
+  function normalizeCareerField(field, value, fallback) {
+    if (value == null) return fallback ?? null;
+    return careerEnumValues[field]?.has(value) ? value : (fallback ?? null);
+  }
+
+  function getCareerDisplayName(field, value) {
+    return careerDisplayNames[field]?.[value] || value || '';
+  }
+
+  function getHospitalResumeValue(current) {
+    if (!current.hospitalTier && !current.hospitalType) return '';
+    const typeText = getCareerDisplayName('hospitalType', current.hospitalType);
+    const tierText = getCareerDisplayName('hospitalTier', current.hospitalTier);
+    if (typeText && tierText) return `${typeText}（${tierText}）`;
+    return typeText || tierText;
+  }
+
+  function extractCareerUpdates(container) {
+    if (!container || typeof container !== 'object') return null;
+    const direct = {};
+    for (const key of Object.keys(careerFieldLabels)) {
+      if (Object.prototype.hasOwnProperty.call(container, key)) {
+        direct[key] = container[key];
+      }
+    }
+    return { ...(container.career || {}), ...direct };
+  }
+
+  function applyCareerUpdates(container) {
+    const updates = extractCareerUpdates(container);
+    if (!updates || !Object.keys(updates).length) return;
+
+    const prevHospitalText = getHospitalResumeValue(state);
+    const careerNotes = [];
+    for (const key of Object.keys(careerFieldLabels)) {
+      if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+      const nextValue = normalizeCareerField(key, updates[key], key === 'undergradInstitutionTier' ? 'tier985' : null);
+      if (state[key] === nextValue) continue;
+      state[key] = nextValue;
+      if (!nextValue) continue;
+      if (key === 'hospitalTier' || key === 'hospitalType') continue;
+      careerNotes.push(`${careerFieldLabels[key]}：${getCareerDisplayName(key, nextValue)}`);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'hospitalTier') || Object.prototype.hasOwnProperty.call(updates, 'hospitalType')) {
+      const hospitalText = getHospitalResumeValue(state);
+      if (hospitalText && hospitalText !== prevHospitalText) {
+        careerNotes.push(`医院：${hospitalText}`);
+      }
+    }
+
+    for (const note of careerNotes) {
+      state.lastChanges.push(note);
+      state.log.unshift(`🧾 ${note}`);
+    }
   }
 
   function queueDelayedConsequences(delayed) {
@@ -509,6 +652,13 @@
       randomEventReturnTo: validRandomId(mapLegacyEventId(nextState.randomEventReturnTo)) ? mapLegacyEventId(nextState.randomEventReturnTo) : null,
       eventOrigin: typeof nextState.eventOrigin === 'string' ? nextState.eventOrigin : 'main',
       specialty: typeof nextState.specialty === 'string' && GAME_DATA.specialties?.[nextState.specialty] ? nextState.specialty : null,
+      undergradInstitutionTier: normalizeCareerField('undergradInstitutionTier', nextState.undergradInstitutionTier, initial.undergradInstitutionTier),
+      graduateInstitutionTier: normalizeCareerField('graduateInstitutionTier', nextState.graduateInstitutionTier, initial.graduateInstitutionTier),
+      degreeTrack: normalizeCareerField('degreeTrack', nextState.degreeTrack, initial.degreeTrack),
+      cityTier: normalizeCareerField('cityTier', nextState.cityTier, initial.cityTier),
+      hospitalTier: normalizeCareerField('hospitalTier', nextState.hospitalTier, initial.hospitalTier),
+      hospitalType: normalizeCareerField('hospitalType', nextState.hospitalType, initial.hospitalType),
+      careerTitle: normalizeCareerField('careerTitle', nextState.careerTitle, initial.careerTitle),
       financialCrises: typeof nextState.financialCrises === 'number' ? Math.max(0, Math.round(nextState.financialCrises)) : 0,
       generation,
       legacy: nextState.legacy && typeof nextState.legacy === 'object' ? nextState.legacy : {},
@@ -582,7 +732,7 @@
     return eventMap.get(state.currentEventId) || randomEventMap.get(state.currentEventId);
   }
 
-  function isRandomEligible(re) {
+  function canShowRandomEvent(re) {
     const mergedConditions = {
       ...(re.conditions || {}),
       requireFlags: [...(re.conditions?.requireFlags || []), ...(re.requireFlags || [])],
@@ -599,7 +749,7 @@
     const candidates = (GAME_DATA.randomEvents || []).filter((re) =>
       re.stage === state.stage &&
       !state.seenRandomEvents.includes(re.id) &&
-      isRandomEligible(re)
+      canShowRandomEvent(re)
     );
     if (!candidates.length) return;
 
@@ -629,6 +779,7 @@
     applyEffects(branch.effects, success ? '判定成功' : '判定失败');
     applyFlags(branch.flagsSet);
     applySpecialty(branch.specialty);
+    applyCareerUpdates(branch);
     queueDelayedConsequences(branch.delayed);
     queueScheduledEvents(branch.scheduledEvents);
 
@@ -681,6 +832,7 @@
     applyEffects(option.effects, '本次选择');
     applyFlags(option.flagsSet);
     applySpecialty(option.specialty);
+    applyCareerUpdates(option);
     queueDelayedConsequences(option.delayed);
     queueScheduledEvents(option.scheduledEvents);
 
@@ -828,6 +980,25 @@
     }
   }
 
+  function renderResume() {
+    const items = [
+      ['undergradInstitutionTier', getCareerDisplayName('undergradInstitutionTier', state.undergradInstitutionTier)],
+      ['graduateInstitutionTier', getCareerDisplayName('graduateInstitutionTier', state.graduateInstitutionTier)],
+      ['degreeTrack', getCareerDisplayName('degreeTrack', state.degreeTrack)],
+      ['cityTier', getCareerDisplayName('cityTier', state.cityTier)],
+      ['hospitalTier', getHospitalResumeValue(state)],
+      ['careerTitle', getCareerDisplayName('careerTitle', state.careerTitle)]
+    ].filter(([, value]) => value);
+
+    refs.resumeList.innerHTML = '';
+    refs.resumeCard.hidden = items.length === 0;
+    for (const [key, value] of items) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${careerFieldLabels[key]}</span><strong>${value}</strong>`;
+      refs.resumeList.appendChild(li);
+    }
+  }
+
   function renderFeedback() {
     refs.feedback.innerHTML = '';
     for (const line of state.lastChanges.slice(0, 5)) {
@@ -845,6 +1016,21 @@
       li.textContent = line;
       refs.logList.appendChild(li);
     }
+  }
+
+  function getOptionDisplayText(event, option) {
+    let text = option.text;
+    if (!state.flags.adjusted_specialty) return text;
+    if (event.id === 'specialty_direction_choice') {
+      if (option.target === 'specialty_acute_choice') return `${text}${specialtyRestrictionNotes.acute}`;
+      if (option.target === 'specialty_surgery_choice') return `${text}${specialtyRestrictionNotes.surgery}`;
+      if (option.target === 'specialty_platform_choice') return `${text}${specialtyRestrictionNotes.platform}`;
+    }
+    if (option.specialty) {
+      const key = option.specialty === 'surgery' ? 'surgery_sp' : option.specialty;
+      if (specialtyRestrictionNotes[key]) return `${text}${specialtyRestrictionNotes[key]}`;
+    }
+    return text;
   }
 
   function optionHasTarget(option) {
@@ -928,7 +1114,7 @@
       btn.className = `choice-btn${option.check ? ' check-choice' : ''}${isSafe ? ' safe-choice' : ''}${isRisky ? ' risky-choice' : ''}`;
       btn.type = 'button';
       btn.disabled = !available;
-      btn.innerHTML = `${tagHtml}${option.text}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
+      btn.innerHTML = `${tagHtml}${getOptionDisplayText(event, option)}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
       btn.addEventListener('click', () => {
         advanceByOption(option);
         renderCurrentState();
@@ -980,6 +1166,7 @@
     refs.eventCard.classList.toggle('major-event', !!event.major);
     refs.eventTitle.textContent = event.title;
     refs.eventText.textContent = event.text;
+    renderResume();
     renderStats();
     renderFeedback();
     renderLog();
