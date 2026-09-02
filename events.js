@@ -7048,15 +7048,15 @@
   function injectCost(container, slot) {
     container.effects = container.effects || {};
     const effects = container.effects;
-    if (slot === 0) {
-      effects.stress = (effects.stress || 0) + 3;
+    if (slot % 3 === 0) {
+      effects.stress = (effects.stress || 0) > 0 ? effects.stress + 3 : 3;
       return;
     }
-    if (slot === 1) {
-      effects.health = (effects.health || 0) - 3;
+    if (slot % 3 === 1) {
+      effects.health = (effects.health || 0) < 0 ? effects.health - 3 : -3;
       return;
     }
-    effects.money = Math.max(-25, (effects.money || 0) - 2);
+    effects.money = (effects.money || 0) < 0 ? Math.max(-25, effects.money - 2) : -3;
   }
 
   walkIndexedContainers((container, event, scope, branch, index) => {
@@ -7064,7 +7064,7 @@
     const gain = totalGrowthGain(container.effects);
     if (gain <= 4) return;
     const required = gain > 7 ? 2 : 1;
-    let slot = (index + (branch === 'failure' ? 1 : 0)) % 2;
+    let slot = (index + (branch === 'failure' ? 1 : 0)) % 3;
     let guard = 0;
     while (countCosts(container, option) < required && guard < 4) {
       injectCost(container, slot);

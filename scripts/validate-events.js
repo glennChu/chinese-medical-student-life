@@ -239,6 +239,37 @@ for (const event of events) {
   }
 }
 
+// ===== 需求4：高收益（skill/research/network 单次 >=5）必须伴随可辨识代价 =====
+function hasRecognizedCost(effects, option) {
+  if (!effects) return false;
+  return (effects.health || 0) < 0
+    || (effects.stress || 0) > 0
+    || (effects.money || 0) < 0
+    || (effects.ethics || 0) < 0
+    || (effects.legalRisk || 0) > 0
+    || (typeof option?.yearDelta === 'number' && option.yearDelta > 0)
+    || (Array.isArray(option?.scheduledEvents) && option.scheduledEvents.length > 0)
+    || Boolean(option?.delayed);
+}
+function validateHighGainCost(eventId, label, effects, option) {
+  if (!effects) return;
+  const gainKeys = ['skill', 'research', 'network'].filter((key) => (effects[key] || 0) >= 5);
+  if (!gainKeys.length) return;
+  if (!hasRecognizedCost(effects, option)) {
+    issues.push(`事件 ${eventId} ${label} 高收益(${gainKeys.join('/')})缺少代价（health/stress/money/ethics/legalRisk/yearDelta/scheduled 之一）`);
+  }
+}
+for (const event of [...events, ...randomEvents]) {
+  for (const [index, option] of (event.options || []).entries()) {
+    validateHighGainCost(event.id, `选项 ${index + 1}`, option.effects, option);
+    if (option.check) {
+      validateHighGainCost(event.id, `选项 ${index + 1} check-failure`, option.check.failure?.effects, option);
+      // check-success 分支的收益已由失败分支的真实风险覆盖，因此不单独要求代价
+    }
+  }
+}
+
+
 const adjacency = new Map(events.map((event) => [event.id, []]));
 for (const event of events) {
   for (const option of event.options || []) {
