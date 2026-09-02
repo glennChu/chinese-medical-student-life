@@ -99,6 +99,7 @@
     ageTag: document.getElementById('age-tag'),
     timelineTag: document.getElementById('timeline-tag'),
     specialtyTag: document.getElementById('specialty-tag'),
+    chapterTag: document.getElementById('chapter-tag'),
     originTag: document.getElementById('origin-tag'),
     timelineBanner: document.getElementById('timeline-banner'),
     majorTag: document.getElementById('major-tag'),
@@ -114,7 +115,10 @@
     unlockedEndings: document.getElementById('unlocked-endings'),
     unlockedAchievements: document.getElementById('unlocked-achievements'),
     restartFromEndingBtn: document.getElementById('restart-from-ending'),
-    eventCard: document.querySelector('.event-card')
+    eventCard: document.querySelector('.event-card'),
+    outcomeCard: document.getElementById('outcome-card'),
+    outcomeLabel: document.getElementById('outcome-label'),
+    outcomeText: document.getElementById('outcome-text')
   };
 
   let state = null;
@@ -179,18 +183,20 @@
       lastOutcomeNarrative: null,
       lastOutcomeType: null,
       lastOutcomeSource: null,
-      specialtyChapter: { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [] }
+      specialtyChapter: { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [], turnsWaited: 0 },
+      diminishingCarry: { skill: 0, network: 0, research: 0 }
     };
   }
 
   function normalizeSpecialtyChapter(raw) {
-    const base = { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [] };
+    const base = { active: false, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [], turnsWaited: 0 };
     if (!raw || typeof raw !== 'object') return base;
     return {
       active: !!raw.active,
       done: typeof raw.done === 'number' ? Math.max(0, Math.round(raw.done)) : 0,
       quota: typeof raw.quota === 'number' ? Math.max(1, Math.round(raw.quota)) : SPECIALTY_CHAPTER_QUOTA,
-      seen: Array.isArray(raw.seen) ? raw.seen.filter((id) => typeof id === 'string').slice(0, 30) : []
+      seen: Array.isArray(raw.seen) ? raw.seen.filter((id) => typeof id === 'string').slice(0, 30) : [],
+      turnsWaited: typeof raw.turnsWaited === 'number' ? Math.max(0, Math.round(raw.turnsWaited)) : 0
     };
   }
 
@@ -424,7 +430,7 @@
       if (!(stat in state.stats)) continue;
       const prev = state.stats[stat];
       const adjusted = checkSystem.applyDiminishingReturns
-        ? checkSystem.applyDiminishingReturns(stat, prev, delta)
+        ? checkSystem.applyDiminishingReturns(stat, prev, delta, state.diminishingCarry)
         : delta;
       const next = clampStat(stat, prev + adjusted);
       state.stats[stat] = next;
@@ -462,7 +468,42 @@
 
   function applySpecialty(specialtyId) {
     if (!specialtyId || !GAME_DATA.specialties?.[specialtyId]) return;
+    const isNewSpecialty = state.specialty !== specialtyId;
     state.specialty = specialtyId;
+    state.flags[`specialty_${specialtyId}`] = true;
+    if (isNewSpecialty) {
+      state.specialtyChapter = { active: true, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: [], turnsWaited: 0 };
+      state.log.unshift(`🏥 科室体验章节开启：${getSpecialtyName(specialtyId)}（0/${SPECIALTY_CHAPTER_QUOTA}）`);
+    }
+  }
+
+  function getSpecialtyChapterCandidates() {
+    if (!state.specialty || !state.specialtyChapter?.active) return [];
+    return (GAME_DATA.randomEvents || []).filter((re) =>
+      re.specialtyChapter === state.specialty &&
+      !state.specialtyChapter.seen.includes(re.id) &&
+      !state.seenRandomEvents.includes(re.id) &&
+      canShowRandomEvent(re)
+    );
+  }
+
+  function noteSpecialtyChapterProgress(eventId) {
+    const chapter = state.specialtyChapter;
+    if (!chapter || !state.specialty) return;
+    const event = randomEventMap.get(eventId);
+    if (!event || event.specialtyChapter !== state.specialty) return;
+    if (chapter.seen.includes(eventId)) return;
+
+    chapter.seen.push(eventId);
+    chapter.done = Math.min(chapter.quota, chapter.done + 1);
+    chapter.turnsWaited = 0;
+
+    if (chapter.done >= chapter.quota) {
+      chapter.active = false;
+      state.log.unshift(`🏥 科室体验章节完成：已亲历 ${chapter.quota}/${chapter.quota} 个 ${getSpecialtyName(state.specialty)} 专属场景。`);
+    } else {
+      state.log.unshift(`🏥 科室体验 ${chapter.done}/${chapter.quota}：${getSpecialtyName(state.specialty)}`);
+    }
   }
 
   function normalizeCareerField(field, value, fallback) {
@@ -495,7 +536,7 @@
 
   function applyCareerUpdates(container) {
     const updates = extractCareerUpdates(container);
-    if (!updates || !Object.keys(updates).length) return;
+    if (!updates || !Object.keys(updates).length) return [];
 
     const prevHospitalText = getHospitalResumeValue(state);
     const careerNotes = [];
@@ -520,6 +561,7 @@
       state.lastChanges.push(note);
       state.log.unshift(`🧾 ${note}`);
     }
+    return careerNotes;
   }
 
   function queueDelayedConsequences(delayed) {
@@ -540,9 +582,10 @@
   }
 
   function processDelayedConsequences() {
-    if (!state.delayedConsequences.length) return;
+    if (!state.delayedConsequences.length) return [];
 
     const nextQueue = [];
+    const firedLogs = [];
     for (const item of state.delayedConsequences) {
       item.turns -= 1;
       if (item.turns <= 0) {
@@ -550,6 +593,7 @@
         applyFlags(item.flagsSet);
         if (item.log) {
           state.log.unshift(`⚠️ ${item.log}`);
+          firedLogs.push(item.log);
         }
       } else {
         nextQueue.push(item);
@@ -557,6 +601,7 @@
     }
 
     state.delayedConsequences = nextQueue;
+    return firedLogs;
   }
 
   function triggerInterruptEvent(eventId, origin, sourceText) {
@@ -693,7 +738,16 @@
       generationLog: Array.isArray(nextState.generationLog) ? nextState.generationLog.slice(0, MAX_GENERATION) : [],
       family: nextState.family && typeof nextState.family === 'object'
         ? nextState.family
-        : { partner: !!flags.has_partner, married: !!flags.married, child: !!flags.has_child, dink: !!flags.dink, single: !!flags.single_choice }
+        : { partner: !!flags.has_partner, married: !!flags.married, child: !!flags.has_child, dink: !!flags.dink, single: !!flags.single_choice },
+      lastOutcomeNarrative: typeof nextState.lastOutcomeNarrative === 'string' ? nextState.lastOutcomeNarrative : null,
+      lastOutcomeType: typeof nextState.lastOutcomeType === 'string' ? nextState.lastOutcomeType : null,
+      lastOutcomeSource: typeof nextState.lastOutcomeSource === 'string' ? nextState.lastOutcomeSource : null,
+      specialtyChapter: normalizeSpecialtyChapter(nextState.specialtyChapter),
+      diminishingCarry: {
+        skill: typeof nextState.diminishingCarry?.skill === 'number' ? nextState.diminishingCarry.skill : 0,
+        network: typeof nextState.diminishingCarry?.network === 'number' ? nextState.diminishingCarry.network : 0,
+        research: typeof nextState.diminishingCarry?.research === 'number' ? nextState.diminishingCarry.research : 0
+      }
     };
   }
 
@@ -769,9 +823,31 @@
     return evaluateConditions(mergedConditions);
   }
 
+  function maybeTriggerSpecialtyChapter() {
+    const chapter = state.specialtyChapter;
+    if (!chapter?.active || chapter.done >= chapter.quota) return false;
+
+    const candidates = getSpecialtyChapterCandidates();
+    if (!candidates.length) return false;
+
+    chapter.turnsWaited = (chapter.turnsWaited || 0) + 1;
+    const remaining = chapter.quota - chapter.done;
+    const overdue = chapter.turnsWaited >= Math.max(2, remaining * 3);
+    if (!overdue && Math.random() >= 0.5) return false;
+
+    const chosen = randomByWeight(candidates.map((re) => ({ ...re, weight: (re.weight || 1) * 2 })));
+    triggerInterruptEvent(chosen.id, 'random', `科室体验触发：${String(chosen.title || '').replace(/^[🎲⚠️🎯]\s*/, '')}`);
+    state.stage = chosen.stage || state.stage;
+    noteSpecialtyChapterProgress(chosen.id);
+    return true;
+  }
+
   function maybeInjectRandomEvent() {
     const cur = getCurrentEvent();
     if (!cur || cur.type === 'ending') return;
+
+    if (maybeTriggerSpecialtyChapter()) return;
+
     if (Math.random() > RANDOM_EVENT_CHANCE) return;
 
     const candidates = (GAME_DATA.randomEvents || []).filter((re) =>
@@ -784,6 +860,60 @@
     const chosen = randomByWeight(candidates.map((re) => ({ ...re, weight: re.weight || 1 })));
     triggerInterruptEvent(chosen.id, 'random', `随机事件触发：${String(chosen.title || '').replace(/^[🎲⚠️🎯]\s*/, '')}`);
     state.stage = chosen.stage || state.stage;
+    noteSpecialtyChapterProgress(chosen.id);
+  }
+
+  const ROMANCE_GUARANTEE_EVENT_ID = 're_rm_guarantee_late';
+  const ROMANCE_SKIP_FLAGS = ['has_partner', 'single_choice', 'dink', 'romance_guarantee_used'];
+
+  function maybeTriggerRomanceGuarantee() {
+    if (state.age < ROMANCE_GUARANTEE_AGE) return false;
+    if (ROMANCE_SKIP_FLAGS.some((flag) => state.flags[flag])) return false;
+    if (!randomEventMap.has(ROMANCE_GUARANTEE_EVENT_ID)) return false;
+    if (state.seenRandomEvents.includes(ROMANCE_GUARANTEE_EVENT_ID)) return false;
+
+    return triggerInterruptEvent(
+      ROMANCE_GUARANTEE_EVENT_ID,
+      'forced',
+      '你已经很久没有认真谈过这件事，命运在这一年替你按下了暂停键。'
+    );
+  }
+
+  // 婚姻/子女线的事件原本按科室阶段严格限定（training/resident），
+  // 一旦伴侣关系较晚才成立（例如通过 32 岁保底），角色可能已经跨过那些
+  // 阶段而永远无法再遇到结婚/生育节点。这里用与恋爱保底相同的“强制直达”
+  // 方式，跳过阶段筛选，只保证家庭线不会因为时间点错过而彻底断掉。
+  const MARRIAGE_GUARANTEE_AGE = 30;
+  const MARRIAGE_EVENT_CANDIDATES = ['re_marriage', 're_marriage_resident'];
+
+  function maybeTriggerMarriageGuarantee() {
+    if (state.age < MARRIAGE_GUARANTEE_AGE) return false;
+    if (!state.flags.has_partner || state.flags.married || state.flags.dink) return false;
+    const candidate = MARRIAGE_EVENT_CANDIDATES.find(
+      (id) => randomEventMap.has(id) && !state.seenRandomEvents.includes(id)
+    );
+    if (!candidate) return false;
+    return triggerInterruptEvent(
+      candidate,
+      'forced',
+      '你们都清楚这段关系走到了该有个说法的时候。'
+    );
+  }
+
+  const NEXT_GEN_GUARANTEE_AGE = 33;
+  const NEXT_GEN_GUARANTEE_EVENT_ID = 're_child_choice';
+
+  function maybeTriggerNextGenGuarantee() {
+    if (state.age < NEXT_GEN_GUARANTEE_AGE) return false;
+    if (!state.flags.married) return false;
+    if (state.flags.has_child || state.flags.dink || state.flags.adopted_child) return false;
+    if (!randomEventMap.has(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
+    if (state.seenRandomEvents.includes(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
+    return triggerInterruptEvent(
+      NEXT_GEN_GUARANTEE_EVENT_ID,
+      'forced',
+      '关于要不要迎接下一代，你们已经没法一直含糊过去了。'
+    );
   }
 
   function resolveTarget(target, randomTargets) {
@@ -807,12 +937,13 @@
     applyEffects(branch.effects, success ? '判定成功' : '判定失败');
     applyFlags(branch.flagsSet);
     applySpecialty(branch.specialty);
-    applyCareerUpdates(branch);
+    const careerNotes = applyCareerUpdates(branch);
     queueDelayedConsequences(branch.delayed);
     queueScheduledEvents(branch.scheduledEvents);
 
     const summary = describeCheckSummary(details, 3);
     const feedback = branch.feedback || (success ? '你顶住了关键节点。' : '这次没能如愿，只能转向补救路线。');
+    const narrative = branch.resultText || feedback;
     const resultText = `${success ? '判定成功' : '判定失败'}（掷骰 ${roll} / 成功率 ${details.chance}%）：${feedback}`;
     const logPrefix = currentEvent.major ? '✦' : '•';
     const extraLog = typeof branch.log === 'string' && !/^判定(成功|失败)/.test(branch.log) ? ` ${branch.log}` : '';
@@ -823,7 +954,12 @@
     }
 
     state.log.unshift(`${logPrefix} ${resultText}${extraLog}`);
-    return { targetId: resolveTarget(branch.target, branch.randomTargets), success };
+    return {
+      targetId: resolveTarget(branch.target, branch.randomTargets),
+      success,
+      narrative,
+      careerNotes
+    };
   }
 
   function handleRetryFailure(option, event) {
@@ -848,6 +984,12 @@
     return true;
   }
 
+  function pushOutcomeLog(text) {
+    if (!text) return;
+    if (state.log[0] === text) return;
+    state.log.unshift(text);
+  }
+
   function advanceByOption(option) {
     state.turn += 1;
     state.lastChanges = [];
@@ -856,11 +998,11 @@
     const currentEvent = getCurrentEvent();
     const wasRandom = randomEventMap.has(state.currentEventId);
 
-    processDelayedConsequences();
+    const firedDelayedLogs = processDelayedConsequences();
     applyEffects(option.effects, '本次选择');
     applyFlags(option.flagsSet);
     applySpecialty(option.specialty);
-    applyCareerUpdates(option);
+    let careerNotes = applyCareerUpdates(option);
     queueDelayedConsequences(option.delayed);
     queueScheduledEvents(option.scheduledEvents);
 
@@ -869,11 +1011,18 @@
 
     let targetId;
     let retriedStay = false;
+    let outcomeNarrative = '';
+    let outcomeType = 'neutral';
+    let optionNarrativeLogged = false;
 
     if (option.check) {
       const bonus = option.retry ? (state.retryState[currentEvent.id]?.bonus || 0) : 0;
       const outcome = applyCheckOutcome(option, currentEvent, bonus);
       targetId = outcome.targetId;
+      outcomeNarrative = outcome.narrative;
+      outcomeType = outcome.success ? 'success' : 'failure';
+      optionNarrativeLogged = true; // applyCheckOutcome already logged its own line
+      if (outcome.careerNotes?.length) careerNotes = careerNotes.concat(outcome.careerNotes);
 
       if (option.retry && !wasRandom) {
         if (outcome.success) {
@@ -881,10 +1030,41 @@
         } else {
           retriedStay = handleRetryFailure(option, currentEvent);
           targetId = retriedStay ? currentEvent.id : option.retry.alternativeTarget;
+          if (retriedStay) {
+            outcomeType = 'retry';
+          }
         }
       }
     } else {
       targetId = resolveTarget(option.target, option.randomTargets);
+      if (option.resultText) {
+        outcomeNarrative = option.resultText;
+        outcomeType = careerNotes.length ? 'career' : 'neutral';
+      } else if (careerNotes.length) {
+        outcomeNarrative = `履历变化：${careerNotes.join('；')}`;
+        outcomeType = 'career';
+        optionNarrativeLogged = true; // already logged per career note in applyCareerUpdates
+      } else if (state.lastChanges.length) {
+        outcomeNarrative = `${state.lastChanges.join('；')}。`;
+        outcomeType = 'neutral';
+      }
+    }
+
+    if (outcomeNarrative && !optionNarrativeLogged) {
+      pushOutcomeLog(`📖 ${outcomeNarrative}`);
+    }
+
+    if (firedDelayedLogs.length) {
+      outcomeNarrative = outcomeNarrative
+        ? `${firedDelayedLogs.join('；')}｜本次选择：${outcomeNarrative}`
+        : firedDelayedLogs.join('；');
+      outcomeType = 'consequence';
+    }
+
+    if (outcomeNarrative) {
+      state.lastOutcomeNarrative = outcomeNarrative;
+      state.lastOutcomeType = outcomeType;
+      state.lastOutcomeSource = currentEvent.title || '';
     }
 
     if (wasRandom) {
@@ -914,7 +1094,7 @@
     }
 
     if (!crisisEndingId && !wasRandom && !retriedStay && !state.inRandomEvent) {
-      if (!maybeTriggerScheduledEvent()) {
+      if (!maybeTriggerScheduledEvent() && !maybeTriggerRomanceGuarantee() && !maybeTriggerMarriageGuarantee() && !maybeTriggerNextGenGuarantee()) {
         maybeInjectRandomEvent();
       }
     } else if (retriedStay) {
@@ -959,6 +1139,77 @@
     }
 
     return { icon: '●', label: '正常', tone: 'stable' };
+  }
+
+  const IMPACT_STAT_LABELS = {
+    health: '健康', stress: '压力', money: '经济', skill: '医术',
+    research: '科研', network: '人脉', ethics: '医德', legalRisk: '法律风险'
+  };
+
+  function classifyImpactMagnitude(stat, delta) {
+    const abs = Math.abs(delta);
+    const dir = delta > 0 ? '上升' : '下降';
+    const label = IMPACT_STAT_LABELS[stat] || stat;
+    if (abs >= 8) return `${label}大幅${dir}`;
+    if (abs >= 5) return `${label}明显${dir}`;
+    if (abs >= 3) return `${label}${dir}`;
+    return `${label}轻微${dir}`;
+  }
+
+  function collectImpactHints(effects, limit = 4) {
+    if (!effects) return [];
+    return Object.entries(effects)
+      .filter(([stat, delta]) => typeof delta === 'number' && delta !== 0 && IMPACT_STAT_LABELS[stat])
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, limit)
+      .map(([stat, delta]) => classifyImpactMagnitude(stat, delta));
+  }
+
+  function generateImpactHint(option) {
+    if (option.impactHint) return `预计影响：${option.impactHint}`;
+    const parts = [];
+    const baseHints = collectImpactHints(option.effects);
+    if (option.check) {
+      if (baseHints.length) parts.push(baseHints.join('、'));
+      const successHints = collectImpactHints(option.check.success?.effects);
+      const failureHints = collectImpactHints(option.check.failure?.effects);
+      if (successHints.length) parts.push(`成功：${successHints.join('、')}`);
+      if (failureHints.length) parts.push(`失败：${failureHints.join('、')}`);
+    } else if (baseHints.length) {
+      parts.push(baseHints.join('、'));
+    }
+    if (typeof option.yearDelta === 'number' && option.yearDelta > 0) {
+      parts.push(`耗时约 ${option.yearDelta} 年`);
+    }
+    if (option.delayed?.length) parts.push('存在延迟后果');
+    if (option.scheduledEvents?.length) parts.push('触发后续事件');
+
+    const legalDeltas = [
+      option.effects?.legalRisk,
+      option.check?.success?.effects?.legalRisk,
+      option.check?.failure?.effects?.legalRisk
+    ].filter((v) => typeof v === 'number');
+    if (legalDeltas.some((v) => v >= 6)) parts.push('⚠ 法律/合规风险明显上升');
+
+    const healthDeltas = [
+      option.effects?.health,
+      option.check?.success?.effects?.health,
+      option.check?.failure?.effects?.health
+    ].filter((v) => typeof v === 'number');
+    if (healthDeltas.some((v) => v <= -8)) parts.push('⚠ 健康代价较高');
+
+    const moneyWarning = getProjectedMoneyWarning(option);
+    if (moneyWarning) parts.push(moneyWarning.replace('⚠ ', '⚠ '));
+
+    if (careerUpdateHasLock(option)) parts.push('⚠ 涉及履历锁定');
+
+    if (!parts.length) return '';
+    return `预计影响：${parts.join('｜')}`;
+  }
+
+  function careerUpdateHasLock(option) {
+    const updates = [option.careerUpdate, option.check?.success?.careerUpdate, option.check?.failure?.careerUpdate].filter(Boolean);
+    return updates.some((update) => update && (update.hospitalTier || update.careerTitle || update.hospitalType));
   }
 
   function getProjectedMoneyWarning(option) {
@@ -1123,6 +1374,7 @@
           hints.push(`后续牵连：${previews.join('；')}`);
         }
       }
+      const impactHintText = generateImpactHint(option);
 
       const tags = [];
       if (option.label && STRATEGY_LABEL_MAP[option.label]) {
@@ -1142,7 +1394,7 @@
       btn.className = `choice-btn${option.check ? ' check-choice' : ''}${isSafe ? ' safe-choice' : ''}${isRisky ? ' risky-choice' : ''}`;
       btn.type = 'button';
       btn.disabled = !available;
-      btn.innerHTML = `${tagHtml}${getOptionDisplayText(event, option)}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}`;
+      btn.innerHTML = `${tagHtml}${getOptionDisplayText(event, option)}${hints.length ? `<small>${hints.join('｜')}</small>` : ''}${impactHintText ? `<small class="impact-hint">${impactHintText}</small>` : ''}`;
       btn.addEventListener('click', () => {
         advanceByOption(option);
         renderCurrentState();
@@ -1168,6 +1420,37 @@
     }
   }
 
+  const OUTCOME_TYPE_META = {
+    success: { label: '✅ 判定成功', tone: 'success' },
+    failure: { label: '❌ 判定失败', tone: 'failure' },
+    retry: { label: '🔁 重试进行中', tone: 'retry' },
+    career: { label: '🧾 履历变化', tone: 'career' },
+    consequence: { label: '⚠ 必然后果', tone: 'consequence' },
+    neutral: { label: 'ℹ️ 上次选择结果', tone: 'neutral' }
+  };
+
+  function renderOutcomeCard() {
+    if (!state.lastOutcomeNarrative) {
+      refs.outcomeCard.hidden = true;
+      return;
+    }
+    const meta = OUTCOME_TYPE_META[state.lastOutcomeType] || OUTCOME_TYPE_META.neutral;
+    refs.outcomeCard.hidden = false;
+    refs.outcomeCard.className = `outcome-card outcome-${meta.tone}`;
+    refs.outcomeLabel.textContent = state.lastOutcomeSource ? `${meta.label}｜${state.lastOutcomeSource}` : meta.label;
+    refs.outcomeText.textContent = state.lastOutcomeNarrative;
+  }
+
+  function renderChapterTag() {
+    const chapter = state.specialtyChapter;
+    if (!chapter || !state.specialty || (!chapter.active && chapter.done === 0)) {
+      refs.chapterTag.hidden = true;
+      return;
+    }
+    refs.chapterTag.hidden = false;
+    refs.chapterTag.textContent = `科室体验 ${chapter.done}/${chapter.quota}`;
+  }
+
   function renderGameScreen(event) {
     const isRandom = randomEventMap.has(event.id);
     const rarityLabels = { common: '普通', uncommon: '稀有', rare: '罕见', 'very-rare': '极罕见' };
@@ -1182,6 +1465,7 @@
     refs.ageTag.textContent = `年龄 ${state.age}`;
     refs.timelineTag.textContent = `第 ${state.careerYear} 年`;
     refs.specialtyTag.textContent = `当前科室：${getSpecialtyName(state.specialty)}`;
+    renderChapterTag();
     refs.originTag.textContent = originLabels[state.eventOrigin] || originLabels.main;
     refs.originTag.classList.toggle('random-tag', isRandom || state.eventOrigin === 'forced' || state.eventOrigin === 'retry');
     if (isRandom && event.rarity) {
@@ -1192,6 +1476,7 @@
     refs.majorTag.hidden = !event.major;
     refs.majorTag.textContent = event.major ? '重大抉择' : '';
     refs.eventCard.classList.toggle('major-event', !!event.major);
+    renderOutcomeCard();
     refs.eventTitle.textContent = event.title;
     refs.eventText.textContent = event.text;
     renderResume();

@@ -3604,7 +3604,7 @@
     },
     anesthesia: {
       name: '麻醉科',
-      group: 'acute',
+      group: 'platform',
       intensity: 4,
       dispute: 3,
       learning: 4,

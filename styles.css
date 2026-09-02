@@ -112,6 +112,55 @@ h1, h2, h3 { margin-top: 0; }
   font-weight: 700;
 }
 
+.chapter-tag {
+  background: rgba(103, 214, 255, 0.16);
+  border-color: rgba(103, 214, 255, 0.5);
+  color: #bfefff;
+  font-weight: 700;
+}
+
+.outcome-card {
+  border: 1px solid rgba(159, 140, 255, 0.4);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(70, 58, 130, 0.32), rgba(44, 36, 92, 0.22));
+  padding: 10px 14px;
+  margin: 6px 0 14px;
+  animation: fade-slide 0.3s ease;
+}
+
+.outcome-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+  color: #d9e4ff;
+}
+
+.outcome-text {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.outcome-success { border-color: rgba(79, 209, 165, 0.55); }
+.outcome-success .outcome-label { color: var(--good); }
+.outcome-failure { border-color: rgba(255, 122, 122, 0.55); }
+.outcome-failure .outcome-label { color: var(--danger); }
+.outcome-retry { border-color: rgba(103, 214, 255, 0.55); }
+.outcome-retry .outcome-label { color: #bfefff; }
+.outcome-career { border-color: rgba(244, 184, 96, 0.55); }
+.outcome-career .outcome-label { color: #ffe0a8; }
+.outcome-consequence { border-color: rgba(255, 122, 122, 0.4); }
+.outcome-consequence .outcome-label { color: var(--caution); }
+.outcome-neutral { border-color: rgba(159, 140, 255, 0.4); }
+
+.impact-hint {
+  color: #ffe59e;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .choice-tag {
   display: inline-block;
   border-radius: 99px;
