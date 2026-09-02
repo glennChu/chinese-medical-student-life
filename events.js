@@ -3457,15 +3457,903 @@
     }
   ];
 
+  function findEvent(id) {
+    return events.find((event) => event.id === id);
+  }
+
+  function insertEventAfter(afterId, event) {
+    const index = events.findIndex((item) => item.id === afterId);
+    if (index === -1) {
+      events.push(event);
+      return;
+    }
+    events.splice(index + 1, 0, event);
+  }
+
+  function walkOptionContainers(visitor) {
+    const visitList = (list, scope) => {
+      for (const event of list) {
+        for (const option of event.options || []) {
+          visitor(option, event, scope, 'option');
+          if (option.check) {
+            for (const branchName of ['success', 'failure']) {
+              const branch = option.check[branchName];
+              if (branch) visitor(branch, event, scope, branchName);
+            }
+          }
+        }
+      }
+    };
+
+    visitList(events, 'main');
+    visitList(randomEvents, 'random');
+  }
+
+  function replaceTargets(oldTarget, newTarget) {
+    walkOptionContainers((container) => {
+      if (container.target === oldTarget) {
+        container.target = newTarget;
+      }
+      if (Array.isArray(container.randomTargets)) {
+        for (const randomTarget of container.randomTargets) {
+          if (randomTarget.target === oldTarget) {
+            randomTarget.target = newTarget;
+          }
+        }
+      }
+    });
+  }
+
+  function setScheduledEvents(container, entries) {
+    if (!entries || !entries.length) return;
+    container.scheduledEvents = (container.scheduledEvents || []).concat(entries.map((entry) => ({ ...entry })));
+  }
+
+  function scaleLegacyMoneyDelta(delta) {
+    if (typeof delta !== 'number' || delta === 0) return delta;
+    const sign = Math.sign(delta);
+    const abs = Math.abs(delta);
+    if (abs <= 2) return sign;
+    if (abs <= 4) return sign * Math.max(1, Math.round(abs * 0.75));
+    if (abs <= 10) return sign * Math.max(2, Math.round(abs * 0.6));
+    return sign * Math.max(5, Math.round(abs * 0.5));
+  }
+
+  function rescaleMoneyEffects(effects) {
+    if (!effects || typeof effects !== 'object' || typeof effects.money !== 'number') return;
+    effects.money = scaleLegacyMoneyDelta(effects.money);
+  }
+
+  walkOptionContainers((container) => {
+    rescaleMoneyEffects(container.effects);
+    for (const delayed of container.delayed || []) {
+      rescaleMoneyEffects(delayed.effects);
+    }
+  });
+
+  const specialtyProfiles = {
+    pediatrics: {
+      name: '儿科',
+      group: 'acute',
+      intensity: 5,
+      dispute: 5,
+      learning: 4,
+      procedure: 3,
+      research: 3,
+      demand: '长期紧缺，季节高峰明显',
+      income: 3,
+      control: 2,
+      risk: '流感季门急诊高峰与家长焦虑叠加',
+      opportunity: '儿童专病与紧缺岗位带来成长窗口'
+    },
+    emergency_critical: {
+      name: '急诊/重症',
+      group: 'acute',
+      intensity: 5,
+      dispute: 4,
+      learning: 5,
+      procedure: 4,
+      research: 3,
+      demand: '急危重症岗位需求长期存在',
+      income: 4,
+      control: 1,
+      risk: '连续抢救、床位协调与多学科联动',
+      opportunity: '急救能力与抢救决策成长极快'
+    },
+    internal: {
+      name: '内科系统',
+      group: 'internal',
+      intensity: 4,
+      dispute: 3,
+      learning: 4,
+      procedure: 2,
+      research: 4,
+      demand: '基础学科体量大、分化多',
+      income: 3,
+      control: 3,
+      risk: '慢病管理、疑难鉴别与病程拉锯',
+      opportunity: '亚专科分化和科研路径都较完整'
+    },
+    surgery: {
+      name: '外科系统',
+      group: 'surgery',
+      intensity: 5,
+      dispute: 4,
+      learning: 5,
+      procedure: 5,
+      research: 3,
+      demand: '手术岗位需求稳定但训练陡峭',
+      income: 4,
+      control: 2,
+      risk: '围术期风险、体力消耗与团队默契要求高',
+      opportunity: '操作积累快，成就感和平台效应都明显'
+    },
+    obgyn: {
+      name: '妇产科',
+      group: 'acute',
+      intensity: 5,
+      dispute: 4,
+      learning: 4,
+      procedure: 4,
+      research: 3,
+      demand: '产科夜间负荷和基层需求都高',
+      income: 4,
+      control: 2,
+      risk: '围产期突发风险与家属预期波动',
+      opportunity: '产房与手术协作能力成长很快'
+    },
+    anesthesia: {
+      name: '麻醉科',
+      group: 'acute',
+      intensity: 4,
+      dispute: 3,
+      learning: 4,
+      procedure: 5,
+      research: 3,
+      demand: '平台学科需求高，排班受手术台影响大',
+      income: 4,
+      control: 3,
+      risk: '围术期监护、插管与突发抢救压力',
+      opportunity: '技术门槛高，跨手术团队协作广'
+    },
+    dental: {
+      name: '口腔科',
+      group: 'surgery',
+      intensity: 3,
+      dispute: 3,
+      learning: 4,
+      procedure: 4,
+      research: 2,
+      demand: '门诊与专科机构差异较大',
+      income: 4,
+      control: 4,
+      risk: '患者预期高、操作精细度要求高',
+      opportunity: '排班相对可规划，技术积累带来口碑增长'
+    },
+    ent_oph: {
+      name: '眼科/耳鼻喉科',
+      group: 'surgery',
+      intensity: 3,
+      dispute: 3,
+      learning: 4,
+      procedure: 4,
+      research: 3,
+      demand: '门诊量与设备门槛都不低',
+      income: 4,
+      control: 4,
+      risk: '精细操作、患者期待和设备依赖并存',
+      opportunity: '计划性更强，但竞争和技术壁垒同样明显'
+    },
+    imaging_ultrasound: {
+      name: '影像/超声',
+      group: 'platform',
+      intensity: 3,
+      dispute: 3,
+      learning: 4,
+      procedure: 3,
+      research: 3,
+      demand: '平台学科周转压力稳定存在',
+      income: 3,
+      control: 4,
+      risk: '报告时效、漏诊风险与跨科沟通',
+      opportunity: 'AI 工具、亚专科判读与超声操作都有空间'
+    },
+    pathology_lab: {
+      name: '病理/检验',
+      group: 'platform',
+      intensity: 3,
+      dispute: 2,
+      learning: 4,
+      procedure: 2,
+      research: 4,
+      demand: '关键平台岗位稳定但容易被低估',
+      income: 3,
+      control: 4,
+      risk: '报告质量、周转时效与临床接口压力',
+      opportunity: '平台深耕和科研合作都较有延展性'
+    },
+    psychiatry: {
+      name: '精神科',
+      group: 'internal',
+      intensity: 4,
+      dispute: 4,
+      learning: 4,
+      procedure: 1,
+      research: 3,
+      demand: '心理健康需求持续上升',
+      income: 3,
+      control: 3,
+      risk: '长期沟通、风险评估与家属支持体系',
+      opportunity: '长期随访关系深，综合干预能力成长明显'
+    },
+    general_practice: {
+      name: '全科/基层',
+      group: 'internal',
+      intensity: 3,
+      dispute: 3,
+      learning: 3,
+      procedure: 2,
+      research: 2,
+      demand: '基层慢病、公卫与转诊需求持续存在',
+      income: 3,
+      control: 4,
+      risk: '资源有限下的连续照护与居民信任维护',
+      opportunity: '社区信任、慢病管理和政策岗位路径更清晰'
+    }
+  };
+
+  const specialtyGroupTargets = {
+    acute: 'specialty_acute_choice',
+    internal: 'specialty_internal_choice',
+    surgery: 'specialty_surgery_choice',
+    platform: 'specialty_platform_choice'
+  };
+
+  function specialtyFlag(id) {
+    return `specialty_${id}`;
+  }
+
+  function makeSpecialtySchedules(id, previewA, previewB) {
+    const name = specialtyProfiles[id].name;
+    return [
+      {
+        delay: 1,
+        eventId: `re_sp_${id}_frontline`,
+        once: true,
+        source: `因为你定下了「${name}」方向，第一轮科室现实很快找上门来。`,
+        preview: previewA
+      },
+      {
+        delay: 3,
+        eventId: `re_sp_${id}_career`,
+        once: true,
+        source: `因为你定下了「${name}」方向，新的职业代价与机会随后出现。`,
+        preview: previewB
+      }
+    ];
+  }
+
+  const specialtyChoiceEffects = {
+    pediatrics: { skill: 6, ethics: 6, stress: 5, money: -2 },
+    emergency_critical: { skill: 8, stress: 6, health: -4, money: 2 },
+    internal: { skill: 6, research: 4, stress: 3 },
+    surgery: { skill: 7, stress: 5, health: -3, money: 1 },
+    obgyn: { skill: 7, ethics: 4, stress: 5, health: -3 },
+    anesthesia: { skill: 7, stress: 4, money: 2 },
+    dental: { skill: 6, money: 4, stress: 2 },
+    ent_oph: { skill: 6, money: 3, stress: 2 },
+    imaging_ultrasound: { skill: 6, research: 3, stress: 2 },
+    pathology_lab: { research: 6, skill: 4, stress: 1 },
+    psychiatry: { ethics: 7, skill: 5, stress: 4 },
+    general_practice: { ethics: 8, network: 4, money: 3, stress: 2 }
+  };
+
+  const specialtyDirectionChoice = {
+    id: 'specialty_direction_choice',
+    stage: 'training',
+    major: true,
+    title: '重大抉择：选择科室方向',
+    text: '实习、规培打听和带教观察之后，你终于要定下最影响未来十年的选择。这里没有绝对排名，只有不同医院、地区和你本人承受方式共同塑造出来的现实。',
+    yearDelta: 0,
+    options: [
+      { text: '急危重与围术期方向：抢救、产房、手术台', label: '激进', target: specialtyGroupTargets.acute, consequenceHint: '后续夜班、突发风险和团队协作事件会明显增多' },
+      { text: '内科与连续照护方向：病程管理、长期沟通、基层连接', label: '长期主义', target: specialtyGroupTargets.internal, consequenceHint: '后续慢病、沟通、科研与社区信任事件会更常见' },
+      { text: '手术与精细操作方向：刀台、门诊操作、技术积累', label: '均衡', target: specialtyGroupTargets.surgery, consequenceHint: '后续操作训练、患者预期与排班取舍会持续影响你' },
+      { text: '平台支持方向：判读、检验、影像与科室协同', label: '稳妥', safeChoice: true, target: specialtyGroupTargets.platform, consequenceHint: '后续报告质量、周转时效与跨科沟通会成为主线压力' }
+    ]
+  };
+
+  const specialtySubChoices = [
+    {
+      id: 'specialty_acute_choice',
+      title: '重大抉择：急危重与围术期细分',
+      options: [
+        {
+          text: '儿科：高峰季、家长沟通与长期紧缺都在这里',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'night_shift_call',
+          specialty: 'pediatrics',
+          effects: specialtyChoiceEffects.pediatrics,
+          flagsSet: [specialtyFlag('pediatrics')],
+          scheduledEvents: makeSpecialtySchedules('pediatrics', '可能很快遭遇儿科高峰与家长沟通压力', '后续会出现紧缺岗位与家庭节奏冲突')
+        },
+        {
+          text: '急诊/重症：接受连轴转与抢救时钟',
+          target: 'night_shift_call',
+          specialty: 'emergency_critical',
+          effects: specialtyChoiceEffects.emergency_critical,
+          flagsSet: [specialtyFlag('emergency_critical')],
+          scheduledEvents: makeSpecialtySchedules('emergency_critical', '可能很快遭遇抢救潮与夜班叠加', '后续会出现床位协调与高强度留任机会')
+        },
+        {
+          text: '妇产科：产房、手术和沟通都要扛住',
+          target: 'night_shift_call',
+          specialty: 'obgyn',
+          effects: specialtyChoiceEffects.obgyn,
+          flagsSet: [specialtyFlag('obgyn')],
+          scheduledEvents: makeSpecialtySchedules('obgyn', '可能很快遭遇围产期突发风险', '后续会出现产房值守与职业口碑机会')
+        }
+      ]
+    },
+    {
+      id: 'specialty_internal_choice',
+      title: '重大抉择：连续照护方向细分',
+      options: [
+        {
+          text: '内科系统：病程长、分化多、科研也卷',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'night_shift_call',
+          specialty: 'internal',
+          effects: specialtyChoiceEffects.internal,
+          flagsSet: [specialtyFlag('internal')],
+          scheduledEvents: makeSpecialtySchedules('internal', '可能很快遇到疑难鉴别与慢病管理拉锯', '后续会出现亚专科深耕与论文压力')
+        },
+        {
+          text: '精神科：长期沟通、风险评估与家属支持',
+          target: 'night_shift_call',
+          specialty: 'psychiatry',
+          effects: specialtyChoiceEffects.psychiatry,
+          flagsSet: [specialtyFlag('psychiatry')],
+          scheduledEvents: makeSpecialtySchedules('psychiatry', '可能很快遇到危机评估与家属沟通', '后续会出现长期随访与社会支持议题')
+        },
+        {
+          text: '全科/基层：慢病、公卫、转诊与居民信任',
+          target: 'night_shift_call',
+          specialty: 'general_practice',
+          effects: specialtyChoiceEffects.general_practice,
+          flagsSet: [specialtyFlag('general_practice'), 'grassroots_path'],
+          scheduledEvents: makeSpecialtySchedules('general_practice', '可能很快遇到签约居民与转诊协同压力', '后续会出现社区口碑与政策岗位机会')
+        }
+      ]
+    },
+    {
+      id: 'specialty_surgery_choice',
+      title: '重大抉择：操作与手术方向细分',
+      options: [
+        {
+          text: '外科系统：刀台、体力和围术期风暴一起上',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'night_shift_call',
+          specialty: 'surgery',
+          effects: specialtyChoiceEffects.surgery,
+          flagsSet: [specialtyFlag('surgery')],
+          scheduledEvents: makeSpecialtySchedules('surgery', '可能很快遇到术前准备失误或术后并发症处理', '后续会出现手术量增长与家庭时间冲突')
+        },
+        {
+          text: '口腔科：门诊操作更可规划，但精细技术与患者预期更高',
+          target: 'night_shift_call',
+          specialty: 'dental',
+          effects: specialtyChoiceEffects.dental,
+          flagsSet: [specialtyFlag('dental')],
+          scheduledEvents: makeSpecialtySchedules('dental', '可能很快遇到复诊安排与技术口碑考验', '后续会出现排班选择与自费项目压力')
+        },
+        {
+          text: '眼科/耳鼻喉科：节奏更计划化，但设备和精细度同样不轻',
+          target: 'night_shift_call',
+          specialty: 'ent_oph',
+          effects: specialtyChoiceEffects.ent_oph,
+          flagsSet: [specialtyFlag('ent_oph')],
+          scheduledEvents: makeSpecialtySchedules('ent_oph', '可能很快遇到精细操作与设备排队问题', '后续会出现专病门诊机会与竞争压力')
+        }
+      ]
+    },
+    {
+      id: 'specialty_platform_choice',
+      title: '重大抉择：平台支持方向细分',
+      options: [
+        {
+          text: '麻醉科：在幕后稳住整台手术的呼吸与节奏',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'night_shift_call',
+          specialty: 'anesthesia',
+          effects: specialtyChoiceEffects.anesthesia,
+          flagsSet: [specialtyFlag('anesthesia')],
+          scheduledEvents: makeSpecialtySchedules('anesthesia', '可能很快遇到突发插管与围术期抢救', '后续会出现手术台扩容与排班议价')
+        },
+        {
+          text: '影像/超声：报告质量、时效和跨科沟通一起卷',
+          target: 'night_shift_call',
+          specialty: 'imaging_ultrasound',
+          effects: specialtyChoiceEffects.imaging_ultrasound,
+          flagsSet: [specialtyFlag('imaging_ultrasound')],
+          scheduledEvents: makeSpecialtySchedules('imaging_ultrasound', '可能很快遇到报告时效与漏诊压力', '后续会出现 AI 判读与亚专科发展机会')
+        },
+        {
+          text: '病理/检验：平台支撑全院，但错误代价同样沉重',
+          target: 'night_shift_call',
+          specialty: 'pathology_lab',
+          effects: specialtyChoiceEffects.pathology_lab,
+          flagsSet: [specialtyFlag('pathology_lab')],
+          scheduledEvents: makeSpecialtySchedules('pathology_lab', '可能很快遇到样本积压与质控追责', '后续会出现科研合作与平台话语权机会')
+        }
+      ]
+    }
+  ].map((event) => ({
+    stage: 'training',
+    major: true,
+    yearDelta: 0,
+    ...event
+  }));
+
+  const startIntroEvent = {
+    id: 'admission_985_intro',
+    stage: 'undergrad',
+    major: true,
+    title: '重大抉择：985 医学院报到日',
+    text: '中学与高考被压缩成了简短序章：你已经拿到一所顶尖综合大学医学院的录取通知书。真正拉开差距的，不是那张分数条，而是你入学后的第一种活法。',
+    yearDelta: 1,
+    options: [
+      {
+        text: '先把基础课、作息和节奏稳住，做个不冒进的新生',
+        label: '稳妥',
+        safeChoice: true,
+        target: 'freshman_life',
+        effects: { health: 8, stress: -5, skill: 5, money: -2 },
+        flagsSet: ['foundation_track'],
+        scheduledEvents: [{ delay: 2, eventId: 're_foundation_osce', once: true, source: '因为你开局选择了稳住基础，老师很快把你推到了基本功考核前。', preview: '可能很快遇到基础能力抽查' }],
+        consequenceHint: '后续更容易遇到基础能力与时间管理考验'
+      },
+      {
+        text: '尽早进组、冲科研项目，试着提前占位',
+        label: '激进',
+        target: 'freshman_life',
+        effects: { research: 8, stress: 6, health: -3, money: -1 },
+        flagsSet: ['early_research_track'],
+        scheduledEvents: [{ delay: 2, eventId: 're_early_lab_commitment', once: true, source: '因为你开局抢先冲进实验室，科研节奏会提前压到你身上。', preview: '可能很快遇到实验室占用与署名取舍' }],
+        consequenceHint: '后续更容易引来实验室任务和导师要求'
+      },
+      {
+        text: '先适应校园和人际，再决定自己卷到什么程度',
+        label: '均衡',
+        target: 'freshman_life',
+        effects: { network: 8, health: 5, stress: -2, money: -2 },
+        flagsSet: ['campus_balance_track'],
+        scheduledEvents: [{ delay: 2, eventId: 're_club_pull', once: true, source: '因为你把开局重心放在人际与适应，新的社团与项目邀请很快出现。', preview: '可能很快遇到社团与学业取舍' }],
+        consequenceHint: '后续更容易遇到人际资源与时间分配问题'
+      },
+      {
+        text: '一边读医学，一边认真保留转专业和转轨的观察期',
+        label: '长期主义',
+        target: 'freshman_life',
+        effects: { skill: 4, stress: 3, ethics: 3, money: -1 },
+        flagsSet: ['major_doubt'],
+        scheduledEvents: [{ delay: 3, eventId: 're_transfer_window', once: true, source: '因为你从入学起就保留了转轨观察，新的岔路口会在后面出现。', preview: '可能很快遇到转专业或双学位窗口' }],
+        consequenceHint: '后续可能解锁转轨或双学位窗口'
+      }
+    ]
+  };
+
+  insertEventAfter('drg_bootcamp', specialtyDirectionChoice);
+  for (const event of specialtySubChoices.slice().reverse()) {
+    insertEventAfter('specialty_direction_choice', event);
+  }
+  insertEventAfter('ending_crisis_pc_crash', startIntroEvent);
+  const drgBootcamp = findEvent('drg_bootcamp');
+  for (const option of drgBootcamp?.options || []) {
+    if (option.target === 'night_shift_call') {
+      option.target = 'specialty_direction_choice';
+    }
+  }
+
+  randomEvents.push(
+    {
+      id: 're_foundation_osce',
+      stage: 'undergrad',
+      title: '🎯 基础能力抽查',
+      text: '因为你开局把基础打得很稳，带教把你点去做一次额外 OSCE 抽查。现在轮到你把“稳妥”变成看得见的结果了。',
+      rarity: 'uncommon',
+      weight: 6,
+      returnTo: 'anatomy_lab',
+      options: [
+        { text: '按步骤完成，不抢花活', label: '稳妥', effects: { skill: 6, stress: 2, money: 2 } },
+        { text: '主动要求多做一项，顺便刷存在感', label: '激进', effects: { skill: 8, network: 4, stress: 5 } },
+        { text: '和同学互相纠错后再上', label: '团队协作', effects: { skill: 5, network: 6, stress: -2 } }
+      ]
+    },
+    {
+      id: 're_early_lab_commitment',
+      stage: 'undergrad',
+      title: '🎯 提前进组的代价',
+      text: '因为你太早冲进实验室，导师默认你周末也能到。项目名额是真的，时间吞噬也是真的。',
+      rarity: 'uncommon',
+      weight: 6,
+      returnTo: 'biochem_week',
+      options: [
+        { text: '谈清边界，只接自己能扛住的任务', label: '稳妥', effects: { research: 5, stress: -2, money: 2 } },
+        { text: '全都接下，先把位置站稳', label: '激进', effects: { research: 9, stress: 8, health: -5 } },
+        { text: '找师兄师姐问清规则后再接活', label: '团队协作', effects: { research: 4, network: 7, stress: 1 } }
+      ]
+    },
+    {
+      id: 're_club_pull',
+      stage: 'undergrad',
+      title: '🎯 社团和项目开始找你',
+      text: '因为你开局把适应与人际放在前面，班级、社团和志愿活动都开始拉你进群。好机会和时间碎片一起来了。',
+      rarity: 'common',
+      weight: 8,
+      returnTo: 'clerkship_intro',
+      options: [
+        { text: '只保留一个真正能学到东西的组织', label: '稳妥', effects: { network: 5, stress: -2, health: 3 } },
+        { text: '都试试，先把人脉铺开', label: '激进', effects: { network: 10, stress: 6, health: -4 } },
+        { text: '拉上同学一起分工参与', label: '团队协作', effects: { network: 8, skill: 3, stress: 1 } }
+      ]
+    },
+    {
+      id: 're_transfer_window',
+      stage: 'undergrad',
+      title: '🎯 转专业窗口',
+      text: '因为你从入学起就保留了观察期，学院发来了双学位和转专业咨询通知。医学线外的空气，突然有了真实的味道。',
+      rarity: 'rare',
+      weight: 4,
+      returnTo: 'mentor_choice',
+      options: [
+        { text: '继续留在医学，但给自己定个复盘节点', label: '稳妥', effects: { ethics: 5, stress: -3, skill: 3 } },
+        { text: '报名辅修，给未来留个出口', label: '均衡', effects: { skill: 3, research: 4, stress: 4, money: -3 } },
+        { text: '开始认真筹备转轨材料', label: '激进', effects: { stress: 6, network: 4, money: -2 }, flagsSet: ['transfer_ready'] }
+      ]
+    }
+  );
+
+  function createSpecialtyEvent(id, stage, suffix, title, text, options) {
+    randomEvents.push({
+      id: `re_sp_${id}_${suffix}`,
+      stage,
+      title,
+      text,
+      rarity: stage === 'resident' ? 'uncommon' : 'rare',
+      weight: 6,
+      returnTo: stage === 'resident' ? 'ward_rounds' : 'promotion_gate',
+      requireFlags: [specialtyFlag(id)],
+      options
+    });
+  }
+
+  for (const [id, profile] of Object.entries(specialtyProfiles)) {
+    const intensityPenalty = Math.max(1, profile.intensity - 2);
+    const controlBonus = Math.max(0, profile.control - 2);
+    const incomeBonus = Math.max(0, profile.income - 2);
+    const disputePenalty = Math.max(1, profile.dispute - 1);
+
+    createSpecialtyEvent(
+      id,
+      'resident',
+      'frontline',
+      `🎯 ${profile.name}的一线压力`,
+      `${profile.name}最近正碰上：${profile.risk}。这条线在游戏里被概括为“${profile.demand}”，不代表所有医院都一样，但你确实感到这份 specialty profile 正在变成现实。`,
+      [
+        { text: '按流程稳住节奏，宁可慢一点也不越线', label: '稳妥', effects: { skill: 4, ethics: 4, stress: 3 + disputePenalty, legalRisk: -3, health: -intensityPenalty } },
+        { text: '多接一点、多做一点，尽快把手练出来', label: '激进', effects: { skill: 7, money: 3 + incomeBonus, stress: 7 + intensityPenalty, health: -(2 + intensityPenalty) } },
+        { text: '把同事、上级和相关科室都拉进来一起扛', label: '团队协作', effects: { network: 7, stress: -2 + intensityPenalty, legalRisk: -2, skill: 3 } }
+      ]
+    );
+
+    createSpecialtyEvent(
+      id,
+      'resident',
+      'craft',
+      `🎯 ${profile.name}的技术门槛`,
+      `${profile.name}的 specialty profile 写着：技术学习曲线 ${profile.learning}/5，操作要求 ${profile.procedure}/5，生活可控性 ${profile.control}/5。你现在要决定，怎么跨过这道门槛。`,
+      [
+        { text: '慢一点，先把关键动作练到稳', label: '稳妥', effects: { skill: 5, stress: 2, health: controlBonus, money: 1 } },
+        { text: '抢着做高难度病例，逼自己加速成长', label: '激进', effects: { skill: 8, stress: 6, health: -2, legalRisk: disputePenalty } },
+        { text: '找愿意带人的老师做针对性复盘', label: '团队协作', effects: { skill: 5, network: 6, stress: -1, money: -1 } }
+      ]
+    );
+
+    createSpecialtyEvent(
+      id,
+      'senior',
+      'career',
+      `🎯 ${profile.name}的职业岔路`,
+      `${profile.name}并不存在统一的轻松或艰难答案。你眼前这家医院的现实是：科研竞争 ${profile.research}/5，收入成长潜力 ${profile.income}/5，就业供需表现为“${profile.demand}”。新的机会来了，代价也跟着来了。`,
+      [
+        { text: '守住当下岗位，慢慢累积口碑和病例', label: '稳妥', effects: { money: 2 + incomeBonus, stress: 1 + disputePenalty, skill: 4, ethics: 3 } },
+        { text: `主动争取：${profile.opportunity}`, label: '长期主义', effects: { skill: 6, network: 4, research: profile.research >= 4 ? 5 : 2, stress: 4 + intensityPenalty, money: 3 + incomeBonus } },
+        { text: '重新评估是否转岗/转科/转去更能承受的环境', label: '均衡', effects: { health: 4 + controlBonus, stress: -(2 + controlBonus), money: -2, network: -1 }, flagsSet: ['consider_switching_specialty'] }
+      ]
+    );
+  }
+
+  randomEvents.push(
+    {
+      id: 're_specialty_transfer_window',
+      stage: 'resident',
+      title: '🎲 转科念头浮上来',
+      text: '你开始怀疑：现在这条 specialty 线，究竟是你想要的，还是你只是已经走得太远。医院也给了少量转科和转岗窗口。',
+      rarity: 'rare',
+      weight: 4,
+      returnTo: 'performance_review',
+      conditions: { specialties: Object.keys(specialtyProfiles) },
+      options: [
+        { text: '先不动，继续把当前能力补齐', label: '稳妥', effects: { skill: 4, stress: -2, ethics: 3 } },
+        { text: '申请转到生活更可控的岗位', label: '均衡', effects: { health: 7, stress: -6, network: -3, skill: -2, money: -3 }, flagsSet: ['switched_role'] },
+        { text: '赌一次彻底重来，哪怕损失人脉和时间', label: '激进', effects: { health: 3, stress: 5, network: -6, skill: -4, money: -5 }, flagsSet: ['switched_role'] }
+      ]
+    },
+    {
+      id: 're_specialty_cross_consult',
+      stage: 'resident',
+      title: '🎲 跨科协作的摩擦',
+      text: '一个病例卡在你和兄弟科室之间：到底是谁先推进、谁担责任、谁来跟家属解释，没有人愿意先开口。',
+      rarity: 'common',
+      weight: 7,
+      returnTo: 'patient_talk',
+      conditions: { specialties: Object.keys(specialtyProfiles) },
+      options: [
+        { text: '把界面和流程写清楚，再推动一次', label: '稳妥', effects: { legalRisk: -4, network: 4, stress: 3 } },
+        { text: '先把病人接住，责任后面再说', label: '激进', effects: { ethics: 5, stress: 7, legalRisk: 4, skill: 4 } },
+        { text: '组织一个短会，让关键人一起拍板', label: '团队协作', effects: { network: 8, stress: -2, legalRisk: -3 } }
+      ]
+    },
+    {
+      id: 're_specialty_board_course',
+      stage: 'senior',
+      title: '🎲 专科进修名额',
+      text: '医院放出一个专科进修或高级培训名额。它能让你往前一步，但也会占掉钱、时间和家庭空间。',
+      rarity: 'uncommon',
+      weight: 5,
+      returnTo: 'senior_outcome',
+      conditions: { specialties: Object.keys(specialtyProfiles) },
+      options: [
+        { text: '去，但先把家里和科室都沟通好', label: '稳妥', effects: { skill: 6, network: 5, money: -6, stress: 3 } },
+        { text: '不去，先保住当前生活可控性', label: '休息', effects: { health: 6, stress: -5, research: -2 } },
+        { text: '争取公费或联合培养，把成本摊开', label: '团队协作', effects: { network: 8, money: -2, stress: 1, skill: 4 } }
+      ]
+    },
+    {
+      id: 're_specialty_low_cost_shift',
+      stage: 'senior',
+      title: '🎲 更低成本城市的邀请',
+      text: '一家新院区或地市医院抛来橄榄枝：收入不一定暴涨，但房租、通勤和夜班结构可能更适合你现在的人生阶段。',
+      rarity: 'rare',
+      weight: 4,
+      returnTo: 'senior_outcome',
+      conditions: { specialties: Object.keys(specialtyProfiles), stats: { money: { max: 35 } } },
+      options: [
+        { text: '认真算账后接受，换一个活法', label: '稳妥', effects: { money: 10, stress: -8, health: 6, network: -3 }, flagsSet: ['low_cost_city'] },
+        { text: '留下来，赌大城市的后劲', label: '激进', effects: { money: -4, stress: 6, network: 5 } },
+        { text: '先谈条件，看能不能带着 specialty 优势平移', label: '团队协作', effects: { network: 8, money: 4, stress: -2 } }
+      ]
+    }
+  );
+
+  randomEvents.push(
+    {
+      id: 're_forced_financial_crisis',
+      stage: 'resident',
+      title: '⚠️ 财务危机',
+      text: '你的经济状况已经跌到谷底。房租、培训费、家里电话和银行卡余额同时盯着你：这一次不能再假装“下个月会好”。',
+      rarity: 'rare',
+      weight: 1,
+      returnTo: 'performance_review',
+      options: [
+        { text: '向家里坦白，接受一次援助', label: '稳妥', effects: { money: 18, stress: -6, ethics: 2 }, flagsSet: ['family_bailout'] },
+        { text: '申请贷款或债务分期，先把眼前缺口补上', label: '均衡', effects: { money: 22, stress: 6, health: -2 }, flagsSet: ['debt_burden'], scheduledEvents: [{ delay: 2, eventId: 're_forced_debt_pressure', once: false, source: '因为你靠贷款或债务分期缓过了这一口气，还款压力不会消失。', preview: '后续会出现还款与现金流压力' }] },
+        { text: '离开高成本城市，主动换一个更能活下去的岗位', label: '长期主义', effects: { money: 14, stress: -5, health: 5, skill: -3, network: -4 }, flagsSet: ['low_cost_city'] },
+        { text: '硬拖着不处理，继续透支未来', label: '激进', target: 'ending_finance_forced_exit', effects: { health: -8, stress: 10, ethics: -4 } }
+      ]
+    },
+    {
+      id: 're_forced_debt_pressure',
+      stage: 'resident',
+      title: '⚠️ 还款提醒',
+      text: '贷款宽限期过去了。短信开始按月来，情绪也开始按月掉。你得决定，是继续硬扛，还是主动重排生活结构。',
+      rarity: 'uncommon',
+      weight: 2,
+      returnTo: 'ward_rounds',
+      requireFlags: ['debt_burden'],
+      options: [
+        { text: '砍掉高成本消费，稳稳还款', label: '稳妥', effects: { money: 8, stress: -4, health: 2 }, flagsSet: ['debt_repayment_plan'] },
+        { text: '接更多班和副业，把现金流拉回来', label: '激进', effects: { money: 12, stress: 8, health: -6 } },
+        { text: '再次展期，先活下来再说', label: '均衡', target: 'ending_finance_debt_loop', effects: { money: 4, stress: 6, ethics: -3 } }
+      ]
+    },
+    {
+      id: 're_financial_recovery_window',
+      stage: 'senior',
+      title: '🎯 财务恢复窗口',
+      text: '你终于遇到一次不那么光鲜、但足够务实的恢复机会：低成本搬迁、稳定岗位或靠谱副职，至少能让现金流回正。',
+      rarity: 'uncommon',
+      weight: 4,
+      returnTo: 'senior_outcome',
+      conditions: { anyFlags: ['debt_burden', 'low_cost_city', 'family_bailout'], stats: { money: { max: 35 } } },
+      options: [
+        { text: '接受稳定但不耀眼的恢复路线', label: '稳妥', effects: { money: 14, stress: -8, health: 5 } },
+        { text: '把副职和主业重新排班，慢慢回血', label: '均衡', effects: { money: 10, stress: 2, health: -2, skill: 3 } },
+        { text: '嫌赚得太慢，继续赌下一次暴涨', label: '激进', effects: { money: -4, stress: 7, legalRisk: 4 } }
+      ]
+    },
+    {
+      id: 're_forced_research_audit',
+      stage: 'graduate',
+      title: '⚠️ 学术诚信抽检',
+      text: '因为你之前走过一次数据或结论上的捷径，院里忽然开始抽检原始记录。你知道，这次不是运气题了。',
+      rarity: 'rare',
+      weight: 2,
+      returnTo: 'paper_deadline',
+      requireFlags: ['questionable_research'],
+      options: [
+        { text: '主动补材料并承认疏漏，尽量保住底线', label: '稳妥', effects: { ethics: 6, research: -3, stress: 6, legalRisk: -2 } },
+        { text: '继续修饰说法，赌没人继续追', label: '激进', effects: { research: 3, ethics: -10, legalRisk: 10, stress: 8 } },
+        { text: '找导师一起补救，争取把损害降到最低', label: '团队协作', effects: { network: 7, ethics: 4, stress: 3, research: -2 } }
+      ]
+    },
+    {
+      id: 're_forced_record_audit',
+      stage: 'resident',
+      title: '⚠️ 病历补记抽查',
+      text: '因为你曾经留下过“先口头医嘱、事后补记”的痕迹，病历质控在这个月突然盯上了你。',
+      rarity: 'rare',
+      weight: 2,
+      returnTo: 'complaint_case',
+      requireFlags: ['record_shortcut'],
+      options: [
+        { text: '一条条补齐并接受批评', label: '稳妥', effects: { legalRisk: -6, stress: 5, health: -2 } },
+        { text: '继续糊弄，先把眼前工作做完', label: '激进', effects: { stress: 3, ethics: -8, legalRisk: 12 } },
+        { text: '请上级一起复盘流程，堵住后续漏洞', label: '团队协作', effects: { network: 6, legalRisk: -5, skill: 3, stress: 2 } }
+      ]
+    },
+    {
+      id: 're_forced_ai_review',
+      stage: 'resident',
+      title: '⚠️ AI 结果复核',
+      text: '因为你之前太依赖 AI，有一份病历被系统标记为“疑似自动生成错误”。现在你得向人解释，而不是向模型解释。',
+      rarity: 'rare',
+      weight: 2,
+      returnTo: 'promotion_gate',
+      requireFlags: ['ai_overtrust'],
+      options: [
+        { text: '老老实实复核全部高风险病历', label: '稳妥', effects: { legalRisk: -8, stress: 5, skill: 3 } },
+        { text: '把锅推给系统和流程', label: '激进', effects: { network: -4, ethics: -6, legalRisk: 10, stress: 4 } },
+        { text: '顺势推动科内建立复核标准', label: '团队协作', effects: { network: 8, legalRisk: -5, ethics: 4, stress: 2 } }
+      ]
+    },
+    {
+      id: 're_forced_cost_review',
+      stage: 'resident',
+      title: '⚠️ 质控追问',
+      text: '因为你之前把控费压得太狠，医务和医保部门开始追问：为什么一些病人明明该做的检查没做、该观察的住院日被提前切掉？',
+      rarity: 'rare',
+      weight: 2,
+      returnTo: 'performance_review',
+      requireFlags: ['over_controlled_cost'],
+      options: [
+        { text: '把流程补回来，承认自己之前太看重指标', label: '稳妥', effects: { ethics: 6, legalRisk: -6, money: -3, stress: 4 } },
+        { text: '继续强调数据好看，赌不会深查', label: '激进', effects: { money: 4, ethics: -8, legalRisk: 10, stress: 5 } },
+        { text: '联合科室一起做质量复盘', label: '团队协作', effects: { network: 6, skill: 4, legalRisk: -4, stress: 2 } }
+      ]
+    },
+    {
+      id: 're_forced_childcare_crunch',
+      stage: 'resident',
+      title: '⚠️ 育儿与值班撞车',
+      text: '因为你开启了育儿支线，排班、托育和家里长辈的时间表终于在同一周一起失控了。',
+      rarity: 'uncommon',
+      weight: 3,
+      returnTo: 'performance_review',
+      requireFlags: ['has_child'],
+      options: [
+        { text: '和伴侣、家里一起重排班表', label: '团队协作', effects: { network: 5, stress: -4, money: -3, health: 2 } },
+        { text: '自己硬扛，把睡眠继续切给工作', label: '激进', effects: { money: 2, stress: 8, health: -7 } },
+        { text: '申请更稳的岗位或轮转安排', label: '稳妥', effects: { health: 5, stress: -5, money: -2, skill: -1 } }
+      ]
+    },
+    {
+      id: 're_forced_bigcity_rent',
+      stage: 'training',
+      title: '⚠️ 省会生活成本反噬',
+      text: '因为你之前冲了大平台和高成本城市，租房、通勤和培训杂费开始以一种非常现实的方式追上你。',
+      rarity: 'uncommon',
+      weight: 3,
+      returnTo: 'residency_waitlist',
+      requireFlags: ['tier3_path'],
+      options: [
+        { text: '立刻换合租和更省钱的通勤方案', label: '稳妥', effects: { money: 9, stress: -3, health: -1 } },
+        { text: '继续咬牙住得近，把时间买回来', label: '激进', effects: { money: -6, health: 3, stress: 4 } },
+        { text: '和同届一起拼房拼资源', label: '团队协作', effects: { money: 6, network: 5, stress: -2 } }
+      ]
+    },
+    {
+      id: 're_forced_referral_chain',
+      stage: 'training',
+      title: '⚠️ 基层转诊压力',
+      text: '因为你较早走上基层或连续照护路线，居民信任开始转化成真实压力：大家都来找你，你也得为每一次转诊负责。',
+      rarity: 'uncommon',
+      weight: 3,
+      returnTo: 'grassroots_early',
+      requireFlags: ['grassroots_path'],
+      options: [
+        { text: '建立一套自己的转诊与随访清单', label: '稳妥', effects: { skill: 4, ethics: 5, stress: 3, legalRisk: -3 } },
+        { text: '能接的都接，口碑先做起来', label: '激进', effects: { network: 6, stress: 7, health: -5, money: 3 } },
+        { text: '和上级医院固定对接一个协作人', label: '团队协作', effects: { network: 8, stress: -2, legalRisk: -2 } }
+      ]
+    }
+  );
+
+  events.push(
+    {
+      id: 'ending_finance_debt_loop',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：还款表比人生规划更完整',
+      text: '你没有一下子倒下，但每个月的收入、债务和利息把人生切成了更小的格子。你依然在工作，只是很多选择已经不是“想不想”，而是“还不还得起”。'
+    },
+    {
+      id: 'ending_finance_forced_exit',
+      stage: 'ending',
+      type: 'ending',
+      title: '结局：先活下来，再谈理想',
+      text: '财务缺口终于逼得你暂停了这条高成本的医学路线。你没有被一句话打败，而是被一个个账单慢慢推出了门外。以后的人生未必更差，只是这件白大褂暂时脱下了。'
+    }
+  );
+
+  walkOptionContainers((container, event) => {
+    const sourceText = `因为你当年选择了“${container.text || event.title}”，现在……`;
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('questionable_research')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_research_audit', once: false, source: sourceText, preview: '可能引来学术诚信抽检' }]);
+      container.consequenceHint = container.consequenceHint || '可能埋下学术诚信追问';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('record_shortcut')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_record_audit', once: false, source: sourceText, preview: '可能引来病历抽查' }]);
+      container.consequenceHint = container.consequenceHint || '可能埋下病历质控问题';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('ai_overtrust')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_ai_review', once: false, source: sourceText, preview: '可能引来 AI 结果复核' }]);
+      container.consequenceHint = container.consequenceHint || '可能引来 AI 复核与合规追问';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('over_controlled_cost')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_cost_review', once: false, source: sourceText, preview: '可能引来质控和医保追问' }]);
+      container.consequenceHint = container.consequenceHint || '可能引来控费后果';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('has_child')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_childcare_crunch', once: false, source: sourceText, preview: '可能引来育儿与排班冲突' }]);
+      container.consequenceHint = container.consequenceHint || '后续会显著增加家庭与排班压力';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('tier3_path')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_bigcity_rent', once: true, source: sourceText, preview: '可能引来高成本城市生活压力' }]);
+      container.consequenceHint = container.consequenceHint || '后续生活成本会更凶';
+    }
+    if (Array.isArray(container.flagsSet) && container.flagsSet.includes('grassroots_path')) {
+      setScheduledEvents(container, [{ delay: 2, eventId: 're_forced_referral_chain', once: true, source: sourceText, preview: '可能引来基层转诊与居民依赖压力' }]);
+      container.consequenceHint = container.consequenceHint || '后续会更常遇到基层协同问题';
+    }
+  });
+
   const GAME_DATA = {
     title: '一个中国医学生的一生',
     disclaimer: '本作是虚构与讽刺作品，不构成医学、法律或职业建议。不同地区与机构在 DRG/DIP、医保与管理实践上存在差异。',
-    startEventId: 'gaokao_choice',
+    startEventId: 'admission_985_intro',
+    startStage: 'undergrad',
+    startLog: '你已经收到 985 医学院录取通知书，真正的人生抉择从报到日开始。',
     fallbackEndingId: 'ending_balanced_life',
     statBounds: {
       health: [0, 100],
       stress: [0, 100],
-      money: [-20, 200],
+      money: [0, 100],
       skill: [0, 100],
       research: [0, 100],
       network: [0, 100],
@@ -3481,6 +4369,7 @@
       senior: '副高/主任或转行分支',
       ending: '人生终局'
     },
+    specialties: specialtyProfiles,
     randomEvents,
     events
   };

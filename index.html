@@ -10,7 +10,7 @@
     <main class="app-shell">
       <section id="start-screen" class="card">
         <h1>一个中国医学生的一生</h1>
-        <p class="intro">点击选项推进剧情：从高考志愿到职业终局，每次选择都会改变你的属性、路径与结局。金钱单位为人民币“万元”，多数关键行动会受属性影响触发成功/失败判定。</p>
+        <p class="intro">点击选项推进剧情：从 985 医学院报到到职业终局，每次选择都会改变你的属性、路径与结局。经济状况改为 0–100 百分制，关键行动会有判定、后果链、财务危机与科室分化。</p>
         <p id="disclaimer-text" class="disclaimer"></p>
         <div class="btn-row">
           <button id="start-btn" type="button">开始新人生</button>
@@ -21,14 +21,17 @@
 
       <section id="game-screen" class="layout" hidden>
         <article class="card event-card" aria-live="polite">
+          <div id="timeline-banner" class="timeline-banner">医学生涯第 1 年 · 18 岁</div>
           <header class="event-meta">
             <span id="stage-tag" class="tag"></span>
             <span id="age-tag" class="tag"></span>
             <span id="timeline-tag" class="tag"></span>
+            <span id="specialty-tag" class="tag"></span>
+            <span id="origin-tag" class="tag"></span>
           </header>
           <div class="title-row">
             <h2 id="event-title"></h2>
-            <span id="major-tag" class="tag major-tag" hidden>重大抉择</span>
+            <span id="major-tag" class="tag major-tag" hidden aria-label="当前为重大抉择事件">重大抉择</span>
           </div>
           <p id="event-text" class="event-text"></p>
           <div id="change-feedback" class="feedback" aria-live="polite"></div>

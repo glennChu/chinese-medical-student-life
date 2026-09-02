@@ -6,6 +6,7 @@
     endings: 'cmsl_endings_v1',
     achievements: 'cmsl_achievements_v1'
   };
+  const SAVE_VERSION = 2;
 
   const checkSystem = window.CHECK_SYSTEM || globalThis.CHECK_SYSTEM;
   const eventMap = new Map(GAME_DATA.events.map((event) => [event.id, event]));
@@ -18,7 +19,7 @@
   const statNames = {
     health: '健康',
     stress: '压力',
-    money: '金钱',
+    money: '经济状况',
     skill: '医术/临床能力',
     research: '科研',
     network: '人脉',
@@ -58,6 +59,9 @@
     stageTag: document.getElementById('stage-tag'),
     ageTag: document.getElementById('age-tag'),
     timelineTag: document.getElementById('timeline-tag'),
+    specialtyTag: document.getElementById('specialty-tag'),
+    originTag: document.getElementById('origin-tag'),
+    timelineBanner: document.getElementById('timeline-banner'),
     majorTag: document.getElementById('major-tag'),
     logList: document.getElementById('log-list'),
     feedback: document.getElementById('change-feedback'),
@@ -78,7 +82,7 @@
     const stats = {
       health: 80,
       stress: 20,
-      money: 10,
+      money: 55,
       skill: 10,
       research: 5,
       network: 8,
@@ -87,7 +91,7 @@
     };
 
     const generation = legacy && typeof legacy.generation === 'number' ? legacy.generation : 1;
-    const log = ['你站在高考志愿填报界面前。'];
+    const log = [GAME_DATA.startLog || '你已经走进 985 医学院，真正的人生抉择从这里开始。'];
 
     if (legacy && generation > 1) {
       stats.ethics = clampStat('ethics', stats.ethics + (legacy.ethicsBonus || 0));
@@ -99,12 +103,16 @@
     }
 
     return {
+      saveVersion: SAVE_VERSION,
       currentEventId: GAME_DATA.startEventId,
       age: 18,
-      stage: 'gaokao',
+      careerYear: 1,
+      stage: GAME_DATA.startStage || 'undergrad',
       stats,
       flags: {},
       delayedConsequences: [],
+      scheduledEvents: [],
+      scheduledHistory: [],
       log,
       endingId: null,
       turn: 0,
@@ -113,6 +121,9 @@
       retryState: {},
       inRandomEvent: false,
       randomEventReturnTo: null,
+      eventOrigin: 'main',
+      specialty: null,
+      financialCrises: 0,
       generation,
       legacy: legacy && generation > 1 ? legacy : {},
       generationLog: legacy && Array.isArray(legacy.generationLog) ? legacy.generationLog.slice(0, MAX_GENERATION) : [],
@@ -125,15 +136,67 @@
     return checkSystem.clamp(value, min, max);
   }
 
-  function formatMoney(value, signed) {
-    const prefix = signed
-      ? (value > 0 ? '+' : value < 0 ? '-' : '')
-      : (value < 0 ? '-' : '');
-    return `${prefix}¥${Math.abs(value).toFixed(1)} 万`;
+  function getSpecialtyProfile(id) {
+    return id ? GAME_DATA.specialties?.[id] : null;
+  }
+
+  function getSpecialtyName(id) {
+    return getSpecialtyProfile(id)?.name || '尚未定科';
+  }
+
+  function convertLegacyMoney(rawValue) {
+    if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) return 55;
+    const bounded = checkSystem.clamp(rawValue, -20, 200);
+    if (bounded <= 0) {
+      return Math.round(((bounded + 20) / 20) * 12);
+    }
+    if (bounded <= 20) {
+      return Math.round(12 + (bounded / 20) * 48);
+    }
+    if (bounded <= 80) {
+      return Math.round(60 + ((bounded - 20) / 60) * 25);
+    }
+    return Math.round(85 + ((bounded - 80) / 120) * 15);
+  }
+
+  function normalizeStats(rawStats, rawState, initialStats) {
+    const stats = { ...initialStats };
+    const isLegacySave = !rawState || typeof rawState.saveVersion !== 'number' || rawState.saveVersion < SAVE_VERSION;
+    for (const stat of Object.keys(initialStats)) {
+      const rawValue = rawStats?.[stat];
+      if (typeof rawValue !== 'number') continue;
+      const value = stat === 'money' && isLegacySave ? convertLegacyMoney(rawValue) : rawValue;
+      stats[stat] = clampStat(stat, value);
+    }
+    return stats;
+  }
+
+  function normalizeScheduledEvents(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        turns: typeof item.turns === 'number' ? Math.max(0, Math.round(item.turns)) : Math.max(0, Math.round(item.delay || 0)),
+        eventId: typeof item.eventId === 'string' ? item.eventId : '',
+        once: !!item.once,
+        source: typeof item.source === 'string' ? item.source : '',
+        preview: typeof item.preview === 'string' ? item.preview : '',
+        conditions: item.conditions && typeof item.conditions === 'object' ? item.conditions : undefined
+      }))
+      .filter((item) => item.eventId && (randomEventMap.has(item.eventId) || eventMap.has(item.eventId)));
+  }
+
+  const LEGACY_EVENT_ID_MIGRATIONS = {
+    gaokao_choice: 'admission_985_intro',
+    major_confirm: 'freshman_life',
+    admission_notice: 'freshman_life'
+  };
+
+  function mapLegacyEventId(eventId) {
+    return LEGACY_EVENT_ID_MIGRATIONS[eventId] || eventId;
   }
 
   function formatStatValue(stat, value, signed) {
-    if (stat === 'money') return formatMoney(value, signed);
     if (!signed) return `${value}`;
     return `${value > 0 ? '+' : ''}${value}`;
   }
@@ -150,21 +213,52 @@
     return items[items.length - 1];
   }
 
-  function evaluateConditions(conditions) {
+  function evaluateConditions(conditions, snapshot) {
+    const current = snapshot || state;
     if (!conditions) return true;
 
     if (conditions.flags) {
       for (const flag of conditions.flags) {
-        if (!state.flags[flag]) return false;
+        if (!current.flags[flag]) return false;
       }
+    }
+
+    if (conditions.requireFlags) {
+      for (const flag of conditions.requireFlags) {
+        if (!current.flags[flag]) return false;
+      }
+    }
+
+    if (conditions.forbidFlags || conditions.notFlags) {
+      for (const flag of [...(conditions.forbidFlags || []), ...(conditions.notFlags || [])]) {
+        if (current.flags[flag]) return false;
+      }
+    }
+
+    if (conditions.anyFlags?.length) {
+      if (!conditions.anyFlags.some((flag) => current.flags[flag])) return false;
     }
 
     if (conditions.stats) {
       for (const [key, range] of Object.entries(conditions.stats)) {
-        const val = state.stats[key];
+        const val = current.stats[key];
         if (typeof range.min === 'number' && val < range.min) return false;
         if (typeof range.max === 'number' && val > range.max) return false;
       }
+    }
+
+    const specialties = conditions.specialties
+      || (typeof conditions.specialty === 'string' ? [conditions.specialty] : Array.isArray(conditions.specialty) ? conditions.specialty : null);
+    if (specialties?.length && !specialties.includes(current.specialty)) {
+      return false;
+    }
+
+    if (conditions.stage && current.stage !== conditions.stage) return false;
+
+    if (conditions.generation) {
+      const generation = current.generation || 1;
+      if (typeof conditions.generation.min === 'number' && generation < conditions.generation.min) return false;
+      if (typeof conditions.generation.max === 'number' && generation > conditions.generation.max) return false;
     }
 
     return true;
@@ -183,6 +277,12 @@
         if (typeof range.min === 'number') chunks.push(`${statNames[k]}≥${range.min}`);
         if (typeof range.max === 'number') chunks.push(`${statNames[k]}≤${range.max}`);
       }
+    }
+
+    if (option.conditions.specialty || option.conditions.specialties) {
+      const specialties = option.conditions.specialties
+        || (typeof option.conditions.specialty === 'string' ? [option.conditions.specialty] : option.conditions.specialty);
+      chunks.push(`需科室：${specialties.map(getSpecialtyName).join('、')}`);
     }
 
     return chunks.length ? `（${chunks.join('，')}）` : '';
@@ -246,9 +346,26 @@
     syncFamily();
   }
 
+  function applySpecialty(specialtyId) {
+    if (!specialtyId || !GAME_DATA.specialties?.[specialtyId]) return;
+    state.specialty = specialtyId;
+  }
+
   function queueDelayedConsequences(delayed) {
     if (!delayed?.length) return;
     state.delayedConsequences.push(...delayed.map((item) => ({ ...item })));
+  }
+
+  function queueScheduledEvents(items) {
+    if (!items?.length) return;
+    state.scheduledEvents.push(...items.map((item) => ({
+      turns: Math.max(0, Math.round(item.turns ?? item.delay ?? 0)),
+      eventId: item.eventId,
+      once: !!item.once,
+      source: item.source || '',
+      preview: item.preview || '',
+      conditions: item.conditions
+    })));
   }
 
   function processDelayedConsequences() {
@@ -269,6 +386,46 @@
     }
 
     state.delayedConsequences = nextQueue;
+  }
+
+  function triggerInterruptEvent(eventId, origin, sourceText) {
+    if (!eventId || !randomEventMap.has(eventId)) return false;
+    state.seenRandomEvents.push(eventId);
+    state.randomEventReturnTo = state.currentEventId;
+    state.inRandomEvent = true;
+    state.currentEventId = eventId;
+    state.eventOrigin = origin;
+    if (sourceText) {
+      state.log.unshift(`🧭 ${sourceText}`);
+    }
+    return true;
+  }
+
+  function maybeTriggerScheduledEvent() {
+    if (!state.scheduledEvents.length) return false;
+
+    const nextQueue = [];
+    let triggered = null;
+    for (const item of state.scheduledEvents) {
+      if (triggered) {
+        nextQueue.push(item);
+        continue;
+      }
+      const turns = item.turns - 1;
+      const signature = `${item.eventId}:${item.source}`;
+      if (turns <= 0 && evaluateConditions(item.conditions)) {
+        if (item.once && state.scheduledHistory.includes(signature)) {
+          continue;
+        }
+        triggered = { ...item, turns };
+        if (item.once) state.scheduledHistory.push(signature);
+      } else {
+        nextQueue.push({ ...item, turns });
+      }
+    }
+    state.scheduledEvents = nextQueue;
+    if (!triggered) return false;
+    return triggerInterruptEvent(triggered.eventId, 'forced', triggered.source || `因为你之前的选择，现在迎来了 ${randomEventMap.get(triggered.eventId)?.title || '后续事件'}。`);
   }
 
   function getProgressMeta() {
@@ -306,15 +463,11 @@
   function normalizeGameState(rawState) {
     const initial = getInitialState();
     const nextState = rawState && typeof rawState === 'object' ? rawState : {};
-    const stats = { ...initial.stats };
-
-    for (const stat of Object.keys(initial.stats)) {
-      const rawValue = nextState.stats?.[stat];
-      stats[stat] = typeof rawValue === 'number' ? clampStat(stat, rawValue) : initial.stats[stat];
-    }
+    const stats = normalizeStats(nextState.stats, nextState, initial.stats);
 
     const validRandomId = (id) => randomEventMap.has(id) || eventMap.has(id);
-    const currentValid = eventMap.has(nextState.currentEventId) || randomEventMap.has(nextState.currentEventId);
+    const migratedCurrentEventId = mapLegacyEventId(nextState.currentEventId);
+    const currentValid = eventMap.has(migratedCurrentEventId) || randomEventMap.has(migratedCurrentEventId);
     const flags = nextState.flags && typeof nextState.flags === 'object' ? nextState.flags : {};
 
     const retryState = {};
@@ -334,12 +487,16 @@
       : 1;
 
     return {
-      currentEventId: currentValid ? nextState.currentEventId : initial.currentEventId,
+      saveVersion: SAVE_VERSION,
+      currentEventId: currentValid ? migratedCurrentEventId : initial.currentEventId,
       age: typeof nextState.age === 'number' ? Math.max(18, Math.round(nextState.age)) : initial.age,
+      careerYear: typeof nextState.careerYear === 'number' ? Math.max(1, Math.round(nextState.careerYear)) : Math.max(1, (typeof nextState.age === 'number' ? Math.round(nextState.age) : initial.age) - 17),
       stage: typeof nextState.stage === 'string' ? nextState.stage : initial.stage,
       stats,
       flags,
       delayedConsequences: normalizeDelayedConsequences(nextState.delayedConsequences),
+      scheduledEvents: normalizeScheduledEvents(nextState.scheduledEvents),
+      scheduledHistory: Array.isArray(nextState.scheduledHistory) ? nextState.scheduledHistory.filter((item) => typeof item === 'string').slice(0, 80) : [],
       log: Array.isArray(nextState.log) && nextState.log.length ? nextState.log.slice(0, 80) : initial.log.slice(),
       endingId: typeof nextState.endingId === 'string' ? nextState.endingId : null,
       turn: typeof nextState.turn === 'number' ? Math.max(0, Math.round(nextState.turn)) : 0,
@@ -348,8 +505,11 @@
         ? nextState.seenRandomEvents.filter((id) => randomEventMap.has(id))
         : [],
       retryState,
-      inRandomEvent: randomEventMap.has(nextState.currentEventId),
-      randomEventReturnTo: validRandomId(nextState.randomEventReturnTo) ? nextState.randomEventReturnTo : null,
+      inRandomEvent: randomEventMap.has(migratedCurrentEventId),
+      randomEventReturnTo: validRandomId(mapLegacyEventId(nextState.randomEventReturnTo)) ? mapLegacyEventId(nextState.randomEventReturnTo) : null,
+      eventOrigin: typeof nextState.eventOrigin === 'string' ? nextState.eventOrigin : 'main',
+      specialty: typeof nextState.specialty === 'string' && GAME_DATA.specialties?.[nextState.specialty] ? nextState.specialty : null,
+      financialCrises: typeof nextState.financialCrises === 'number' ? Math.max(0, Math.round(nextState.financialCrises)) : 0,
       generation,
       legacy: nextState.legacy && typeof nextState.legacy === 'object' ? nextState.legacy : {},
       generationLog: Array.isArray(nextState.generationLog) ? nextState.generationLog.slice(0, MAX_GENERATION) : [],
@@ -364,7 +524,8 @@
     if (!raw) return false;
     try {
       const parsed = JSON.parse(raw);
-      if (!eventMap.has(parsed.currentEventId) && !randomEventMap.has(parsed.currentEventId)) return false;
+      const mappedId = mapLegacyEventId(parsed.currentEventId);
+      if (!eventMap.has(mappedId) && !randomEventMap.has(mappedId)) return false;
       state = normalizeGameState(parsed);
       saveProgress();
       return true;
@@ -399,7 +560,12 @@
     if (state.stats.legalRisk >= 100) return 'ending_crisis_legal';
     if (state.stats.ethics <= 5) return 'ending_ethics_fall';
     if (state.stats.stress >= 100) return pickStressCrisisEnding();
+    if (state.stats.money <= 0 && state.financialCrises >= 3) return 'ending_finance_debt_loop';
     return null;
+  }
+
+  function shouldTriggerFinancialCrisis() {
+    return state.stats.money <= 0 && !state.inRandomEvent;
   }
 
   function pickStressCrisisEnding() {
@@ -417,37 +583,12 @@
   }
 
   function isRandomEligible(re) {
-    // Support top-level requireFlags shorthand
-    if (Array.isArray(re.requireFlags)) {
-      for (const flag of re.requireFlags) {
-        if (!state.flags[flag]) return false;
-      }
-    }
-    if (Array.isArray(re.forbidFlags)) {
-      for (const flag of re.forbidFlags) {
-        if (state.flags[flag]) return false;
-      }
-    }
-    const c = re.conditions;
-    if (!c) return true;
-    if (Array.isArray(c.flags)) {
-      for (const flag of c.flags) {
-        if (!state.flags[flag]) return false;
-      }
-    }
-    if (Array.isArray(c.notFlags)) {
-      for (const flag of c.notFlags) {
-        if (state.flags[flag]) return false;
-      }
-    }
-    if (c.stats) {
-      for (const [key, range] of Object.entries(c.stats)) {
-        const val = state.stats[key];
-        if (typeof range.min === 'number' && val < range.min) return false;
-        if (typeof range.max === 'number' && val > range.max) return false;
-      }
-    }
-    return true;
+    const mergedConditions = {
+      ...(re.conditions || {}),
+      requireFlags: [...(re.conditions?.requireFlags || []), ...(re.requireFlags || [])],
+      forbidFlags: [...(re.conditions?.forbidFlags || []), ...(re.forbidFlags || [])]
+    };
+    return evaluateConditions(mergedConditions);
   }
 
   function maybeInjectRandomEvent() {
@@ -463,12 +604,8 @@
     if (!candidates.length) return;
 
     const chosen = randomByWeight(candidates.map((re) => ({ ...re, weight: re.weight || 1 })));
-    state.seenRandomEvents.push(chosen.id);
-    state.randomEventReturnTo = state.currentEventId;
-    state.inRandomEvent = true;
-    state.currentEventId = chosen.id;
+    triggerInterruptEvent(chosen.id, 'random', `随机事件触发：${String(chosen.title || '').replace(/^[🎲⚠️🎯]\s*/, '')}`);
     state.stage = chosen.stage || state.stage;
-    state.log.unshift(`🎲 随机事件：${String(chosen.title || '').replace(/^🎲\s*/, '')}`);
   }
 
   function resolveTarget(target, randomTargets) {
@@ -491,7 +628,9 @@
 
     applyEffects(branch.effects, success ? '判定成功' : '判定失败');
     applyFlags(branch.flagsSet);
+    applySpecialty(branch.specialty);
     queueDelayedConsequences(branch.delayed);
+    queueScheduledEvents(branch.scheduledEvents);
 
     const summary = describeCheckSummary(details, 3);
     const feedback = branch.feedback || (success ? '你顶住了关键节点。' : '这次没能如愿，只能转向补救路线。');
@@ -524,6 +663,7 @@
     applyEffects(cfg.costPerRetry, '重试代价');
     if (typeof cfg.yearCostPerRetry === 'number' && cfg.yearCostPerRetry > 0) {
       state.age += cfg.yearCostPerRetry;
+      state.careerYear += cfg.yearCostPerRetry;
     }
     state.log.unshift(`🔁 你决定明年再战（第 ${record.attempts + 1}/${cfg.maxAttempts} 次），成功率已提升。`);
     return true;
@@ -532,6 +672,7 @@
   function advanceByOption(option) {
     state.turn += 1;
     state.lastChanges = [];
+    state.eventOrigin = 'main';
 
     const currentEvent = getCurrentEvent();
     const wasRandom = randomEventMap.has(state.currentEventId);
@@ -539,7 +680,9 @@
     processDelayedConsequences();
     applyEffects(option.effects, '本次选择');
     applyFlags(option.flagsSet);
+    applySpecialty(option.specialty);
     queueDelayedConsequences(option.delayed);
+    queueScheduledEvents(option.scheduledEvents);
 
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (currentEvent.yearDelta || 0);
     const choicePrefix = currentEvent.major ? '◆' : '•';
@@ -565,7 +708,7 @@
     }
 
     if (wasRandom) {
-      state.currentEventId = state.randomEventReturnTo || currentEvent.returnTo || fallbackEndingId;
+      state.currentEventId = targetId || state.randomEventReturnTo || currentEvent.returnTo || fallbackEndingId;
       state.inRandomEvent = false;
       state.randomEventReturnTo = null;
     } else {
@@ -582,10 +725,20 @@
       state.stage = 'ending';
     } else if (!retriedStay && deltaYear > 0) {
       state.age += deltaYear;
+      state.careerYear += deltaYear;
     }
 
-    if (!crisisEndingId && !wasRandom && !retriedStay) {
-      maybeInjectRandomEvent();
+    if (!crisisEndingId && !wasRandom && !retriedStay && shouldTriggerFinancialCrisis()) {
+      state.financialCrises += 1;
+      triggerInterruptEvent('re_forced_financial_crisis', 'forced', `因为你的经济状况已经跌到 ${state.stats.money}，财务危机被立刻触发。`);
+    }
+
+    if (!crisisEndingId && !wasRandom && !retriedStay && !state.inRandomEvent) {
+      if (!maybeTriggerScheduledEvent()) {
+        maybeInjectRandomEvent();
+      }
+    } else if (retriedStay) {
+      state.eventOrigin = 'retry';
     }
 
     const nowEvent = getCurrentEvent();
@@ -603,9 +756,11 @@
 
   function getStatStatus(stat, value) {
     if (stat === 'money') {
-      if (value < 0) return { icon: '⚠', label: '赤字', tone: 'danger' };
-      if (value < 6) return { icon: '◔', label: '紧张', tone: 'warn' };
-      if (value < 20) return { icon: '●', label: '尚可', tone: 'stable' };
+      if (value <= 0) return { icon: '⚠', label: '破产', tone: 'danger' };
+      if (value <= 10) return { icon: '⚠', label: '濒临破产', tone: 'danger' };
+      if (value <= 30) return { icon: '▲', label: '警戒', tone: 'warn' };
+      if (value <= 55) return { icon: '●', label: '吃紧', tone: 'stable' };
+      if (value <= 80) return { icon: '✓', label: '稳定', tone: 'good' };
       return { icon: '▲', label: '宽裕', tone: 'good' };
     }
 
@@ -624,6 +779,24 @@
     }
 
     return { icon: '●', label: '正常', tone: 'stable' };
+  }
+
+  function getProjectedMoneyWarning(option) {
+    const deltas = [];
+    if (typeof option.effects?.money === 'number') deltas.push(option.effects.money);
+    if (option.check) {
+      for (const branch of [option.check.success, option.check.failure]) {
+        if (typeof branch?.effects?.money === 'number') {
+          deltas.push((option.effects?.money || 0) + branch.effects.money);
+        }
+      }
+    }
+    if (!deltas.length) return '';
+    const projected = Math.min(...deltas.map((delta) => clampStat('money', state.stats.money + delta)));
+    if (projected <= 0) return '⚠ 经济状况可能直接破产';
+    if (projected <= 10) return '⚠ 经济状况可能跌到濒临破产';
+    if (projected <= 30) return '⚠ 经济状况可能进入警戒';
+    return '';
   }
 
   function buildStatRow(key, name, value) {
@@ -723,6 +896,19 @@
       if (!available) {
         hints.push(describeRequirements(option));
       }
+      if (option.consequenceHint) {
+        hints.push(`可能后果：${option.consequenceHint}`);
+      }
+      const projectedMoneyWarning = getProjectedMoneyWarning(option);
+      if (projectedMoneyWarning) {
+        hints.push(projectedMoneyWarning);
+      }
+      if (option.scheduledEvents?.length) {
+        const previews = option.scheduledEvents.map((item) => item.preview).filter(Boolean).slice(0, 2);
+        if (previews.length) {
+          hints.push(`后续牵连：${previews.join('；')}`);
+        }
+      }
 
       const tags = [];
       if (option.label && STRATEGY_LABEL_MAP[option.label]) {
@@ -771,16 +957,26 @@
   function renderGameScreen(event) {
     const isRandom = randomEventMap.has(event.id);
     const rarityLabels = { common: '普通', uncommon: '稀有', rare: '罕见', 'very-rare': '极罕见' };
+    const originLabels = {
+      main: '主线事件',
+      random: '随机事件',
+      forced: '必然后果',
+      retry: '重试事件'
+    };
+    refs.timelineBanner.textContent = `医学生涯第 ${state.careerYear} 年 · ${state.age} 岁`;
+    refs.stageTag.textContent = GAME_DATA.stages[event.stage] || event.stage;
+    refs.ageTag.textContent = `年龄 ${state.age}`;
+    refs.timelineTag.textContent = `第 ${state.careerYear} 年`;
+    refs.specialtyTag.textContent = `当前科室：${getSpecialtyName(state.specialty)}`;
+    refs.originTag.textContent = originLabels[state.eventOrigin] || originLabels.main;
+    refs.originTag.classList.toggle('random-tag', isRandom || state.eventOrigin === 'forced' || state.eventOrigin === 'retry');
     if (isRandom && event.rarity) {
       const rl = rarityLabels[event.rarity] || event.rarity;
-      refs.stageTag.textContent = `🎲 随机事件｜${rl}`;
-    } else {
-      refs.stageTag.textContent = isRandom ? '🎲 随机事件' : `${GAME_DATA.stages[event.stage] || event.stage}`;
+      refs.originTag.textContent = `${originLabels[state.eventOrigin] || originLabels.random}｜${rl}`;
     }
-    refs.stageTag.classList.toggle('random-tag', isRandom);
-    refs.ageTag.textContent = `年龄 ${state.age}`;
-    refs.timelineTag.textContent = isRandom ? '插曲' : getTimelineLabel(event);
+    refs.stageTag.classList.toggle('random-tag', false);
     refs.majorTag.hidden = !event.major;
+    refs.majorTag.textContent = event.major ? '重大抉择' : '';
     refs.eventCard.classList.toggle('major-event', !!event.major);
     refs.eventTitle.textContent = event.title;
     refs.eventText.textContent = event.text;
@@ -842,7 +1038,7 @@
       skillBonus: 6,
       researchBonus: 3,
       networkBonus: 4,
-      moneyBonus: parentMoney > 0 ? Math.min(15, Math.round(parentMoney * 0.15)) : 0,
+      moneyBonus: parentMoney > 0 ? Math.min(10, Math.round(parentMoney * 0.12)) : 0,
       parentEnding: eventMap.get(state.endingId)?.title || '上一代人生',
       generationLog: genLog
     };

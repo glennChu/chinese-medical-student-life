@@ -58,6 +58,18 @@ h1, h2, h3 { margin-top: 0; }
   margin-bottom: 12px;
 }
 
+.timeline-banner {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(103, 214, 255, 0.45);
+  background: linear-gradient(90deg, rgba(103, 214, 255, 0.2), rgba(159, 140, 255, 0.14));
+  color: #f3fbff;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .tag {
   background: rgba(103, 214, 255, 0.15);
   border: 1px solid rgba(103, 214, 255, 0.42);
@@ -82,14 +94,15 @@ h1, h2, h3 { margin-top: 0; }
     linear-gradient(160deg, rgba(159, 140, 255, 0.16), rgba(103, 214, 255, 0.08)),
     linear-gradient(165deg, var(--panel), var(--panel-2));
   box-shadow: 0 14px 34px rgba(93, 84, 176, 0.3);
-  animation: major-glow 1.8s ease-in-out infinite alternate;
+  animation: major-glow 1.1s ease-out 1;
 }
 
 .major-tag {
-  background: rgba(159, 140, 255, 0.16);
-  border-color: rgba(159, 140, 255, 0.45);
-  color: #e3dcff;
+  background: linear-gradient(90deg, rgba(159, 140, 255, 0.26), rgba(244, 184, 96, 0.18));
+  border-color: rgba(159, 140, 255, 0.62);
+  color: #f4eeff;
   font-weight: 700;
+  padding: 6px 12px;
 }
 
 .random-tag {
@@ -211,6 +224,7 @@ button:disabled {
 .choice-btn small {
   color: #d9e4ff;
   font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .check-choice {
@@ -313,6 +327,11 @@ button:disabled {
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+  .timeline-banner { font-size: 1.05rem; }
+  .title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
