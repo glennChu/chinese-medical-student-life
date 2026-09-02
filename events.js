@@ -2749,7 +2749,7 @@
           flagsSet: ['grassroots_path']
         },
         {
-          text: '托师兄师姐牵线，找带教口碑好的科室',
+          text: '托师兄师姐牵线，走地市中心医院/强二甲的人情渠道找带教口碑好的科室',
           label: '团队协作',
           effects: { network: 8, money: -5, stress: 2 },
           check: {
@@ -2760,8 +2760,8 @@
             success: {
               target: 'drg_bootcamp',
               effects: { network: 10, skill: 8, stress: -5 },
-              feedback: '你被安排进一个愿意带人的科室，起步顺利。',
-              log: '判定成功（规培）：熟人牵线帮你找到了好带教。'
+              feedback: '你被安排进地市中心医院一个愿意带人的科室，起步顺利。',
+              log: '判定成功（规培）：熟人牵线帮你在地市中心医院找到了好带教。'
             },
             failure: {
               target: 'residency_waitlist',
@@ -6985,6 +6985,456 @@
     }
   }
 
+  function findRandomEvent(id) {
+    return randomEvents.find((event) => event.id === id);
+  }
+
+  const clinicalCareerTitles = ['resident', 'attending', 'associate_chief', 'chief', 'dept_head'];
+
+  // ===== 恋爱状态机：重写保底事件、补足阶段推进与孩子延期 =====
+  {
+    const romanceUndergrad = findRandomEvent('re_romance_undergrad');
+    if (romanceUndergrad) {
+      romanceUndergrad.text = '一次熬夜复习后，对方把你常坐的位置和热饮都记住了。你突然意识到，这不像普通同学之间的顺手帮忙。';
+      romanceUndergrad.options = [
+        {
+          text: '认真接触，先约一次不那么像复习的见面',
+          label: '均衡',
+          conditions: { relationshipStages: ['single'] },
+          check: {
+            baseChance: 68,
+            stats: { stress: -0.35, ethics: 0.2, network: 0.3, health: 0.15 },
+            minChance: 30,
+            maxChance: 92,
+            success: {
+              effects: { stress: -8, health: 5 },
+              romance: { interaction: 1, advanceTo: 'met' },
+              scheduledEvents: [{ delay: 2, eventId: 're_romance_followup_undergrad', once: true, source: '你们第一次认真单独见面之后，关系没有自动消失。', preview: '可能迎来下一次单独相处' }],
+              feedback: '你们都没有把这次见面当成普通同学局。',
+              log: '💞 你和对方之间，开始有了值得继续观察的信号。'
+            },
+            failure: {
+              effects: { stress: 4 },
+              romance: { interaction: 1 },
+              feedback: '气氛不差，但还停在试探里。',
+              log: '感情这件事，没有因为你鼓起勇气就自动快进。'
+            }
+          }
+        },
+        { text: '先当学习搭子，看看会不会更进一步', label: '团队协作', effects: { network: 8, skill: 5, stress: -3 }, romance: { interaction: 1, advanceTo: 'met' } },
+        { text: '把心动放回抽屉，先顾好学业', label: '长期主义', effects: { skill: 8, stress: 2 } }
+      ];
+    }
+
+    randomEvents.push({
+      id: 're_romance_followup_undergrad', stage: 'undergrad', repeatable: false, title: '💞 第一次真正聊天之后',
+      text: '你们开始分享不只和考试有关的事：家里、怕的事、想去的城市，还有各自对未来那点不太成形的想法。',
+      rarity: 'uncommon', weight: 8, returnTo: 'clerkship_intro',
+      conditions: { relationshipStages: ['met', 'interested'] },
+      options: [
+        { text: '继续约出来见面，把关系往前推一步', label: '长期主义', effects: { stress: -5, health: 3 }, romance: { interaction: 1, advanceTo: 'interested' }, resultText: '你们聊完之后没有立刻回宿舍，而是在操场又走了一圈。关系没有被定义，但已经不再只是“顺路一起复习”。' },
+        { text: '维持舒服的朋友关系，不急着定性', label: '稳妥', effects: { network: 5, stress: -2 }, romance: { interaction: 1 }, resultText: '你们没有急着给关系贴标签。年轻时能把事情慢慢来，本身就是一种奢侈。' },
+        { text: '觉得节奏不对，礼貌退回普通同学', label: '均衡', effects: { stress: 1, ethics: 3 }, romance: { breakup: true }, flagsSet: ['flag_romance_broken_once'], resultText: '你没有消失，也没有吊着对方，而是好好把话说清楚。遗憾有一点，但体面更多。' }
+      ]
+    });
+
+    const romanceGraduate = findRandomEvent('re_romance_graduate');
+    if (romanceGraduate) {
+      romanceGraduate.text = '课题、组会和食堂窗口之间，对方开始主动为你留一个位置。你们还没正式说过什么，但大家都看出来了。';
+      romanceGraduate.options = [
+        { text: '顺着这份默契走下去，再认真约一次', label: '均衡', conditions: { relationshipStages: ['met', 'interested'] }, effects: { stress: -6, health: 3 }, romance: { interaction: 1, advanceTo: 'dating' }, resultText: '这次你们没有再把见面伪装成“顺路吃饭”。关系终于往前走到了一个可以被认真对待的位置。' },
+        { text: '如果已经在认真接触，就把未来聊得更具体一点', label: '长期主义', conditions: { relationshipStages: ['dating'], minRelationshipInteractions: 2 }, effects: { ethics: 4, stress: -4 }, romance: { interaction: 1, advanceTo: 'committed' }, resultText: '你们第一次认真谈了城市、专业和以后谁迁就谁的问题。没那么轻松，但这才像真正的开始。' },
+        { text: '不想分心，先把课题和毕业保住', label: '长期主义', effects: { research: 8, stress: 3 } }
+      ];
+    }
+
+    const romanceTraining = findRandomEvent('re_romance_training');
+    if (romanceTraining) {
+      romanceTraining.text = '同期里有个人，会在你最狼狈的时候递来热汤，也会在你值班结束后问一句“今天还好吗”。这份关心已经不止是同事情谊。';
+      romanceTraining.options = [
+        { text: '如果已经互有好感，就把关系说开', label: '均衡', conditions: { relationshipStages: ['interested', 'dating'] }, effects: { stress: -8, health: 5 }, romance: { interaction: 1, advanceTo: 'dating' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '你们把关系说开以后，现实问题也会跟着上桌。', preview: '未来会遇到关系推进或磨合事件' }], resultText: '你们终于不再借“同期互助”当挡箭牌。忙还是忙，但至少有人会认真等你把那句下班了发出去。' },
+        { text: '如果已经在交往，就试着确认这是不是稳定关系', label: '长期主义', conditions: { relationshipStages: ['dating'], minRelationshipInteractions: 2 }, effects: { ethics: 4, stress: -5, money: -2 }, romance: { interaction: 1, advanceTo: 'committed' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '关系进入稳定期以后，生活细节会变得比表白更难。', preview: '未来会遇到共同生活议题' }], resultText: '你们谈了排班、谈了迁就，也谈了最现实的疲惫。能把这些谈完还愿意留下来，才叫稳定。' },
+        { text: '现在自顾不暇，先扛过规培', label: '长期主义', effects: { skill: 8, stress: 4 } }
+      ];
+    }
+
+    const romanceResident = findRandomEvent('re_romance_resident');
+    if (romanceResident) {
+      romanceResident.title = '🎲 朋友局之后的单独邀约';
+      romanceResident.text = '这次不是长辈硬塞来的相亲，而是朋友很明确地问你：要不要和那个人单独吃顿饭。对方也主动留了话头，说改天可以继续聊。';
+      romanceResident.options = [
+        { text: '去见面，认真看看彼此合不合适', label: '均衡', conditions: { relationshipStages: ['single', 'met', 'interested'] }, effects: { stress: -5, health: 3 }, romance: { interaction: 1, advanceTo: 'interested' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '那次单独见面之后，事情并没有回到原点。', preview: '未来会遇到关系推进或磨合事件' }], resultText: '这顿饭不是工作饭，也不是礼貌饭。你们聊到最后，已经在讨论下次见面怎么避开你的夜班。' },
+        { text: '如果已经在认真接触，就把固定见面时间排进日程', label: '长期主义', conditions: { relationshipStages: ['interested', 'dating'] }, effects: { stress: -6, ethics: 3 }, romance: { interaction: 1, advanceTo: 'dating' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '你们开始认真安排彼此的时间。', preview: '未来会遇到共同生活议题' }], resultText: '三十几岁谈关系的浪漫，经常体现在共享日历上。你们把彼此排进去了。' },
+        { text: '礼貌感谢，但暂时保持单身', label: '稳妥', effects: { health: 3, stress: -3 }, flagsSet: ['single_choice'], resultText: '你没有敷衍，也没有留模糊空间。一个人过不是失败线，只是另一条线。' }
+      ];
+    }
+
+    const lateGuarantee = findRandomEvent('re_rm_guarantee_late');
+    if (lateGuarantee) {
+      lateGuarantee.text = '下夜班后，朋友很明确地把你介绍给了那个人：不是送饭的家属，也不是误会里的好心人，而是想认真认识你的人。对方临走前还说，下次不值班时一起吃个早饭。';
+      lateGuarantee.options = [
+        { text: '接住这份邀请，先从一次真正的见面开始', label: '均衡', effects: { stress: -6, health: 4, network: 3 }, flagsSet: ['romance_guarantee_used'], romance: { interaction: 1, advanceTo: 'interested' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '三十二岁那次见面以后，生活里终于多出了一条新的待办。', preview: '未来会遇到关系推进或磨合事件' }], resultText: '这次没有误会，也没有“我妈让我带的”那种尴尬铺垫。对方的邀请很清楚，你的回应也很清楚。' },
+        { text: '把排班和真实节奏先讲清楚，再决定要不要继续', label: '长期主义', effects: { ethics: 4, stress: -4 }, flagsSet: ['romance_guarantee_used'], romance: { interaction: 1, advanceTo: 'met' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_resident_followup', once: false, source: '你把现实讲在前面，关系反而更有机会往下走。', preview: '未来会遇到关系推进或磨合事件' }], resultText: '你没有装作自己很闲，也没有装作什么都能兼顾。成年人关系里，真实往往比讨喜更有用。' },
+        { text: '谢谢好意，但明确选择一个人过', label: '稳妥', effects: { health: 4, stress: -4, money: 3 }, flagsSet: ['single_choice', 'romance_guarantee_used'], resultText: '你认真地说了谢谢，也认真地说了不。命运帮你敲了一次门，但开不开还是你自己决定。' }
+      ];
+    }
+
+    randomEvents.push(
+      {
+        id: 're_romance_resident_followup', stage: 'resident', repeatable: true, title: '💞 把彼此排进生活表',
+        text: '热情过去之后，真正的问题开始变具体：谁挪时间，谁迁城市，谁在崩溃时先开口。关系不是自动升级的，得一格一格地走。',
+        rarity: 'uncommon', weight: 8, returnTo: 'ward_rounds',
+        conditions: { relationshipStages: ['interested', 'dating', 'committed', 'cohabiting', 'engaged_or_discussing_marriage'] },
+        options: [
+          { text: '继续稳定见面，把这段关系往前推进一格', label: '长期主义', conditions: { relationshipStages: ['interested', 'dating'] }, effects: { stress: -5, health: 3 }, romance: { interaction: 1, advanceTo: 'dating' }, resultText: '你们没有再靠心情见面，而是靠主动留时间。关系终于从好感走到了认真接触。' },
+          { text: '开始分担彼此的现实难题，确认是不是稳定关系', label: '团队协作', conditions: { relationshipStages: ['dating'], minRelationshipInteractions: 2 }, effects: { ethics: 4, network: 3, stress: -4 }, romance: { interaction: 1, realIssue: 1, advanceTo: 'committed' }, resultText: '你们第一次一起处理麻烦，而不是只共享快乐。能一起扛点现实，关系才算站稳。' },
+          { text: '试着住得更近一点，看看共同生活是否可行', label: '均衡', conditions: { relationshipStages: ['committed'], minRelationshipInteractions: 3 }, effects: { money: -6, stress: 2, health: 2 }, romance: { interaction: 1, cohabitation: 1, advanceTo: 'cohabiting' }, resultText: '你们把牙刷、拖鞋和排班表放进了同一个空间。浪漫没变多，但真实突然多了很多。' },
+          { text: '觉得还是不合适，体面结束并回到单身', label: '稳妥', effects: { stress: 2, ethics: 4 }, romance: { breakup: true }, flagsSet: ['flag_romance_broken_once'], resultText: '你们没有把彼此拖到耗尽才分开。留下一点遗憾，总比把好感磨成怨气更好。' }
+        ]
+      },
+      {
+        id: 're_romance_reunion', stage: 'senior', repeatable: true, title: '💞 分开之后的重逢',
+        text: '几年后，在一次学术活动或朋友饭局上，你又遇见了一个愿意认真听你说完近况的人。经历过一次分开之后，你反而更知道自己想要什么。',
+        rarity: 'rare', weight: 5, returnTo: 'promotion_gate',
+        conditions: { relationshipStages: ['single'], requireFlags: ['flag_romance_broken_once'] },
+        options: [
+          { text: '再试一次，但这次把边界和期待都说清楚', label: '长期主义', effects: { stress: -4, ethics: 4 }, romance: { interaction: 1, reunion: 1, advanceTo: 'met' }, resultText: '你没有假装自己毫发无伤，也没有把过去的失败当成新的门槛。重来不代表重复。' },
+          { text: '聊得很好，但还是把生活留给自己', label: '稳妥', effects: { health: 4, stress: -3 }, resultText: '这次重逢更像一次确认：你已经能坦然面对“再开始”和“不开始”两种可能。' }
+        ]
+      },
+      {
+        id: 're_child_discussion_followup', stage: 'resident', repeatable: true, title: '💞 那个被暂时搁置的话题又回来了',
+        text: '过了一两年，工作、家庭和身体状态都变了些。你们又一次坐下来讨论要不要孩子，也顺便讨论了领养、丁克与各自能承受的生活节奏。',
+        rarity: 'rare', weight: 6, returnTo: 'performance_review',
+        conditions: { requireFlags: ['married'], forbidFlags: ['has_child', 'dink', 'flag_dink_confirmed'], age: { min: 34 } },
+        options: [
+          { text: '如果现在准备好了，就认真进入育儿线', label: '均衡', effects: { stress: 8, health: -5, money: -14, ethics: 6 }, flagsSet: ['has_child'], family: { childDecision: 'child', clearDeferred: true }, delayed: [{ turns: 3, effects: { stress: 8, money: -8 }, log: '生活多了一个小人，也多了很多重新排班的夜晚。' }], resultText: '你们没有因为犹豫过就错过这次决定。对很多人来说，准备好从来不是一个瞬间，而是很多次重新讨论之后的结果。' },
+          { text: '还是先缓一缓，两年后再认真讨论', label: '长期主义', effects: { skill: 4, stress: 2 }, family: { childDecision: 'defer', delayYears: 2 }, resultText: '你们没有回避，只是继续观察自己的节奏。把决定往后放，并不等于永远关掉这条线。' },
+          { text: '认真确认丁克/永久不生育选择', label: '稳妥', effects: { stress: -8, health: 4, money: 6 }, family: { childDecision: 'dink', clearDeferred: true }, resultText: '这一次不是“以后再说”，而是明确的共同决定。外界仍会追问，但你们终于不用再互相试探。' },
+          { text: '把领养也纳入正式选项，不把家庭想象只放在一种路径上', label: '团队协作', effects: { ethics: 6, stress: -2, money: -4 }, family: { childDecision: 'defer', delayYears: 1 }, resultText: '你们开始认真了解另一种成为家人的方式。选择变多了，焦虑反而少了一点。' }
+        ]
+      }
+    );
+
+    const relationshipLongdistance = findRandomEvent('re_relationship_longdistance');
+    if (relationshipLongdistance) {
+      relationshipLongdistance.text = '你们被分到了不同城市，视频通话和高铁票开始变成关系的一部分。问题不再是“爱不爱”，而是“怎么撑”。';
+      relationshipLongdistance.conditions = { relationshipStages: ['dating', 'committed', 'cohabiting'], requireFlags: ['has_partner'], forbidFlags: ['married'] };
+      relationshipLongdistance.options = [
+        { text: '固定沟通节奏，把异地当项目认真维护', label: '长期主义', effects: { stress: -6, money: -6, health: 2 }, romance: { interaction: 1, realIssue: 1, longDistance: true }, resultText: '你们没有靠“想你的时候再联系”硬撑，而是像排值班一样给关系留了固定窗口。听起来不浪漫，但很有效。' },
+        { text: '约定一个重逢节点，再决定谁为谁迁一步', label: '团队协作', effects: { ethics: 5, stress: -4, network: 3 }, romance: { interaction: 1, realIssue: 1, longDistance: true }, resultText: '你们把异地从一种消耗，改成了有节点的等待。不是问题被解决了，而是终于有了计划。' },
+        { text: '承认彼此都太累，体面分开', label: '稳妥', effects: { stress: 3, ethics: 4 }, romance: { breakup: true, longDistance: false }, flagsSet: ['flag_romance_broken_once'], resultText: '你们没有把“等一等”说成永远。分开不代表谁错了，只代表这段关系没赢过时间表。' }
+      ];
+    }
+
+    const rmLongDistance = findRandomEvent('re_rm_long_distance');
+    if (rmLongDistance) {
+      rmLongDistance.conditions = { relationshipStages: ['dating', 'committed', 'cohabiting'], requireFlags: ['has_partner'] };
+      rmLongDistance.options = [
+        { text: '一方申请调动，把共同生活提上日程', label: '长期主义', effects: { stress: -6, health: 3, network: -3, money: -8 }, romance: { interaction: 1, realIssue: 1, advanceTo: 'cohabiting', longDistance: false }, resultText: '最后有人退了一步，换来的是能一起吃晚饭的城市。外人未必觉得划算，你们自己知道值不值。' },
+        { text: '维持异地，但把期限、频率和底线说清楚', label: '均衡', effects: { stress: 3, money: -6 }, romance: { interaction: 1, realIssue: 1, longDistance: true }, resultText: '你们不再只说“有空见”，而是认真约定多久见一次、撑到什么时候必须调整。模糊减少了，关系反而更稳。' },
+        { text: '如果已经耗到只剩内疚，就停在这里', label: '稳妥', effects: { stress: 2, ethics: 4 }, romance: { breakup: true, longDistance: false }, flagsSet: ['flag_romance_broken_once'], resultText: '你们把关系停在还愿意尊重彼此的时候，而不是停在最难看的时候。' }
+      ];
+    }
+
+    const relationshipHouse = findRandomEvent('re_relationship_house');
+    if (relationshipHouse) {
+      relationshipHouse.text = '谈到首付、租房和两家人的期待时，你们第一次发现，感情线真正难的部分往往不在表白，而在 Excel。';
+      relationshipHouse.conditions = { relationshipStages: ['committed', 'cohabiting'], requireFlags: ['has_partner'], forbidFlags: ['married'] };
+      relationshipHouse.options = [
+        { text: '先租房同住，把共同生活跑顺', label: '稳妥', effects: { stress: -5, ethics: 5, money: -6, health: 2 }, romance: { interaction: 1, cohabitation: 1, realIssue: 1, advanceTo: 'cohabiting' }, resultText: '你们没有急着买房，而是先把“同住”这件事过一遍。生活细节暴露得很快，好处是问题也暴露得早。' },
+        { text: '两家人坐下来算账，把现实问题摊开', label: '团队协作', effects: { network: 6, money: -10, stress: -2, ethics: 4 }, romance: { interaction: 1, realIssue: 1 }, resultText: '这顿饭不像家宴，更像谈判。气氛未必轻松，但很多以后会吵的事，至少先被说出来了。' },
+        { text: '觉得条件不成熟，先把关系维持在各自住各自的节奏', label: '均衡', effects: { stress: 2, health: 1 }, romance: { interaction: 1, realIssue: 1 }, resultText: '你们没有假装成熟，也没有被催着快进。慢一点不一定坏，只是需要双方都认这份慢。' }
+      ];
+    }
+
+    const rmHousingDecision = findRandomEvent('re_rm_housing_decision');
+    if (rmHousingDecision) {
+      rmHousingDecision.conditions = { relationshipStages: ['committed', 'cohabiting'], requireFlags: ['has_partner'] };
+      rmHousingDecision.options = [
+        { text: '继续租，把共同生活先过稳', label: '稳妥', effects: { money: 6, stress: -4, health: 2 }, romance: { interaction: 1, cohabitation: 1, realIssue: 1, advanceTo: 'cohabiting' }, resultText: '你们把钱留在手里，把日子先过下去。买房不是关系是否认真的唯一证明，至少银行不会比你们更懂彼此。' },
+        { text: '认真讨论城市与房子的绑定关系', label: '长期主义', effects: { stress: -3, ethics: 4 }, romance: { interaction: 1, realIssue: 1 }, resultText: '这次讨论的重点不在房价，而在你们愿不愿意把未来绑定在同一个坐标上。问题更大了，但也更关键。' },
+        { text: '觉得压力太大，先把买房议题撤下来', label: '均衡', effects: { stress: 1, health: 2 }, romance: { interaction: 1, realIssue: 1 }, resultText: '你们把“现在就定下来”的紧迫感按掉了。生活没因此变简单，但至少没让恐慌替你们做决定。' }
+      ];
+    }
+
+    const marriageTalk = findRandomEvent('re_marriage');
+    if (marriageTalk) {
+      marriageTalk.text = '关系稳定几年后，你们终于承认：要不要结婚/建立长期伴侣关系，已经不是旁人催不催的问题，而是你们自己要不要给彼此一个清晰答案。';
+      marriageTalk.conditions = { relationshipStages: ['cohabiting', 'engaged_or_discussing_marriage'], requireFlags: ['has_partner'], forbidFlags: ['married'], minCohabitationCount: 1, minRealIssueCount: 1 };
+      marriageTalk.options = [
+        { text: '先把婚姻/长期伴侣关系认真谈开，不急着一次做完所有形式', label: '长期主义', effects: { stress: -4, ethics: 5, money: -2 }, romance: { interaction: 1, realIssue: 1, advanceTo: 'engaged_or_discussing_marriage' }, resultText: '你们没有被“什么时候领证”追着跑，而是先把彼此对承诺、家庭和边界的理解说清楚。真正的推进，常常发生在这些谈话里。' },
+        { text: '觉得还需要时间，再把现实问题磨合一轮', label: '稳妥', effects: { stress: 2, skill: 3 }, romance: { interaction: 1, realIssue: 1 }, resultText: '你们没有否认未来，只是拒绝被时间表拽着跑。慢一点，至少能把脚下的坑看清。' },
+        { text: '发现对未来想象差太多，停下来重新评估', label: '均衡', effects: { stress: 4, ethics: 4 }, romance: { breakup: true }, flagsSet: ['flag_romance_broken_once'], resultText: '这次不是谁不够喜欢谁，而是你们对以后想要的生活差得太远。能及时承认，也是一种负责。' }
+      ];
+    }
+
+    const marriageResident = findRandomEvent('re_marriage_resident');
+    if (marriageResident) {
+      marriageResident.text = '拖了又拖之后，你们终于把“以后再说”换成了真正的决定：结婚也好，建立长期伴侣关系也好，总得给彼此一个明确坐标。';
+      marriageResident.conditions = { relationshipStages: ['engaged_or_discussing_marriage'], requireFlags: ['has_partner'], forbidFlags: ['married'], minCohabitationCount: 1, minRealIssueCount: 2 };
+      marriageResident.options = [
+        { text: '办一场简单但认真的仪式，正式成为伴侣', label: '均衡', effects: { stress: -10, health: 5, money: -14, network: 6 }, romance: { interaction: 1, advanceTo: 'married_or_long_term_partner' }, resultText: '你们没有等一个“彻底不忙”的年份。仪式不大，但决定很大：以后很多难题都不再是谁的，而是你们的。' },
+        { text: '领证/签下长期承诺，一切从简但把关系说定', label: '稳妥', effects: { stress: -6, money: -3, ethics: 5, health: 3 }, romance: { interaction: 1, advanceTo: 'married_or_long_term_partner' }, resultText: '没有热闹排场，只有一句“就这样吧，认真过”。很多长久关系，本来也不是靠舞台灯光成立的。' },
+        { text: '再留一点时间确认，但不再回避这个议题', label: '长期主义', effects: { stress: 2, ethics: 4 }, romance: { interaction: 1, realIssue: 1 }, resultText: '你们没有后退，只是决定再做一次真正的确认。承诺不怕慢，怕的是含糊。' }
+      ];
+    }
+
+    const childChoice = findRandomEvent('re_child_choice');
+    if (childChoice) {
+      childChoice.text = '婚后绕不开的话题又摆上桌。你们讨论的不只是生育，还包括领养、丁克、值班、老人照护和“我们真正想过什么样的家”。';
+      childChoice.options = [
+        { text: '如果此刻准备好了，就认真迎接下一代', label: '均衡', effects: { stress: 10, health: -6, money: -18, ethics: 8 }, flagsSet: ['has_child'], family: { childDecision: 'child', clearDeferred: true }, delayed: [{ turns: 3, effects: { stress: 8, money: -10 }, log: '孩子半夜发烧，你在值班、托育和睡眠里重新学会安排生活。' }], resultText: '你们不是因为“该到了”才做决定，而是在权衡之后愿意一起承担随之而来的混乱。' },
+        { text: '暂时不要孩子，两年后再认真讨论一次', label: '长期主义', effects: { skill: 6, stress: 3 }, family: { childDecision: 'defer', delayYears: 2 }, resultText: '你们把这个问题放回未来，而不是扔进沉默。对很多人来说，暂缓也是一种认真决定。' },
+        { text: '把领养作为平行选项继续了解', label: '团队协作', effects: { ethics: 5, stress: -2, money: -4 }, family: { childDecision: 'defer', delayYears: 1 }, resultText: '你们没有把“成为家人”只想象成一种方式。路径变多了，话也更能谈下去。' },
+        { text: '明确选择丁克/长期不生育', label: '稳妥', effects: { stress: -10, health: 6, money: 10 }, family: { childDecision: 'dink', clearDeferred: true }, resultText: '这一次你们说的不是“以后再看”，而是“我们已经决定了”。选择明确之后，外界声音反而没那么重要了。' }
+      ];
+    }
+
+    const rmAdoption = findRandomEvent('re_rm_adoption');
+    if (rmAdoption) {
+      rmAdoption.text = '你们讨论了很久生育的事，最后有人先提出了另一个选项：领养。成为家人的方式，未必只有一种。';
+      rmAdoption.options = [
+        { text: '认真启动领养流程', label: '长期主义', effects: { ethics: 8, stress: 4, money: -10, health: 2 }, flagsSet: ['has_child', 'adopted_child'], family: { childDecision: 'adopt', clearDeferred: true }, resultText: '流程很长，材料很多，但你们终于把“以后再说”换成了实际动作。很久以后，家里真的多了一个人。' },
+        { text: '选择两个人的生活，不要孩子', label: '稳妥', effects: { money: 10, health: 5, stress: -8 }, family: { childDecision: 'dink', clearDeferred: true }, resultText: '你们不是被动错过，而是主动选择。把周末留给睡觉、旅行和彼此，本身也是一种明确的人生版本。' },
+        { text: '再等等，但约定一年后继续谈', label: '均衡', effects: { stress: 2, skill: 2 }, family: { childDecision: 'defer', delayYears: 1 }, resultText: '这次没有让话题再次沉下去，而是给了它一个明确回来的时间。延后，不等于关闭。' }
+      ];
+    }
+
+    const partnerCareer = findRandomEvent('re_rs_partner_career');
+    if (partnerCareer) {
+      partnerCareer.text = '对方说“我可以不去”，但你听得出这句话背后藏着多少舍不得与不甘心。关系走到这一步，问题已经不是喜不喜欢，而是谁愿意为谁挪一步。';
+      partnerCareer.options = [
+        { text: '支持对方去，一起规划异地方案', label: '团队协作', effects: { ethics: 10, stress: 5, network: 4, money: -6 }, romance: { interaction: 1, realIssue: 1, longDistance: true }, resultText: '你没有把支持说成牺牲，而是把难题摊开来一起做。异地不是好消息，但至少不是单方面的委屈。' },
+        { text: '自己考虑申请调动，争取共同生活', label: '长期主义', effects: { network: -6, stress: 6, ethics: 8, skill: -2 }, romance: { interaction: 1, realIssue: 1, cohabitation: 1, advanceTo: 'cohabiting', longDistance: false }, resultText: '有人先迈了一步，代价是真实的，晚饭也是真实的。很多决定都是这样：既不完美，也不后悔。' },
+        { text: '承认你们的节奏暂时凑不到一起', label: '稳妥', effects: { stress: 3, ethics: 4 }, romance: { breakup: true }, flagsSet: ['flag_romance_broken_once'], resultText: '你没有把“稳定最重要”说成万能答案。不是所有关系都败给不爱，很多是败给坐标。' }
+      ];
+    }
+
+    const rmPartnerMigration = findRandomEvent('re_rm_partner_migration');
+    if (rmPartnerMigration) {
+      rmPartnerMigration.options = [
+        { text: '支持对方去，并把重逢计划写成时间线', label: '长期主义', effects: { network: -4, stress: 5, ethics: 6, money: -6 }, romance: { interaction: 1, realIssue: 1, longDistance: true }, resultText: '你们把“以后再说”改成了具体时间节点。计划当然会改，但至少不再只剩空话。' },
+        { text: '一起做五年计划，争取把共同生活重新排回来', label: '团队协作', effects: { stress: -4, network: 3, ethics: 4, health: 2 }, romance: { interaction: 1, realIssue: 1, cohabitation: 1, advanceTo: 'engaged_or_discussing_marriage', longDistance: false }, resultText: '这份计划改了不止一次，但它至少让你们在同一张纸上讨论未来，而不是各自想象。' },
+        { text: '如果彼此都太累，就坦然停下来', label: '稳妥', effects: { stress: 2, ethics: 4 }, romance: { breakup: true }, flagsSet: ['flag_romance_broken_once'], resultText: '你们没有拿沉默硬撑下去。把关系停在还愿意祝福彼此的时候，也算一种善终。' }
+      ];
+    }
+
+    const attendingMeet = findRandomEvent('re_rm_attending_meet');
+    if (attendingMeet) {
+      attendingMeet.options = [
+        { text: '先从专业话题聊起，再认真见一面', label: '均衡', effects: { stress: -6, network: 4, health: 3 }, conditions: { relationshipStages: ['single', 'met', 'interested'] }, romance: { interaction: 1, advanceTo: 'interested' }, scheduledEvents: [{ delay: 2, eventId: 're_romance_reunion', once: false, source: '你把这次认识当回事，命运也就没有立刻收回去。', preview: '未来可能迎来重逢或再开始' }], resultText: '三十几岁重新认识一个人，往往没有大学时那么轻快，但会比大学时更诚实。' },
+        { text: '如果已经在认真交往，就把长期计划聊清楚', label: '长期主义', conditions: { relationshipStages: ['dating', 'committed', 'cohabiting'] }, effects: { ethics: 4, stress: -4, network: 2 }, romance: { interaction: 1, realIssue: 1, advanceTo: 'engaged_or_discussing_marriage' }, resultText: '你们终于把“以后”从语气词变成了议题。成年人的浪漫，常常长得像共同决策。' },
+        { text: '保持专业距离，只谈学术', label: '稳妥', effects: { research: 4, network: 4, stress: 1 } }
+      ];
+    }
+  }
+
+  // ===== 体能 / 应急自保系统 与 暴力风险事件 =====
+  randomEvents.push(
+    { id: 're_strength_morning_run', stage: 'undergrad', title: '🎲 早八前的操场', text: '你发现，跑步大概是少数不需要审批、不需要署名、也不需要排队就能获得一点掌控感的事。', rarity: 'common', weight: 7, returnTo: 'freshman_life', options: [{ text: '坚持晨跑一个月', label: '长期主义', effects: { strength: 8, health: 6, stress: -4 } }, { text: '偶尔跑两圈，保持一点节奏', label: '稳妥', effects: { strength: 4, health: 3, stress: -2 } }, { text: '睡觉更重要', label: '休息', effects: { health: 4, stress: -3, strength: -1 } }] },
+    { id: 're_strength_gym_card', stage: 'undergrad', title: '🎲 健身房年卡', text: '室友拉你办卡，说学医人的腰背迟早要靠现在存一点本。', rarity: 'uncommon', weight: 6, returnTo: 'campus_meme_night', options: [{ text: '认真练力量和核心', label: '长期主义', effects: { strength: 10, money: -6, health: 4, stress: -2 } }, { text: '跟着上几节团课，当作减压', label: '休息', effects: { strength: 5, health: 4, stress: -5 } }, { text: '卡先办了，去不去以后再说', label: '均衡', effects: { money: -4, stress: 1, strength: 1 } }] },
+    { id: 're_strength_lab_neck', stage: 'graduate', title: '🎲 实验台前的肩颈警报', text: '久坐、低头、熬夜之后，你终于承认实验和病历都不打算替你保护腰背。', rarity: 'common', weight: 7, returnTo: 'lab_entry', options: [{ text: '每周固定练核心和拉伸', label: '稳妥', effects: { strength: 6, health: 6, stress: -3, research: -1 } }, { text: '报个力量训练班，顺便学动作', label: '长期主义', effects: { strength: 9, money: -6, stress: -2 } }, { text: '先顶着，等投稿完再说', label: '激进', effects: { health: -6, stress: 5, strength: -4, research: 3 } }] },
+    { id: 're_strength_nightstairs', stage: 'training', title: '🎲 值夜班时的楼梯间', text: '电梯又坏了，楼梯成了这座楼里最诚实的体测机器。', rarity: 'common', weight: 7, returnTo: 'drg_bootcamp', options: [{ text: '把爬楼和快走当成日常训练', label: '长期主义', effects: { strength: 6, health: 4, stress: -2 } }, { text: '跟同期约着练一练，互相监督', label: '团队协作', effects: { strength: 5, network: 4, stress: -3 } }, { text: '能坐电梯绝不走楼梯', label: '休息', effects: { health: 2, strength: -2 } }] },
+    { id: 're_strength_self_defense_course', stage: 'training', title: '🎲 医院工会的防身与撤离课', text: '课程第一句就讲明白了：重点不是“打赢”，而是识别风险、保护患者和给自己争取撤离时间。', rarity: 'uncommon', weight: 6, returnTo: 'license_exam_prep', options: [{ text: '认真上完，顺手把急救与撤离要点记下来', label: '稳妥', effects: { strength: 7, legalRisk: -3, stress: -2, network: 3 }, flagsSet: ['violence_response_training'] }, { text: '只学最基础的动作和报警流程', label: '均衡', effects: { strength: 4, legalRisk: -2, stress: -1 }, flagsSet: ['violence_response_training'] }, { text: '觉得用不上，没去', label: '休息', effects: { strength: -1, stress: 1 } }] },
+    { id: 're_strength_shift_erosion', stage: 'resident', title: '🎲 连续夜班后的退化感', text: '你开始发现，真正先掉的不是理想，是握力、睡眠和走楼梯时那口气。', rarity: 'common', weight: 8, returnTo: 'night_shift_call', options: [{ text: '抽时间把训练捡回来，哪怕每周只有两次', label: '长期主义', effects: { strength: 5, health: 4, stress: -3, money: -2 } }, { text: '先保证睡眠，体能以后再补', label: '休息', effects: { health: 6, stress: -5, strength: -1 } }, { text: '继续硬扛，反正大家都这样', label: '激进', effects: { strength: -6, health: -8, stress: 8, skill: 3 } }] },
+    { id: 're_strength_hospital_gym', stage: 'resident', title: '🎲 地下室那间小健身房', text: '医院后勤在地下室腾了个小房间，器械不多，但至少够你把肩背练回来。', rarity: 'uncommon', weight: 6, returnTo: 'performance_review', options: [{ text: '值班间隙去练，慢慢把体能拉回基线', label: '稳妥', effects: { strength: 8, health: 4, stress: -3 } }, { text: '和同事约着练，顺便吐槽制度', label: '团队协作', effects: { strength: 6, network: 4, stress: -4 } }, { text: '打卡一次，拍张照就算拥有过', label: '均衡', effects: { strength: 2, stress: -1 } }] },
+    { id: 're_strength_rehab_after_injury', stage: 'resident', title: '🎲 康复训练比夜班还讲纪律', text: '无论是旧伤还是新伤，康复师都提醒你：体能恢复不靠意志力，靠按部就班。', rarity: 'rare', weight: 5, returnTo: 'ward_rounds', conditions: { anyFlags: ['violence_injury', 'violence_minor_injury'] }, options: [{ text: '老老实实做康复计划', label: '稳妥', effects: { strength: 8, health: 8, stress: -4, money: -4 } }, { text: '恢复一点就急着回前线', label: '激进', effects: { strength: 3, skill: 3, health: -4, stress: 5 } }, { text: '边康复边学会把工作量降下来', label: '长期主义', effects: { strength: 6, health: 6, stress: -6, money: -2 } }] },
+    { id: 're_strength_senior_physical_exam', stage: 'senior', title: '🎲 体检表上的肌肉量提醒', text: '报告提醒你：再不动一动，很多抱怨里的“累”就不只是累，而是实打实的功能退化。', rarity: 'common', weight: 6, returnTo: 'senior_outcome', options: [{ text: '把力量训练排进每周计划', label: '长期主义', effects: { strength: 7, health: 5, stress: -3 } }, { text: '先从快走和拉伸开始', label: '稳妥', effects: { strength: 4, health: 4, stress: -2 } }, { text: '报告塞回抽屉，改天再说', label: '激进', effects: { strength: -4, health: -5, stress: 4 } }] },
+    { id: 're_strength_team_building_hike', stage: 'senior', title: '🎲 科室团建去爬山', text: '有人把这叫团建，有人把这叫“终于可以看见白天”。不管叫什么，腿是要真的迈出去。', rarity: 'uncommon', weight: 5, returnTo: 'promotion_gate', options: [{ text: '全程走完，还顺便带着年轻人别掉队', label: '团队协作', effects: { strength: 5, network: 5, health: 3, stress: -4 } }, { text: '按自己节奏走，别再把休息变成考核', label: '休息', effects: { strength: 3, health: 5, stress: -5 } }, { text: '中途找个树荫坐下，和人聊聊天也算参与', label: '均衡', effects: { network: 3, stress: -3, strength: 1 } }] }
+  );
+
+  randomEvents.push(
+    {
+      id: 're_violence_er_corridor', stage: 'resident', title: '⚠️ 急诊走廊的失控边缘',
+      text: '候诊时间、醉酒情绪和信息不对称堆在一起，走廊里有人开始推搡、砸门和指着人骂。你第一反应不是“赢”，而是怎么让患者、同事和自己都先离开危险点。',
+      rarity: 'rare', weight: 3, returnTo: 'complaint_case', conditions: { requireCareerTitle: clinicalCareerTitles },
+      options: [
+        { text: '优先撤离并呼叫安保/报警', label: '稳妥', effects: { legalRisk: -8, ethics: 6, network: 4, stress: 7 }, flagsSet: ['violence_escape_first'], resultText: '你把最近的患者先带离走廊，再按下报警。场面难看，但没有因为你的犹豫再多出一个受伤的人。' },
+        { text: '保护患者同事，保持安全距离并拖时间', label: '团队协作', effects: { ethics: 8, stress: 8, network: 4 }, check: { baseChance: 60, stats: { strength: 0.18, network: 0.15, stress: -0.18 }, minChance: 25, maxChance: 88, success: { target: 'ward_rounds', effects: { legalRisk: -5, strength: 1 }, feedback: '你守住了距离，也守住了场面没继续升级。', resultText: '你反复重复“先退后、先让患者出去”，声音比平时大，但动作一直克制。等安保赶到时，局面还没彻底炸开。' }, failure: { target: 're_violence_injury_recovery', effects: { health: -15, stress: 14, money: -6 }, flagsSet: ['violence_minor_injury'], feedback: '你挨了一下，虽然不算致命，但代价非常具体。', resultText: '你帮人挡开了一次冲撞，自己肩背也跟着扭伤了。事后最先出现的不是英雄感，而是止痛药和请假单。' } } },
+        { text: '用环境和团队协作控制局面，不单独硬顶', label: '均衡', effects: { stress: 8, network: 5 }, check: { baseChance: 56, stats: { strength: 0.22, network: 0.2, ethics: 0.08, stress: -0.18 }, minChance: 20, maxChance: 86, success: { target: 'ward_rounds', effects: { legalRisk: -4, network: 3 }, feedback: '团队配合比个人逞强可靠得多。', resultText: '你让门诊护士、保安和附近同事各守一个点，自己只做最少必要的阻挡。最后控制住的是局面，不是某个人的冲动。' }, failure: { randomTargets: [{ target: 're_violence_injury_recovery', weight: 97 }, { target: 'ending_violence_fatality', weight: 3 }], effects: { health: -22, stress: 16, money: -8 }, flagsSet: ['violence_injury'], feedback: '局面还是冲破了边界。', resultText: '你们努力把风险压低了，但混乱没有完全按计划停下。留下来的，是伤情、笔录和之后很长一段恢复。' } } },
+        { text: '在无法撤离且已经遭受现实攻击时，做最低必要限度的自卫', label: '激进', effects: { stress: 9, legalRisk: 2 }, check: { baseChance: 48, stats: { strength: 0.32, network: 0.1, health: 0.08, stress: -0.2 }, minChance: 15, maxChance: 82, success: { target: 'ward_rounds', effects: { health: -4, legalRisk: -2 }, feedback: '你争取到了撤离窗口，但仍然付出了代价。', resultText: '你没有追击，也没有逞强，只是在被逼到墙角时撑开了那点必要空间。成功的定义只是：大家都还能走出去。' }, failure: { randomTargets: [{ target: 're_violence_injury_recovery', weight: 96 }, { target: 'ending_violence_fatality', weight: 4 }], effects: { health: -24, stress: 18, money: -8 }, flagsSet: ['violence_injury'], feedback: '体能不是万能，混乱也不会按意志停下。', resultText: '现实攻击真正落下来时，再好的判断也只能把坏结果变小，不能把坏结果抹掉。' } } }
+      ]
+    },
+    {
+      id: 're_violence_pediatrics_queue', stage: 'resident', title: '⚠️ 儿科高热候诊区',
+      text: '孩子持续高热、家长情绪失控、候诊区越排越长。抱怨开始往推搡方向滑。没有谁天生想在这里闹，但风险已经是风险。',
+      rarity: 'rare', weight: 3, returnTo: 'patient_talk', conditions: { requireCareerTitle: clinicalCareerTitles, specialties: ['pediatrics', 'general_practice', 'emergency_critical'] },
+      options: [
+        { text: '优先分流孩子与同事，立即叫安保并留痕', label: '稳妥', effects: { ethics: 8, legalRisk: -8, stress: 7 }, resultText: '你先把最脆弱的人带离冲突中心，再把录像、报警和病历留痕补齐。做得不体面，但足够安全。' },
+        { text: '拉上护士长和同事一起稳住秩序', label: '团队协作', effects: { network: 5, stress: 8 }, check: { baseChance: 58, stats: { strength: 0.16, network: 0.22, stress: -0.18 }, minChance: 24, maxChance: 86, success: { target: 'night_shift_call', effects: { legalRisk: -5, network: 3 }, feedback: '团队在，秩序就更容易回来。', resultText: '你没有试图用一个人压住所有情绪，而是让每个岗位各守一步。最后先降下来的，不是音量，是危险。' }, failure: { target: 're_violence_injury_recovery', effects: { health: -14, stress: 13, money: -5 }, flagsSet: ['violence_minor_injury'], feedback: '你还是被波及了。', resultText: '你护着孩子退开时被撞到了一下。没有人因此得到好处，只是多了一个需要休养的人。' } } },
+        { text: '只靠自己硬顶解释', label: '激进', effects: { ethics: 2, stress: 10 }, check: { baseChance: 42, stats: { strength: 0.14, stress: -0.2 }, minChance: 15, maxChance: 76, success: { target: 'night_shift_call', effects: { health: -3 }, feedback: '你勉强把场面讲下来了。', resultText: '你把每一句话都尽量说得平和，但这种场面靠口才从来不稳。好在这次危险先退了半步。' }, failure: { randomTargets: [{ target: 're_violence_injury_recovery', weight: 98 }, { target: 'ending_violence_fatality', weight: 2 }], effects: { health: -20, stress: 16, money: -6 }, flagsSet: ['violence_injury'], feedback: '解释没能阻止现实风险。', resultText: '没有人会因为你解释得有道理就自动停手。你后来反复想起的，是自己当时为什么没更早后退。' } } }
+      ]
+    },
+    { id: 're_violence_county_outpost', stage: 'resident', title: '⚠️ 夜间基层门诊的酒气', text: '夜门诊人手少，醉酒来诊的人比监控更多。你知道，真正该先争取的永远是距离和时间。', rarity: 'rare', weight: 2, returnTo: 'ward_rounds', conditions: { requireCareerTitle: clinicalCareerTitles, requireHospitalTier: ['county_basic', 'regular_tier2', 'prefecture_tier3_strong2'] }, options: [{ text: '先撤到安全点并报警', label: '稳妥', effects: { legalRisk: -6, stress: 6, ethics: 4 }, resultText: '你拉着最近的同事一起退到门外，把处置权交给更合适的人。夜门诊最不缺的是勇气，最缺的是退路。' }, { text: '利用诊室布局和同事配合争取控制时间', label: '团队协作', effects: { network: 4, stress: 7 }, check: { baseChance: 54, stats: { strength: 0.2, network: 0.18, stress: -0.16 }, minChance: 22, maxChance: 84, success: { target: 'complaint_case', effects: { legalRisk: -4 }, feedback: '你们撑到了支援到场。', resultText: '桌椅、门框、距离和同事，比个人硬碰硬更有用。你后来回想时，庆幸自己记得课堂上那句“先保全”。' }, failure: { target: 're_violence_injury_recovery', effects: { health: -16, stress: 14, money: -5 }, flagsSet: ['violence_minor_injury'], feedback: '你被波及受伤。', resultText: '场面最后还是擦到了你。恢复期里你反复确认：下次更该早点按警铃。' } } }, { text: '在被现实攻击时做最低必要限度自保', label: '激进', effects: { stress: 9, legalRisk: 2 }, check: { baseChance: 46, stats: { strength: 0.28, health: 0.08, stress: -0.18 }, minChance: 16, maxChance: 80, success: { target: 'complaint_case', effects: { health: -4 }, feedback: '你争取到了后退空间。', resultText: '这不是制伏谁，而是给自己和同事争取到一条退路。成功之后你也没有任何胜利感，只有心跳还没下来。' }, failure: { randomTargets: [{ target: 're_violence_injury_recovery', weight: 97 }, { target: 'ending_violence_fatality', weight: 3 }], effects: { health: -22, stress: 18, money: -7 }, flagsSet: ['violence_injury'], feedback: '坏结果没能完全避开。', resultText: '现实攻击来得比预案快。后来留下来的，不是英勇叙事，而是伤情评估和很长的恢复。' } } }] },
+    { id: 're_violence_inpatient_family', stage: 'senior', title: '⚠️ 病房外的情绪失控', text: '漫长等待、不确定病情和一句被误读的话，把病房外的空气一下拉到了危险值。资深并不意味着你更该冲在最前面，很多时候只意味着你更知道哪里不能站。', rarity: 'rare', weight: 2, returnTo: 'promotion_gate', conditions: { requireCareerTitle: clinicalCareerTitles }, options: [{ text: '立刻组织撤离和分区，按流程报警', label: '稳妥', effects: { legalRisk: -8, network: 3, stress: 7 }, resultText: '你先让年轻人带病人离开，再把现场交给安保和警方。最成熟的判断，往往就是知道哪一步不该由医生独自承担。' }, { text: '带着团队做最小干预，撑到支援来', label: '团队协作', effects: { stress: 8, network: 4 }, check: { baseChance: 57, stats: { strength: 0.16, network: 0.2, ethics: 0.08, stress: -0.18 }, minChance: 24, maxChance: 86, success: { target: 'senior_outcome', effects: { legalRisk: -4, network: 3 }, feedback: '你守住了边界，没有让冲突升级。', resultText: '你把语气压低，把动作放慢，把所有人往出口和开阔处带。最后平息局面的，是秩序，不是血性。' }, failure: { target: 're_violence_injury_recovery_senior', effects: { health: -14, stress: 13, money: -5 }, flagsSet: ['violence_minor_injury'], feedback: '你没能全身而退。', resultText: '你替年轻人挡了一下，代价落在了自己的肩膀和后面的请假单上。成熟不代表无伤，只代表你知道该优先保谁。' } } }, { text: '被逼到角落时做最低必要限度自保', label: '激进', effects: { stress: 9, legalRisk: 2 }, check: { baseChance: 45, stats: { strength: 0.3, health: 0.08, stress: -0.2 }, minChance: 16, maxChance: 80, success: { target: 'senior_outcome', effects: { health: -5 }, feedback: '你争取到了撤离窗口。', resultText: '你没有追上去，也没有试图“把场子压住”。你只是让自己和身边人先活着离开危险点。' }, failure: { randomTargets: [{ target: 're_violence_injury_recovery_senior', weight: 97 }, { target: 'ending_violence_fatality', weight: 3 }], effects: { health: -22, stress: 18, money: -7 }, flagsSet: ['violence_injury'], feedback: '最坏的事差点发生，甚至可能真的发生。', resultText: '再好的体能也只是把风险往下压，不是把风险抹掉。你后来最想推动的，反而是安保和流程。' } } }] },
+    { id: 're_violence_followup_security', stage: 'senior', title: '⚠️ 院里开了暴力风险复盘会', text: '复盘会上第一句不是“谁冲得快”，而是“为什么医生总在最前面”。你知道，真正要改的是流程、安保和团队习惯。', rarity: 'rare', weight: 2, returnTo: 'promotion_gate', conditions: { anyFlags: ['violence_response_training', 'violence_injury', 'violence_minor_injury'] }, options: [{ text: '推动报警、安保和撤离流程写进制度', label: '长期主义', effects: { network: 5, legalRisk: -6, ethics: 5, stress: 3 }, resultText: '你把“别逞强”写进了流程里。看上去不英雄，但比任何英雄叙事都更可能救人。' }, { text: '申请更多演练和科室联动', label: '团队协作', effects: { network: 6, strength: 2, stress: 2 }, resultText: '你拉上保安、护士站和医务处一起演练。麻烦是麻烦，但至少下次不再全靠临场反应。' }, { text: '只求自己以后别再撞上', label: '稳妥', effects: { stress: -3, health: 2 }, resultText: '想远离这种风险完全可以理解。只是你也越来越清楚，个人谨慎永远替代不了系统准备。' }] },
+    { id: 're_violence_injury_recovery', stage: 'resident', title: '⚠️ 伤后休整与复工评估', text: '受伤之后，接下来面对的不是一段励志独白，而是检查、康复、请假、创伤反应和“还要不要回去”的现实问题。', rarity: 'rare', weight: 1, returnTo: 'ward_rounds', options: [{ text: '按建议休整，接受康复和心理支持', label: '休息', effects: { health: 12, stress: -10, money: -6, strength: 5 }, flagsCleared: ['violence_injury', 'violence_minor_injury'], resultText: '你终于允许自己先做病人。恢复当然不体面，但它比硬扛更负责任。' }, { text: '申请短期转岗，等状态稳一点再回一线', label: '稳妥', effects: { health: 8, stress: -8, money: -3, skill: -1 }, flagsSet: ['violence_temp_transfer'], flagsCleared: ['violence_injury', 'violence_minor_injury'], resultText: '你没有把离开一线当成失败，而是把它当成恢复的一部分。留得住职业生涯，比留得住面子重要。' }, { text: '觉得自己撑不回去了，离开当前一线岗位', label: '长期主义', target: 'ending_violence_forced_leave', effects: { health: 6, stress: -12, ethics: 4 }, resultText: '你承认了创伤对职业的影响。这不是软弱，只是把“先活下来”真正落到了自己身上。' }] },
+    { id: 're_violence_injury_recovery_senior', stage: 'senior', title: '⚠️ 伤后，你重新定义了一线', text: '资深以后受伤，疼的不只是身体，也包括你原本以为已经足够稳的职业边界。恢复期里，你必须重新决定自己以后还站在哪里。', rarity: 'rare', weight: 1, returnTo: 'senior_outcome', options: [{ text: '休整后回到一线，但推动制度改掉“医生先冲”', label: '长期主义', effects: { health: 10, stress: -8, strength: 4, legalRisk: -4, network: 4 }, flagsCleared: ['violence_injury', 'violence_minor_injury'], resultText: '你回来之后第一件事不是讲情怀，而是改预案。真正成熟的回归，从来不是假装没事。' }, { text: '把更多精力转去教学与风险管理', label: '团队协作', target: 'ending_violence_boundary_rebuild', effects: { ethics: 6, network: 6, stress: -10 }, resultText: '你没有离开医学，只是把经验改成了另一种保护人的方式。有人觉得你退了，你知道自己只是换了一个更能发力的位置。' }, { text: '不再回一线高冲突岗位', label: '稳妥', target: 'ending_violence_forced_leave', effects: { health: 8, stress: -12 }, resultText: '你把边界重新画清楚了。少一点惊险，多一点睡眠，也许才是这个阶段更稀缺的东西。' }] }
+  );
+
+  events.push(
+    { id: 'ending_violence_fatality', stage: 'ending', type: 'ending', title: '结局：暴力风险中的缺位', text: '一次本可通过更早撤离、安保和流程准备减少损害的暴力事件，最终造成了无法挽回的伤害。这里没有英雄滤镜，只有制度准备不足、职业风险外溢与留下来的人要继续面对的现实。' },
+    { id: 'ending_violence_forced_leave', stage: 'ending', type: 'ending', title: '结局：把边界先救回来', text: '暴力事件之后，你没有再强迫自己立刻回到原来的位置。离开高冲突一线不是认输，而是承认创伤真实存在，并给自己留下继续生活与继续职业的可能。' },
+    { id: 'ending_violence_boundary_rebuild', stage: 'ending', type: 'ending', title: '结局：把创伤改成预案的人', text: '你把受伤后的经验投向了流程、教学和安保协作。后来年轻医生记住的，不是你受过伤，而是你反复强调的那句：先撤离，先报警，先保护患者和自己。' }
+  );
+
+  // ===== 历史原型事件：李文亮原型 / 韩杰原型（含虚构开关） =====
+  function createWhistleblowerEvents(useRealNames) {
+    const suffix = useRealNames ? 'real' : 'fiction';
+    const titleLead = useRealNames ? '🕯️ 历史原型事件：异常肺炎信号' : '🕯️ 复合虚构事件：异常肺炎信号';
+    const leadText = useRealNames
+      ? '你在冬季门急诊和检验回报里连续看见几例不明原因肺炎/异常影像。文本会克制参照李文亮医生相关公开事实框架：最初是同行间提醒、随后遭遇训诫式限制与职业压力，后续关于程序不当的认定也更像对系统的追问，而不是个人神话。'
+      : '你在冬季门急诊和检验回报里连续看见几例不明原因肺炎/异常影像。默认版本使用复合虚构化角色与场景，机制与历史原型版本一致，但尽量把注意力放在信息迟滞、院感压力与职业边界上。';
+    const restrictionText = useRealNames
+      ? '提醒发出后，你被要求参加一次内部约谈。措辞没有那么多选择：少谈、别扩散、统一口径。你知道现实里类似程序后来曾被认定存在不当与不规范，但在当下，压力仍然是真实的。'
+      : '提醒发出后，你被要求参加一次内部约谈。没有谁大声咆哮，真正压人的往往是那句“先不要再说了，统一口径”。';
+    const roleText = useRealNames
+      ? '被约谈之后，你仍要决定自己接下来站在哪里：继续一线、转协调防护，还是先停下来接受评估。重要的不是悲情，而是专业判断、合规留痕与是否还能把人护住。'
+      : '被约谈之后，你仍要决定自己接下来站在哪里：继续一线、转协调防护，还是先停下来接受评估。真正难的是在职业压力里还保留专业判断。';
+    return [
+      {
+        id: `re_whistle_signal_${suffix}`,
+        stage: 'resident', title: titleLead, text: leadText,
+        rarity: 'very-rare', weight: useRealNames ? 1 : 2, returnTo: 'ward_rounds',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHospitalType: ['public_general', 'public_specialist', 'grassroots'], requireHistoricalRealNames: useRealNames, forbidFlags: ['flag_whistleblower_arc_seen'] },
+        options: [
+          { text: '按流程向院内上报，并提醒熟悉同行注意防护，留下时间线', label: '稳妥', effects: { ethics: 6, legalRisk: 2, skill: 3, stress: 4 }, flagsSet: ['flag_whistleblower_arc_seen', 'flag_whistleblower_warned', 'flag_whistleblower_professional', 'flag_whistleblower_evidence'], scheduledEvents: [{ delay: 2, eventId: `re_whistle_restriction_${suffix}`, once: true, source: '你的提醒没有立刻消失，压力也不会立刻消失。', preview: '后续可能遭遇内部约谈或限制' }], resultText: '你把判断留在流程里，也把提醒控制在专业边界内。很多时候，最难的是既开口又不失准。' },
+          { text: '只在同行小范围提醒，提醒大家先做好防护', label: '团队协作', effects: { ethics: 4, network: 4, stress: 3 }, flagsSet: ['flag_whistleblower_arc_seen', 'flag_whistleblower_warned', 'flag_whistleblower_peer_only'], scheduledEvents: [{ delay: 2, eventId: `re_whistle_restriction_${suffix}`, once: true, source: '你没有公开扩散，但消息还是顺着职业系统回到了管理层。', preview: '后续可能遭遇内部约谈或限制' }], resultText: '你没有把话说满，只把防护提醒尽量往对的人那里送。克制不等于沉默。' },
+          { text: '发出更公开的风险提醒，但仍尽量不涉及隐私与诊断定性', label: '激进', effects: { ethics: 5, legalRisk: 8, stress: 7 }, flagsSet: ['flag_whistleblower_arc_seen', 'flag_whistleblower_warned', 'flag_whistleblower_public', 'flag_whistleblower_evidence'], scheduledEvents: [{ delay: 2, eventId: `re_whistle_restriction_${suffix}`, once: true, source: '更公开的提醒带来了更直接的压力。', preview: '后续可能遭遇内部约谈或限制' }], resultText: '你尽量克制措辞，但只要话出了小圈子，压力就会跟着一起出来。' },
+          { text: '先沉默观察，把异常先记在自己手里', label: '均衡', effects: { stress: 2, skill: 2 }, flagsSet: ['flag_whistleblower_arc_seen', 'flag_whistleblower_silent'], scheduledEvents: [{ delay: 2, eventId: `re_whistle_restriction_${suffix}`, once: true, source: '即使你暂时沉默，异常本身也不会因此停下。', preview: '后续仍会面对去留与责任' }], resultText: '你没有装作没看见，只是把提醒先压回了笔记和截图里。很多预警都不是被否认，而是先被搁置。' }
+        ]
+      },
+      {
+        id: `re_whistle_restriction_${suffix}`,
+        stage: 'resident', title: useRealNames ? '🕯️ 原型链：内部约谈与训诫式限制' : '🕯️ 复合虚构链：内部约谈与限制', text: restrictionText,
+        rarity: 'very-rare', weight: 1, returnTo: 'complaint_case',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHistoricalRealNames: useRealNames, requireFlags: ['flag_whistleblower_arc_seen'] },
+        options: [
+          { text: '继续按院感/医务流程补充上报，并保留证据', label: '长期主义', effects: { ethics: 6, legalRisk: 3, stress: 6 }, flagsSet: ['flag_whistleblower_persistent', 'flag_whistleblower_compliant', 'flag_whistleblower_evidence'], target: `re_whistle_role_${suffix}`, resultText: '你把该补的材料继续补齐，也把截图、时间和反馈都留了下来。坚持不等于喊口号，很多时候只是继续把流程走完。' },
+          { text: '不再扩散，但把资料完整留存', label: '稳妥', effects: { stress: 3, legalRisk: 1, ethics: 3 }, flagsSet: ['flag_whistleblower_archived', 'flag_whistleblower_evidence'], target: `re_whistle_role_${suffix}`, resultText: '你没有继续往外推，但也没有把痕迹删掉。很多后来能被追溯的东西，当时都只是某个人没按“清空聊天记录”去做。' },
+          { text: '删掉记录，先保住眼前岗位', label: '均衡', effects: { stress: -2, ethics: -5 }, flagsSet: ['flag_whistleblower_retreat'], target: `re_whistle_role_${suffix}`, resultText: '你把能删的删了，把能不说的也先咽回去。没人会轻易谴责这种选择，因为压力本来就是真实的。' }
+        ]
+      },
+      {
+        id: `re_whistle_role_${suffix}`,
+        stage: 'resident', title: useRealNames ? '🕯️ 原型链：继续站在哪个位置' : '🕯️ 复合虚构链：接下来站在哪个位置', text: roleText,
+        rarity: 'very-rare', weight: 1, returnTo: 'ward_rounds',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHistoricalRealNames: useRealNames, requireFlags: ['flag_whistleblower_arc_seen'] },
+        options: [
+          { text: '继续在一线承担工作，同时把提醒留在合规流程里', label: '长期主义', conditions: { requireFlags: ['flag_whistleblower_warned', 'flag_whistleblower_evidence', 'flag_whistleblower_compliant', 'flag_whistleblower_persistent'] }, target: 'ending_whistleblower', effects: { ethics: 10, stress: 10, health: -8, skill: 4 }, resultText: '你没有把自己写成英雄，只是继续做该做的工作，也没有把已经留下的提醒撤回去。后来被记住的，恰恰是这种克制和持续。 ' },
+          { text: '转去协调防护、分诊和物资衔接，把更多人先护住', label: '团队协作', conditions: { anyFlags: ['flag_whistleblower_warned', 'flag_whistleblower_archived'] }, check: { baseChance: 66, stats: { network: 0.18, ethics: 0.16, skill: 0.12, health: 0.12, legalRisk: -0.18 }, minChance: 30, maxChance: 90, success: { target: 'ending_frontline_survivor', effects: { ethics: 6, network: 6, stress: -4 }, feedback: '你把自己从最前面挪开了一步，却让更多一线环节变得更稳。', resultText: '你去做了分诊、防护和院感协调那一摊没那么显眼的事。后来你明白，很多“活下来”都靠这些不响亮的岗位。' }, failure: { target: 'ending_health_crisis', effects: { health: -18, stress: 14, money: -4 }, feedback: '长期透支和防护不足还是找上了你。', resultText: '即使离开最前面的床边，风险也没有立刻消失。你最后面对的，是必须认真接受照护和休整的身体。' } } },
+          { text: '先主动休整，接受评估与照护', label: '休息', target: 'ending_health_crisis', effects: { health: -6, stress: -2, ethics: 3 }, resultText: '你终于承认自己也需要照护。这里没有悲壮感，只有一个职业人把“先活下来、先治好”认真落到了自己身上。' },
+          { text: '不再继续推动，只把资料留下', label: '稳妥', target: 'ending_suppressed_warning', effects: { stress: 3, ethics: 2 }, resultText: '提醒没有真正扩散出去，但也没有完全蒸发。很多年后，追溯材料里总会留下几张时间更早的截图。' }
+        ]
+      }
+    ];
+  }
+
+  randomEvents.push(...createWhistleblowerEvents(true), ...createWhistleblowerEvents(false));
+  events.push(
+    { id: 'ending_whistleblower', stage: 'ending', type: 'ending', title: '特殊结局：吹哨人', text: '你留下的是专业判断、合规留痕与持续提醒，而不是悲情叙事。后来回头看，这条线最珍贵的不是谁被塑造成英雄，而是有人在信息还混沌时，尽量让同行和流程更早地听见了风险。' },
+    { id: 'ending_suppressed_warning', stage: 'ending', type: 'ending', title: '结局：被压下的预警', text: '你的提醒没有在当时改变太多事情，却被留在了时间线和追溯材料里。很多制度反思，并不是因为当年没人看见，而是因为当年看见的人没能被允许继续说下去。' },
+    { id: 'ending_frontline_survivor', stage: 'ending', type: 'ending', title: '结局：一线幸存者', text: '你继续承担了一线或公共卫生协调工作，也学会了更早求助、更早轮休和更早把防护当成专业的一部分。活下来、稳下来，本身就是这条线里非常重要的结果。' },
+    { id: 'ending_health_crisis', stage: 'ending', type: 'ending', title: '结局：健康危机', text: '长期透支与防护不足最终在你身上留下了沉重代价。文本不会渲染牺牲，只提醒一件事：职业责任从来不意味着可以无限透支自己的身体，求助和照护也应当被当作专业选择。' }
+  );
+
+  function createRetrialEvents(useRealNames) {
+    const suffix = useRealNames ? 'real' : 'fiction';
+    const leadTitle = useRealNames ? '⚖️ 历史原型事件：夜间急症与程序困境' : '⚖️ 复合虚构事件：夜间急症与程序困境';
+    const leadText = useRealNames
+      ? '深夜急诊里，一个患儿/急症病例在资源紧张、会诊边界模糊的情况下迅速恶化。此线克制参照韩杰医生案件的公开程序背景：二审维持原判、裁定生效后依法申诉/申请再审；若走到改判，只会明确标注为架空/虚构支线。'
+      : '深夜急诊里，一个患儿/急症病例在资源紧张、会诊边界模糊的情况下迅速恶化。默认版本使用复合虚构化角色，不直接借用真实姓名，但保留相同的制度困境与程序节点。';
+    return [
+      {
+        id: `re_retrial_night_case_${suffix}`,
+        stage: 'resident', title: leadTitle, text: leadText,
+        rarity: 'very-rare', weight: useRealNames ? 1 : 2, returnTo: 'night_shift_call',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHistoricalRealNames: useRealNames, forbidFlags: ['flag_retrial_arc_seen'] },
+        options: [
+          { text: '立即请示上级、完善记录、留观并准备转诊', label: '稳妥', effects: { skill: 5, ethics: 6, legalRisk: -5, stress: 6 }, flagsSet: ['flag_retrial_arc_seen', 'flag_retrial_good_consult', 'flag_retrial_good_record', 'flag_retrial_good_referral'], scheduledEvents: [{ delay: 2, eventId: `re_retrial_review_${suffix}`, once: true, source: '那一夜过去之后，真正复杂的部分才刚开始。', preview: '后续可能进入复盘/鉴定/程序争议' }], resultText: '你做了教科书会鼓励、现实里却很费力的那一套：请示、留痕、转诊准备。它不能保证好结果，但能减少之后被单点解释的空间。' },
+          { text: '尽量独立处理，同时补记关键病历', label: '均衡', effects: { skill: 4, stress: 6, legalRisk: 1 }, flagsSet: ['flag_retrial_arc_seen', 'flag_retrial_partial_record'], scheduledEvents: [{ delay: 2, eventId: `re_retrial_review_${suffix}`, once: true, source: '你努力接住了当时的局面，但事后的审视不会只看当时。', preview: '后续可能进入复盘/鉴定/程序争议' }], resultText: '你把能做的都尽量做了，只是请示、记录和资源都差了一点。很多风险不是因为某一件事错了，而是因为所有边界都同时在摇晃。' },
+          { text: '资源紧张，先观察一下再决定', label: '激进', effects: { stress: 5, legalRisk: 8, ethics: -3 }, flagsSet: ['flag_retrial_arc_seen', 'flag_retrial_risk_choice'], scheduledEvents: [{ delay: 2, eventId: `re_retrial_review_${suffix}`, once: true, source: '当时的犹豫，很快会在事后材料里被重新放大。', preview: '后续可能进入复盘/鉴定/程序争议' }], resultText: '你不是不在乎，只是当时每个选择都像在赌资源和时间。后来被反复追问的，恰恰是这些来不及完整解释的分钟。' }
+        ]
+      },
+      {
+        id: `re_retrial_review_${suffix}`,
+        stage: 'resident', title: useRealNames ? '⚖️ 原型链：复盘、鉴定与程序争议' : '⚖️ 复合虚构链：复盘、鉴定与程序争议',
+        text: '不良结局发生后，院内复盘、鉴定意见、民事责任与刑事程序争议一层层压上来。文本不会把责任简单推给某一个人，也不会贬损患者或家属；复杂性本身，就是这条线最沉重的部分。',
+        rarity: 'very-rare', weight: 1, returnTo: 'complaint_case',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHistoricalRealNames: useRealNames, requireFlags: ['flag_retrial_arc_seen'] },
+        options: [
+          { text: '提交完整材料，配合复盘并坚持把团队/流程边界说清楚', label: '长期主义', effects: { ethics: 6, stress: 8, legalRisk: -2 }, check: { baseChance: 72, stats: { skill: 0.12, ethics: 0.16, legalRisk: -0.16, network: 0.1 }, minChance: 35, maxChance: 92, success: { target: `re_retrial_second_instance_${suffix}`, effects: { legalRisk: -5, stress: -2 }, feedback: '规范请示、记录与转诊准备，为你争取到了更复杂也更真实的空间。', resultText: '你把那一夜的全部资料一页页摆出来，也反复强调资源、流程与团队分工的限制。它没有立刻把你从风暴里带出去，但至少没让你只剩一种说法。' }, failure: { target: `re_retrial_second_instance_${suffix}`, effects: { legalRisk: 8, stress: 10 }, feedback: '程序还是继续往更坏的方向推了过去。', resultText: '即使你尽量做对很多事，结果也未必就会温柔。复杂案件里，“做对”常常只是把坏结果压小一点。' } } },
+          { text: '把情绪压下去，转而系统学习病历、会诊和转诊风险管理', label: '稳妥', effects: { skill: 4, legalRisk: -3, stress: 4 }, flagsSet: ['flag_retrial_safety_study'], target: `re_retrial_second_instance_${suffix}`, resultText: '你一边应对程序，一边补上所有当年没人教透的制度细节。很残酷，但也很现实：很多医生是在出事之后才被迫学会这些。' },
+          { text: '和程序硬碰硬，把所有委屈都当场砸回去', label: '激进', effects: { stress: 12, legalRisk: 10, network: -4 }, flagsSet: ['flag_retrial_conflict'], target: `re_retrial_second_instance_${suffix}`, resultText: '你当然有委屈，但情绪并不会自动变成证据。后来回看，你最想重来的一步，反而是这里。' }
+        ]
+      },
+      {
+        id: `re_retrial_second_instance_${suffix}`,
+        stage: 'senior', title: useRealNames ? '⚖️ 原型链：二审之后，只剩申诉/申请再审' : '⚖️ 复合虚构链：二审之后，只剩申诉/申请再审',
+        text: '一审之后，二审维持原判。二审裁定生效后，法律程序上能走的是申诉/申请再审，而不是“继续上诉”。你必须决定，是继续依法推动，还是把人生转去别的方向。',
+        rarity: 'very-rare', weight: 1, returnTo: 'promotion_gate',
+        conditions: { requireCareerTitle: clinicalCareerTitles, requireHistoricalRealNames: useRealNames, requireFlags: ['flag_retrial_arc_seen'] },
+        options: [
+          { text: '二审裁定生效后坚持依法申诉/申请再审，继续整理证据', label: '长期主义', effects: { ethics: 8, stress: 10, money: -6 }, check: { baseChance: 34, stats: { skill: 0.1, ethics: 0.14, network: 0.14, legalRisk: -0.16 }, minChance: 8, maxChance: 68, success: { target: 'ending_fictional_retrial_overturned', effects: { ethics: 8, stress: -6, legalRisk: -12 }, feedback: '新的证据审查与程序纠正终于打开了另一扇门。', resultText: '你继续的是申诉和申请再审，而不是不存在的“继续上诉”。很久以后，材料终于被重新审视——这条走向只存在于游戏的架空支线里。' }, failure: { target: 'ending_procedural_correction', effects: { ethics: 4, legalRisk: -4, stress: 4 }, feedback: '程序层面有所纠正，但案件本身没有被彻底翻转。', resultText: '你推动出了一些程序性纠正与再评价，但结果没有完全改变。现实里，很多坚持最后换来的，并不是童话式改写。' } } },
+          { text: '接受职业被迫中断，先把生活重新拼起来', label: '稳妥', target: 'ending_career_interrupted', effects: { stress: -6, health: 2, money: -4 }, resultText: '你没有认同所有结论，但也承认自己已经被这条线磨得太深。先把日子过下去，有时也是一种不得不的勇敢。' },
+          { text: '把经历转向医疗安全/卫生法研究与培训', label: '团队协作', target: 'ending_safety_law_research', effects: { research: 6, ethics: 6, network: 6, stress: -3 }, resultText: '你没有放下这件事，只是把发力点从个案程序转去了系统性改进。那些你曾经吃过的亏，后来都变成了课上的案例和预警。' }
+        ]
+      }
+    ];
+  }
+
+  randomEvents.push(...createRetrialEvents(true), ...createRetrialEvents(false));
+  events.push(
+    { id: 'ending_fictional_retrial_overturned', stage: 'ending', type: 'ending', title: '结局：架空重审——迟来的改判（虚构支线）', text: '这是游戏的架空/虚构再审支线，不代表现实公开报道结果。新的证据审查、程序纠正与责任边界重估，最终让案件在再审中被改判；你赢回的不是被浪漫化的传奇，而是一份迟来且昂贵的纠偏。' },
+    { id: 'ending_procedural_correction', stage: 'ending', type: 'ending', title: '结局：程序纠正，但没有童话', text: '你推动出了一部分程序性问题的纠正，至少让一些过于粗暴的叙事被迫后退。但案件本身没有完全翻转，留下来的仍然是职业中断、长期消耗与制度学习的代价。' },
+    { id: 'ending_career_interrupted', stage: 'ending', type: 'ending', title: '结局：职业被迫中断', text: '程序走到这里，你的临床生涯不得不停下来。没有谁会轻松接受这种结果，但先把生活重新拼起来，也是一种现实中的生存能力。' },
+    { id: 'ending_safety_law_research', stage: 'ending', type: 'ending', title: '结局：转向医疗安全与卫生法研究', text: '你把个体经历改造成了制度研究、课程与风险管理训练。后来有人因此少走了一点弯路——这不是原谅，而是尽量不让同样的坑总靠下一代再踩一遍。' }
+  );
+
+  // ===== 经济自由结局 =====
+  randomEvents.push({
+    id: 're_financial_freedom_window', stage: 'senior', title: '🎯 账户终于替你按下了“已读不回”',
+    text: '现金流、储蓄和副业收入终于叠到一个稀有状态：你可以认真考虑不再把所有醒着的时间都卖给排班表。问题从“扛不扛得住”变成了“还想不想继续这样活”。',
+    rarity: 'rare', weight: 5, returnTo: 'senior_outcome',
+    conditions: { stats: { money: { min: 90 }, legalRisk: { max: 35 } }, age: { min: 40 }, requireCareerTitle: ['attending', 'associate_chief', 'chief', 'dept_head'], forbidFlags: ['debt_burden'], maxFinancialCrises: 1 },
+    options: [
+      { text: '完全退休，把“收到”留给别人回复', label: '休息', target: 'ending_financial_freedom', effects: { health: 10, stress: -18, ethics: 4 }, resultText: '你第一次把工作群调成免打扰，而且不是因为在手术台上。退休不是躺平，是终于能把时间重新分给自己。' },
+      { text: '半退休，做教学、公益门诊或有限出诊', label: '长期主义', target: 'ending_financial_freedom_teaching', effects: { health: 8, stress: -12, ethics: 8, skill: 4 }, resultText: '你没有彻底离开医学，只是不再允许排班表决定你的一切。真正的自由，是还能做喜欢的事，但可以说今天先到这里。' },
+      { text: '继续工作，但以后只做自己真想做的那部分', label: '稳妥', target: 'senior_outcome', effects: { health: 4, stress: -6, ethics: 3 }, flagsSet: ['financially_free_but_working'], resultText: '你发现自己未必想马上退，只是终于有资格不为恐惧继续加班。能选择继续，也是一种自由。' }
+    ]
+  });
+  events.push(
+    { id: 'ending_financial_freedom', stage: 'ending', type: 'ending', title: '结局：经济自由——先下班的人', text: '你终于拥有了一种在医院里很少见的权力：可以说“今天到此为止”。以后工作群里再弹出“收到”时，你未必需要第一时间回复；而真正奢侈的不是钱，是你终于能自己决定下班。' },
+    { id: 'ending_financial_freedom_teaching', stage: 'ending', type: 'ending', title: '结局：经济自由——把时间还给教学与公益', text: '你不再靠每一班工资活着，于是终于能把时间投向教学、公益门诊和那些不一定挣钱但确实有意义的事。群消息依然会响，只是它再也不是命令。' }
+  );
+
+  // ===== 地市 / 县域 / 基层医院区域章节 =====
+  randomEvents.push(
+    { id: 're_regional_solo_shift', stage: 'resident', title: '🎲 区域章节：独立夜班的边界', text: '夜里两点，楼里只剩值班灯还亮着。真正难的不是有没有勇气，而是知道哪些病能扛、哪些病该立刻转。', rarity: 'uncommon', weight: 7, returnTo: 'night_shift_call', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '宁可麻烦一点，也先把转诊边界守住', label: '稳妥', effects: { skill: 5, legalRisk: -5, stress: 4 } }, { text: '先接住，再同步联系上级医院', label: '团队协作', effects: { network: 5, skill: 4, stress: 5 } }, { text: '能自己扛就自己扛，别总麻烦别人', label: '激进', effects: { skill: 3, legalRisk: 6, stress: 6 } }] },
+    { id: 're_regional_lab_limit', stage: 'resident', title: '🎲 区域章节：检验设备说今天不配合', text: '白天能做的检查，夜里做不了；大城市半小时能出的结果，在这里可能要等到明天。', rarity: 'common', weight: 8, returnTo: 'ward_rounds', regionalChapter: true, conditions: { requireHospitalTier: ['regular_tier2', 'county_basic'] }, options: [{ text: '按最稳妥方案留观并补评估', label: '稳妥', effects: { skill: 4, legalRisk: -4, stress: 4 } }, { text: '联系地市/省会医院远程会诊', label: '团队协作', effects: { network: 6, skill: 3, money: -2 } }, { text: '先经验处理，希望别出岔子', label: '激进', effects: { stress: 4, legalRisk: 6, skill: 2 } }] },
+    { id: 're_regional_backbone_fast', stage: 'resident', title: '🎲 区域章节：突然就成了骨干', text: '人手紧、病人多、肯干的人少。你还没来得及谦虚，就已经被排进了最关键的班。', rarity: 'uncommon', weight: 7, returnTo: 'performance_review', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '接住机会，把能力快速做起来', label: '长期主义', effects: { skill: 7, stress: 6, health: -4 } }, { text: '先把流程和带教一起补上，别只靠自己硬顶', label: '团队协作', effects: { network: 6, skill: 5, stress: 4 } }, { text: '把班分出去一点，别让自己先倒', label: '稳妥', effects: { health: 5, stress: -4, skill: 2 } }] },
+    { id: 're_regional_acquaintance_trust', stage: 'resident', title: '🎲 区域章节：熟人社会的门诊', text: '患者叫得出你父母在哪条街开店，家属知道你高中在哪毕业。信任来得更快，边界也更容易模糊。', rarity: 'common', weight: 8, returnTo: 'patient_talk', regionalChapter: true, conditions: { requireHospitalTier: ['county_basic', 'regular_tier2'] }, options: [{ text: '把亲疏都放到同一套流程里', label: '稳妥', effects: { ethics: 6, legalRisk: -4, stress: 3 } }, { text: '利用熟人信任把随访和宣教做细', label: '团队协作', effects: { network: 6, ethics: 4, skill: 3 } }, { text: '该通融时就通融一点', label: '均衡', effects: { network: 4, legalRisk: 4, stress: 2 } }] },
+    { id: 're_regional_subsidy_delay', stage: 'resident', title: '🎲 区域章节：人才补贴还在路上', text: '签约时说好的补贴又延期了。你开始明白，文件里写“尽快落实”和银行卡到账之间，隔着一整套现实。', rarity: 'uncommon', weight: 6, returnTo: 'performance_review', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '继续催进度，但先把现金流保住', label: '稳妥', effects: { money: -3, stress: 4, ethics: 2 }, flagsSet: ['regional_subsidy_delayed'] }, { text: '联合同批引进的人一起问个明白', label: '团队协作', effects: { network: 6, stress: 3, money: -2 }, flagsSet: ['regional_subsidy_delayed'] }, { text: '心凉了一半，开始看外部机会', label: '激进', effects: { stress: 2, network: 3 }, flagsSet: ['regional_subsidy_delayed', 'regional_exit_intent'] }] },
+    { id: 're_regional_staffing_gap', stage: 'resident', title: '🎲 区域章节：招人难，排班更难', text: '年轻医生来了又走，排班表却不会因此变短。最后留下来的人，自动成了兜底的人。', rarity: 'common', weight: 8, returnTo: 'night_shift_call', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '把排班和培训一起重做，争取少流失', label: '团队协作', effects: { network: 6, stress: 5, skill: 3 } }, { text: '自己先多扛一点，把科室撑住', label: '激进', effects: { skill: 4, stress: 8, health: -6 } }, { text: '向院里明确提资源诉求', label: '稳妥', effects: { legalRisk: -2, stress: 3, ethics: 4 } }] },
+    { id: 're_regional_remote_consult', stage: 'resident', title: '🎲 区域章节：和省会医院连上视频', text: '一台摄像头、一张上传慢一点的片子，再加一个愿意接电话的人，突然就能把一个病例从“只能赌”变成“还能商量”。', rarity: 'uncommon', weight: 7, returnTo: 'consultation_lastminute', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '固定对接远程会诊网络', label: '团队协作', effects: { network: 8, skill: 4, stress: -2 }, flagsSet: ['regional_remote_network'] }, { text: '只在疑难重症时启用，先把流程摸熟', label: '稳妥', effects: { skill: 5, legalRisk: -3 } }, { text: '觉得太麻烦，还是靠自己经验', label: '激进', effects: { skill: 2, stress: 3, legalRisk: 5 } }] },
+    { id: 're_regional_housing_family', stage: 'resident', title: '🎲 区域章节：房子、伴侣工作和老人照护', text: '在地市/县域留下来，不只是你一个人的决定。房价、学位、伴侣工作和老人就医都开始一起上桌。', rarity: 'uncommon', weight: 6, returnTo: 'performance_review', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '和家里一起算长期账，能留下才算留下', label: '长期主义', effects: { ethics: 4, stress: 3, money: -4 } }, { text: '先稳住住房和照护，再决定职业路径', label: '稳妥', effects: { health: 3, stress: -3, money: -5 } }, { text: '先把工作做成再说，家庭问题以后补', label: '激进', effects: { skill: 4, stress: 7, ethics: -2 } }] },
+    { id: 're_regional_county_transfer', stage: 'resident', title: '🎲 区域章节：该不该马上转出去', text: '救护车要两个小时，家属还在问“真的必须转吗”。你知道这不是一句话能背下来的责任。', rarity: 'rare', weight: 5, returnTo: 'ward_rounds', regionalChapter: true, conditions: { requireHospitalTier: ['county_basic', 'regular_tier2'] }, options: [{ text: '坚持转诊并把风险沟通写完整', label: '稳妥', effects: { legalRisk: -6, stress: 5, ethics: 4 } }, { text: '边处理边等上级意见', label: '团队协作', effects: { network: 5, skill: 4, stress: 4 } }, { text: '为了减少折腾先留在本院观察', label: '激进', effects: { stress: 4, legalRisk: 5 } }] },
+    { id: 're_regional_assessment', stage: 'senior', title: '🎲 区域章节：等级评审前夜', text: '材料、台账、流程图和真正的临床质量突然都要在同一周里看起来像一回事。', rarity: 'uncommon', weight: 7, returnTo: 'promotion_gate', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '让材料尽量贴近真实流程，别做成纯表演', label: '稳妥', effects: { ethics: 6, stress: 5, legalRisk: -3 } }, { text: '带团队把评审当成一次流程梳理', label: '团队协作', effects: { network: 7, skill: 4, stress: 4 } }, { text: '先把台账做漂亮，过关再说', label: '激进', effects: { money: 3, ethics: -5, legalRisk: 5, stress: 4 } }] },
+    { id: 're_regional_discipline_building', stage: 'senior', title: '🎲 区域章节：学科建设得从零开始写', text: '在头部医院，学科建设是一块牌子；在这里，学科建设更像你一个个去借设备、谈合作、留住人的总和。', rarity: 'uncommon', weight: 7, returnTo: 'promotion_gate', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '慢慢搭团队和病种特色', label: '长期主义', effects: { skill: 6, network: 6, stress: 5 } }, { text: '先借力远程协作，把外部网络拉进来', label: '团队协作', effects: { network: 8, skill: 4, stress: 3 }, flagsSet: ['regional_remote_network'] }, { text: '觉得资源太散，开始认真考虑离开', label: '均衡', effects: { stress: 2, health: 1 }, flagsSet: ['regional_exit_intent'] }] },
+    { id: 're_regional_admin_overload', stage: 'senior', title: '🎲 区域章节：行政任务比病人先到', text: '填表、迎检、报材料、开会和临床一样多。你开始理解很多基层负责人为什么总在凌晨回消息。', rarity: 'common', weight: 8, returnTo: 'senior_outcome', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '把行政和临床分权，别全靠自己', label: '团队协作', effects: { network: 6, stress: -3, health: 2 } }, { text: '自己兜住所有细节', label: '激进', target: 'ending_regional_burnout', effects: { stress: 8, health: -5, skill: 3 }, resultText: '你把每个洞都亲手补了一遍，最后先漏掉的是自己的精力。区域医疗最残酷的一点，是很多耗竭都长得像负责。' }, { text: '能减的都减，优先守住临床', label: '稳妥', effects: { ethics: 4, legalRisk: -2, stress: 3 } }] },
+    { id: 're_regional_return_offer', stage: 'senior', title: '🎲 区域章节：大城市又来电话了', text: '老同学说那边岗位空出来了，平台更大、配套更齐。你突然发现，原来自己已经成了别人想挖的人。', rarity: 'rare', weight: 5, returnTo: 'promotion_gate', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '留下，把这张牌打在本地患者身上', label: '长期主义', effects: { ethics: 6, stress: 3, skill: 4 }, flagsSet: ['regional_stayed'] }, { text: '去谈条件，看能不能带着资源回来', label: '团队协作', effects: { network: 7, money: 4, stress: 2 } }, { text: '认真考虑离开，不再被情怀单点绑定', label: '稳妥', effects: { stress: -1, health: 2 }, flagsSet: ['regional_exit_intent'] }] },
+    { id: 're_regional_recruitment_fail', stage: 'senior', title: '🎲 区域章节：招人启事挂了三个月', text: '岗位说明书写得很真诚，但真正愿意来的人并不多。你比谁都清楚，这不是一句“年轻人不肯吃苦”能解释的。', rarity: 'common', weight: 7, returnTo: 'senior_outcome', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '争取补贴、轮转和培养承诺一起打包', label: '团队协作', effects: { network: 6, money: -3, stress: 4 } }, { text: '先把现有人手培养成能打的班底', label: '长期主义', effects: { skill: 5, ethics: 4, stress: 5 } }, { text: '算了，靠自己和几个老同事先顶着', label: '激进', effects: { stress: 8, health: -4, skill: 3 } }] },
+    { id: 're_regional_local_trust', stage: 'senior', title: '🎲 区域章节：患者开始指名找你', text: '这不是流量意义上的“出名”，而是一种更具体的事情：有人会带着病历跨县来找你，因为他们觉得这里有人会认真看。', rarity: 'uncommon', weight: 6, returnTo: 'promotion_gate', regionalChapter: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] }, options: [{ text: '把个人口碑变成团队制度', label: '长期主义', effects: { ethics: 6, network: 5, stress: 4 }, flagsSet: ['regional_backbone_candidate'] }, { text: '维持个人门诊优势，先把眼前病人看好', label: '稳妥', effects: { skill: 5, stress: 2 } }, { text: '顺势把远程协作做成区域网络', label: '团队协作', effects: { network: 8, skill: 3, stress: 3 }, flagsSet: ['regional_remote_network'] }] },
+    { id: 're_regional_future_choice', stage: 'senior', title: '🎯 区域章节：要留下什么样的坐标', text: '你已经在地市/县域/基层体系里亲历过足够多的具体场景。现在的问题不再是“能不能留下”，而是“要以什么姿态留下，还是体面离开”。', rarity: 'rare', weight: 6, returnTo: 'senior_outcome', regionalChapter: true, major: true, conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'], minRegionalChapterDone: 5 }, options: [{ text: '继续扎根，做区域临床骨干', label: '长期主义', target: 'ending_regional_backbone', effects: { skill: 6, ethics: 6, network: 6, stress: 4 }, conditions: { anyFlags: ['regional_backbone_candidate', 'regional_stayed', 'regional_remote_network'] }, resultText: '你决定把“留下来”做成一件具体且长期的事。后来别人提起这片区域时，会顺手提到你的名字和你带出来的人。' }, { text: '去县域/基层当真正能拍板的负责人', label: '团队协作', target: 'ending_county_dept_head', effects: { network: 8, ethics: 6, money: 6, stress: 3 }, resultText: '你没有再追更大的招牌，而是去了一块更需要拍板、更需要兜底的地方。这里的实权更具体，责任也更具体。' }, { text: '把远程会诊和转诊协作做成区域网络', label: '稳妥', target: 'ending_regional_network_builder', effects: { network: 10, ethics: 6, stress: 2 }, conditions: { requireFlags: ['regional_remote_network'] }, resultText: '你后来最自豪的，不是哪张聘书，而是几家医院终于能在同一个群里把病人顺畅接住。' }, { text: '补贴久拖不落地，也该体面转身了', label: '均衡', target: 'ending_regional_subsidy_exit', effects: { stress: -4, health: 2 }, conditions: { requireFlags: ['regional_subsidy_delayed'] }, resultText: '你不是被一笔钱打败，而是被反复落空的承诺耗尽了耐心。决定离开时，你反而比想象中平静。' }] }
+  );
+  events.push(
+    { id: 'ending_regional_network_builder', stage: 'ending', type: 'ending', title: '结局：远程协作搭起区域网络', text: '你没有把自己做成孤胆名医，而是把几家医院的会诊、转诊和复盘慢慢连了起来。患者未必记得系统结构，但他们开始更少地在半夜带着片子四处找门。' },
+    { id: 'ending_regional_subsidy_exit', stage: 'ending', type: 'ending', title: '结局：补贴落空后体面离开', text: '你不是没想扎根，只是反复落空的承诺把热情一点点磨成了清醒。离开时你带走的，不只是简历上的经历，还有对“政策兑现”这四个字新的理解。' },
+    { id: 'ending_regional_burnout', stage: 'ending', type: 'ending', title: '结局：资源不足里的职业耗竭', text: '长期兜底、长期缺人、长期资源不足，最后把你磨成了一个一直在补洞的人。你没有失败，只是先于系统承认了自己也有极限。' },
+    { id: 'ending_regional_gatekeeper', stage: 'ending', type: 'ending', title: '结局：基层长期守门人', text: '你留在了最前端、最基础也最容易被忽视的位置。没有太多聚光灯，但很多人的第一道安全网、第一份解释和第一次被认真听见，都发生在你这里。' }
+  );
+
   // ===== 统一遍历器（带下标，便于生成稳定文案） =====
   function walkIndexedContainers(visitor) {
     const visitList = (list, scope) => {
@@ -7203,7 +7653,8 @@
       research: [0, 100],
       network: [0, 100],
       ethics: [0, 100],
-      legalRisk: [0, 100]
+      legalRisk: [0, 100],
+      strength: [0, 100]
     },
     stages: {
       gaokao: '高考与志愿',

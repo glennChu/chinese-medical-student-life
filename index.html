@@ -12,6 +12,14 @@
         <h1>一个中国医学生的一生</h1>
         <p class="intro">点击选项推进剧情：从 985 医学院报到到职业终局，每次选择都会改变你的属性、路径与结局。经济状况改为 0–100 百分制，关键行动会有判定、后果链、财务危机与科室分化。</p>
         <p id="disclaimer-text" class="disclaimer"></p>
+        <section class="settings-panel" aria-labelledby="settings-title">
+          <h2 id="settings-title" class="settings-title">内容与原型设置</h2>
+          <label class="setting-toggle" for="historical-events-toggle">
+            <input id="historical-events-toggle" type="checkbox" />
+            <span>历史原型事件（含真实人物姓名）— 可关闭为虚构化版本</span>
+          </label>
+          <p class="settings-note">提示：相关剧情默认关闭真实姓名版本，开启后仍为克制、尊重的历史原型表达；部分结局会明确标注架空/虚构边界。</p>
+        </section>
         <div class="btn-row">
           <button id="start-btn" type="button">开始新人生</button>
           <button id="continue-btn" type="button">继续游戏</button>
@@ -28,6 +36,7 @@
             <span id="timeline-tag" class="tag"></span>
             <span id="specialty-tag" class="tag"></span>
             <span id="chapter-tag" class="tag chapter-tag" hidden></span>
+            <span id="regional-tag" class="tag chapter-tag regional-tag" hidden></span>
             <span id="origin-tag" class="tag"></span>
           </header>
           <div id="outcome-card" class="outcome-card" hidden aria-live="polite">

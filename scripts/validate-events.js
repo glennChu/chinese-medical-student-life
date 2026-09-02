@@ -11,11 +11,16 @@ const map = new Map();
 const randomMap = new Map();
 const issues = [];
 const validStats = new Set(checkSystem.STAT_KEYS);
-const DEFAULT_STATS = { health: 80, stress: 20, money: 55, skill: 10, research: 5, network: 8, ethics: 70, legalRisk: 5 };
+const DEFAULT_STATS = { health: 80, stress: 20, money: 55, skill: 10, research: 5, network: 8, ethics: 70, legalRisk: 5, strength: 35 };
 const RANDOM_EVENT_CHANCE = 0.25;
 const REQUIRED_SPECIALTY_FIELDS = ['name', 'group', 'intensity', 'dispute', 'learning', 'procedure', 'research', 'demand', 'income', 'control', 'risk', 'opportunity'];
 const KEY_FLAGS = ['questionable_research', 'record_shortcut', 'ai_overtrust', 'over_controlled_cost', 'has_child', 'grassroots_path', 'tier3_path'];
 const FINANCE_ENDINGS = new Set(['ending_finance_debt_loop', 'ending_finance_forced_exit']);
+const POSITIVE_FINANCE_ENDINGS = new Set(['ending_financial_freedom', 'ending_financial_freedom_teaching']);
+const RELATIONSHIP_STAGES = ['single', 'met', 'interested', 'dating', 'committed', 'cohabiting', 'engaged_or_discussing_marriage', 'married_or_long_term_partner'];
+const SPECIALTY_CHAPTER_QUOTA = 3;
+const REGIONAL_CHAPTER_QUOTA = 5;
+const CLINICAL_TITLES = ['resident', 'attending', 'associate_chief', 'chief', 'dept_head'];
 const careerMeta = gameData.careerMeta || {};
 const careerEnums = Object.fromEntries(
   Object.entries(careerMeta.enums || {}).map(([key, values]) => [key, new Set(values)])
@@ -97,6 +102,7 @@ function validateConditionEnums(eventId, conditions) {
     ['requireUndergradTier', 'undergradInstitutionTier'],
     ['requireHospitalTier', 'hospitalTier'],
     ['forbidHospitalTier', 'hospitalTier'],
+    ['requireHospitalType', 'hospitalType'],
     ['requireCityTier', 'cityTier'],
     ['requireGraduateTier', 'graduateInstitutionTier'],
     ['requireCareerTitle', 'careerTitle']
@@ -588,15 +594,21 @@ const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
 for (const keyword of ['百分制', '财务危机', '科室', '必然后果', '重大抉择', '游戏化抽象']) {
   if (!readme.includes(keyword)) issues.push(`README 缺少关键词说明: ${keyword}`);
 }
+for (const keyword of ['历史原型事件', '虚构', '架空', '体能/应急自保', '经济自由', '性别中性', '地市/县域/基层医院']) {
+  if (!readme.includes(keyword)) issues.push(`README 缺少新功能说明: ${keyword}`);
+}
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 for (const id of ['timeline-banner', 'specialty-tag', 'origin-tag', 'major-tag', 'resume-card', 'resume-list']) {
   if (!html.includes(`id="${id}"`)) issues.push(`index.html 缺少 UI 元素: ${id}`);
 }
+if (!html.includes('historical-events-toggle')) issues.push('index.html 缺少历史原型事件开关');
 const css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 if (!css.includes('[hidden]')) issues.push('styles.css 缺少 [hidden] 修复');
 if (!css.includes('prefers-reduced-motion')) issues.push('styles.css 缺少 reduced motion 处理');
 if (!css.includes('.timeline-banner')) issues.push('styles.css 缺少年份横幅样式');
 if (!css.includes('.resume-list')) issues.push('styles.css 缺少履历卡样式');
+if (!css.includes('.regional-tag')) issues.push('styles.css 缺少区域章节标签样式');
+const eventsSource = fs.readFileSync(path.join(__dirname, '..', 'events.js'), 'utf8');
 
 function evaluateConditions(conditions, state) {
   if (!conditions) return true;
@@ -620,10 +632,73 @@ function evaluateConditions(conditions, state) {
   if (conditions.requireUndergradTier && !conditions.requireUndergradTier.includes(state.undergradInstitutionTier)) return false;
   if (conditions.requireHospitalTier && !conditions.requireHospitalTier.includes(state.hospitalTier)) return false;
   if (conditions.forbidHospitalTier && conditions.forbidHospitalTier.includes(state.hospitalTier)) return false;
+  if (conditions.requireHospitalType && !conditions.requireHospitalType.includes(state.hospitalType)) return false;
   if (conditions.requireCityTier && !conditions.requireCityTier.includes(state.cityTier)) return false;
   if (conditions.requireGraduateTier && !conditions.requireGraduateTier.includes(state.graduateInstitutionTier)) return false;
   if (conditions.requireCareerTitle && !conditions.requireCareerTitle.includes(state.careerTitle)) return false;
+  if (typeof conditions.requireHistoricalRealNames === 'boolean' && !!state.settings?.historicalEventsRealNames !== conditions.requireHistoricalRealNames) return false;
+  if (conditions.relationshipStages?.length && !conditions.relationshipStages.includes(state.romance?.stage || 'single')) return false;
+  if (typeof conditions.minRelationshipInteractions === 'number' && (state.romance?.interactions || 0) < conditions.minRelationshipInteractions) return false;
+  if (typeof conditions.minCohabitationCount === 'number' && (state.romance?.cohabitationCount || 0) < conditions.minCohabitationCount) return false;
+  if (typeof conditions.minRealIssueCount === 'number' && (state.romance?.realIssueCount || 0) < conditions.minRealIssueCount) return false;
+  if (typeof conditions.minRegionalChapterDone === 'number' && (state.regionalChapter?.done || 0) < conditions.minRegionalChapterDone) return false;
+  if (typeof conditions.maxFinancialCrises === 'number' && (state.financialCrises || 0) > conditions.maxFinancialCrises) return false;
   return true;
+}
+
+const whistleIds = ['re_whistle_signal_real', 're_whistle_restriction_real', 're_whistle_role_real', 're_whistle_signal_fiction', 're_whistle_restriction_fiction', 're_whistle_role_fiction'];
+const whistleEndingIds = ['ending_whistleblower', 'ending_suppressed_warning', 'ending_frontline_survivor', 'ending_health_crisis'];
+for (const id of whistleIds) {
+  const event = randomMap.get(id);
+  if (!event) issues.push(`吹哨人事件链缺少节点: ${id}`);
+  else if (!['resident', 'senior'].includes(event.stage)) issues.push(`吹哨人事件 ${id} 不应出现在住院医/高年资之前`);
+}
+for (const id of whistleEndingIds) {
+  if (!map.has(id)) issues.push(`吹哨人结局缺失: ${id}`);
+}
+
+const retrialIds = ['re_retrial_night_case_real', 're_retrial_review_real', 're_retrial_second_instance_real', 're_retrial_night_case_fiction', 're_retrial_review_fiction', 're_retrial_second_instance_fiction'];
+for (const id of retrialIds) {
+  const event = randomMap.get(id);
+  if (!event) issues.push(`再审事件链缺少节点: ${id}`);
+  else if (!['resident', 'senior'].includes(event.stage)) issues.push(`再审事件 ${id} 不应出现在住院医/高年资之前`);
+}
+const fictionalRetrialEnding = map.get('ending_fictional_retrial_overturned');
+if (!fictionalRetrialEnding) {
+  issues.push('缺少架空再审改判结局');
+} else {
+  const markerText = `${fictionalRetrialEnding.title} ${fictionalRetrialEnding.text}`;
+  if (!/(架空|虚构|alternate)/i.test(markerText)) issues.push('架空再审改判结局缺少“架空/虚构/alternate”标记');
+}
+const invalidAppealUse = /(?<!而不是“)(?<!不存在的“)继续上诉/.test(eventsSource);
+if (invalidAppealUse) issues.push('事件文案包含错误法律表述“继续上诉”');
+if (!eventsSource.includes('申诉/申请再审')) issues.push('事件文案缺少“申诉/申请再审”规范表述');
+
+const violenceEvents = randomEvents.filter((event) => event.id.startsWith('re_violence_') && !event.id.includes('recovery'));
+if (violenceEvents.length < 5) issues.push(`暴力风险事件不足 5 个，当前 ${violenceEvents.length}`);
+for (const event of violenceEvents) {
+  if (!['resident', 'senior'].includes(event.stage)) issues.push(`暴力风险事件 ${event.id} 只能出现在 resident/senior`);
+  const checkOptions = (event.options || []).filter((option) => option.check);
+  if (checkOptions.length) {
+    const hasStrengthCheck = checkOptions.some((option) => typeof option.check?.stats?.strength === 'number' && option.check.stats.strength > 0);
+    if (!hasStrengthCheck) issues.push(`暴力风险事件 ${event.id} 缺少 strength 正向判定`);
+  }
+}
+const violenceChecks = violenceEvents.flatMap((event) => (event.options || []).map((option) => option.check).filter(Boolean));
+if (violenceChecks.length) {
+  const lowState = { ...DEFAULT_STATS, strength: 10 };
+  const highState = { ...DEFAULT_STATS, strength: 85 };
+  const avgLow = violenceChecks.reduce((sum, check) => sum + checkSystem.computeCheckDetails(check, lowState).chance, 0) / violenceChecks.length;
+  const avgHigh = violenceChecks.reduce((sum, check) => sum + checkSystem.computeCheckDetails(check, highState).chance, 0) / violenceChecks.length;
+  if (avgHigh <= avgLow + 6) issues.push(`strength 对暴力风险判定影响过弱：低体能 ${avgLow.toFixed(1)} vs 高体能 ${avgHigh.toFixed(1)}`);
+}
+
+const residencyMatch = map.get('residency_match');
+if (!residencyMatch || !residencyMatch.options?.[3]?.text?.includes('地市中心医院/强二甲')) {
+  issues.push('residency_match 第 4 个选项文案未保持“地市中心医院/强二甲”');
+}
+if (!eventsSource.includes("setCareerOnBranch('residency_match', 3, 'success', { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2'")) {
+  issues.push('residency_match 第 4 个选项成功分支未保持 prefecture_tier3_strong2');
 }
 
 function applyEffects(state, effects) {
@@ -642,6 +717,161 @@ function applyFlags(state, flags) {
   for (const flag of flags || []) state.flags[flag] = true;
 }
 
+function clearFlags(state, flags) {
+  for (const flag of flags || []) delete state.flags[flag];
+}
+
+function createDefaultRomance(stage = 'single') {
+  return {
+    stage,
+    interactions: stage === 'single' ? 0 : 1,
+    stageInteractions: 0,
+    cohabitationCount: 0,
+    realIssueCount: 0,
+    longDistance: false,
+    reunionCount: 0,
+    history: [stage]
+  };
+}
+
+function getRelationshipStageIndex(stage) {
+  return Math.max(0, RELATIONSHIP_STAGES.indexOf(stage));
+}
+
+function fillRelationshipHistory(state, targetStage) {
+  state.romance = state.romance || createDefaultRomance();
+  let currentIndex = getRelationshipStageIndex(state.romance.stage || 'single');
+  const targetIndex = getRelationshipStageIndex(targetStage);
+  while (currentIndex < targetIndex) {
+    currentIndex += 1;
+    const nextStage = RELATIONSHIP_STAGES[currentIndex];
+    state.romance.history.push(nextStage);
+  }
+  state.romance.stage = targetStage;
+  state.romance.history = state.romance.history.slice(-24);
+}
+
+function syncFamilyState(state) {
+  if (state.flags.married && getRelationshipStageIndex(state.romance?.stage || 'single') < getRelationshipStageIndex('married_or_long_term_partner')) {
+    state.romance = state.romance || createDefaultRomance();
+    fillRelationshipHistory(state, 'married_or_long_term_partner');
+  } else if (state.flags.has_partner && getRelationshipStageIndex(state.romance?.stage || 'single') < getRelationshipStageIndex('dating')) {
+    state.romance = state.romance || createDefaultRomance();
+    fillRelationshipHistory(state, 'dating');
+    state.romance.interactions = Math.max(2, state.romance.interactions || 0);
+  }
+  const romanceStage = state.romance?.stage || 'single';
+  const partnered = getRelationshipStageIndex(romanceStage) >= getRelationshipStageIndex('dating');
+  const married = romanceStage === 'married_or_long_term_partner';
+  if (partnered) state.flags.has_partner = true; else delete state.flags.has_partner;
+  if (married) state.flags.married = true; else delete state.flags.married;
+  state.family.partner = partnered || !!state.flags.dink;
+  state.family.married = married;
+  state.family.child = !!state.flags.has_child;
+  state.family.dink = !!state.flags.dink;
+  state.family.single = !!state.flags.single_choice && !partnered && !married;
+}
+
+function canAdvanceRelationship(state, targetStage) {
+  const romance = state.romance || createDefaultRomance();
+  if (targetStage === 'single') return true;
+  const currentIndex = getRelationshipStageIndex(romance.stage);
+  const targetIndex = getRelationshipStageIndex(targetStage);
+  if (targetIndex <= currentIndex) return true;
+  if (targetIndex > currentIndex + 1) return false;
+  if (targetStage === 'committed' && romance.interactions < 2) return false;
+  if (targetStage === 'engaged_or_discussing_marriage' && (romance.cohabitationCount < 1 || romance.realIssueCount < 1)) return false;
+  if (targetStage === 'married_or_long_term_partner' && (romance.cohabitationCount < 1 || romance.realIssueCount < 2)) return false;
+  return true;
+}
+
+function advanceRelationshipStage(state, targetStage) {
+  if (!RELATIONSHIP_STAGES.includes(targetStage)) return false;
+  state.romance = state.romance || createDefaultRomance();
+  if (targetStage === 'single') {
+    state.romance = createDefaultRomance('single');
+    syncFamilyState(state);
+    return true;
+  }
+  const currentIndex = getRelationshipStageIndex(state.romance.stage);
+  const targetIndex = getRelationshipStageIndex(targetStage);
+  if (targetIndex === currentIndex) return true;
+  if (!canAdvanceRelationship(state, targetStage)) {
+    if (targetIndex > currentIndex + 1) {
+      targetStage = RELATIONSHIP_STAGES[currentIndex + 1];
+    } else {
+      return false;
+    }
+  }
+  state.romance.stage = targetStage;
+  state.romance.stageInteractions = 0;
+  state.romance.history.push(targetStage);
+  state.romance.history = state.romance.history.slice(-16);
+  syncFamilyState(state);
+  return true;
+}
+
+function queueChildDiscussionFollowup(state, years = 2) {
+  state.family.childDecisionDeferred = true;
+  state.childDeferralEver = true;
+  state.family.nextChildDiscussionAge = state.age + years;
+  state.scheduled.push({
+    turns: 3,
+    eventId: 're_child_discussion_followup',
+    once: false,
+    source: '你们把生育与家庭方案继续往后讨论。',
+    conditions: { age: { min: state.family.nextChildDiscussionAge }, forbidFlags: ['dink', 'has_child', 'adopted_child', 'flag_dink_confirmed'] }
+  });
+}
+
+function applyNarrativeState(state, container) {
+  if (!container || typeof container !== 'object') return;
+  if (container.romance && typeof container.romance === 'object') {
+    state.romance = state.romance || createDefaultRomance();
+    const romance = container.romance;
+    if (romance.interaction) {
+      const amount = romance.interaction === true ? 1 : Math.max(1, Math.round(romance.interaction));
+      state.romance.interactions += amount;
+      state.romance.stageInteractions += amount;
+    }
+    if (romance.cohabitation) state.romance.cohabitationCount += romance.cohabitation === true ? 1 : Math.max(1, Math.round(romance.cohabitation));
+    if (romance.realIssue) state.romance.realIssueCount += romance.realIssue === true ? 1 : Math.max(1, Math.round(romance.realIssue));
+    if (typeof romance.longDistance === 'boolean') state.romance.longDistance = romance.longDistance;
+    if (romance.reunion) state.romance.reunionCount += romance.reunion === true ? 1 : Math.max(1, Math.round(romance.reunion));
+    if (romance.breakup) {
+      state.romance = createDefaultRomance('single');
+    } else if (typeof romance.advanceTo === 'string') {
+      advanceRelationshipStage(state, romance.advanceTo);
+    }
+  }
+  if (container.family && typeof container.family === 'object') {
+    const family = container.family;
+    if (family.childDecision === 'defer') queueChildDiscussionFollowup(state, typeof family.delayYears === 'number' ? family.delayYears : 2);
+    if (family.childDecision === 'child') {
+      state.flags.has_child = true;
+      state.family.childDecisionDeferred = false;
+      state.family.nextChildDiscussionAge = null;
+    }
+    if (family.childDecision === 'adopt') {
+      state.flags.has_child = true;
+      state.flags.adopted_child = true;
+      state.family.childDecisionDeferred = false;
+      state.family.nextChildDiscussionAge = null;
+    }
+    if (family.childDecision === 'dink') {
+      state.flags.dink = true;
+      state.flags.flag_dink_confirmed = true;
+      state.family.childDecisionDeferred = false;
+      state.family.nextChildDiscussionAge = null;
+    }
+    if (family.clearDeferred) {
+      state.family.childDecisionDeferred = false;
+      state.family.nextChildDiscussionAge = null;
+    }
+  }
+  syncFamilyState(state);
+}
+
 function queueScheduled(state, entries) {
   for (const item of entries || []) {
     state.scheduled.push({
@@ -657,7 +887,7 @@ function queueScheduled(state, entries) {
 function eligibleRandomEvents(state) {
   return randomEvents.filter((event) => {
     if (event.stage !== state.stage) return false;
-    if (state.seenRandom.has(event.id)) return false;
+    if (state.seenRandom.has(event.id) && !event.repeatable) return false;
     const conditions = { ...(event.conditions || {}), requireFlags: [...(event.conditions?.requireFlags || []), ...(event.requireFlags || [])], forbidFlags: [...(event.conditions?.forbidFlags || []), ...(event.forbidFlags || [])] };
     return evaluateConditions(conditions, state);
   });
@@ -686,6 +916,51 @@ function chooseOption(event, state, desiredSpecialty) {
   if (event.id === gameData.startEventId) {
     return available[Math.floor(Math.random() * available.length)];
   }
+  if (!state.flags.has_partner && !state.flags.married) {
+    const partnerStart = available.filter((option) => (option.flagsSet || []).includes('has_partner') || option.romance?.advanceTo === 'met' || option.romance?.advanceTo === 'interested' || option.romance?.advanceTo === 'dating');
+    const singleOut = available.find((option) => (option.flagsSet || []).includes('single_choice'));
+    if (partnerStart.length) {
+      const roll = Math.random();
+      if (roll < 0.84) return partnerStart[Math.floor(Math.random() * partnerStart.length)];
+      if (singleOut && roll > 0.96) return singleOut;
+    }
+  }
+  if (event.id === ROMANCE_GUARANTEE_EVENT_ID) {
+    const positive = available.filter((option) => (option.flagsSet || []).includes('has_partner') || option.romance?.advanceTo);
+    const single = available.find((option) => (option.flagsSet || []).includes('single_choice'));
+    const roll = Math.random();
+    if (positive.length && roll < 0.85) return positive[Math.floor(Math.random() * positive.length)];
+    if (single) return single;
+  }
+  if (event.id === 're_marriage' || event.id === 're_marriage_resident') {
+    const marry = available.filter((option) => (option.flagsSet || []).includes('married') || option.romance?.advanceTo === 'married_or_long_term_partner');
+    if (marry.length && Math.random() < 0.82) return marry[Math.floor(Math.random() * marry.length)];
+  }
+  if (event.requireFlags?.includes('has_partner') && !event.forbidFlags?.includes('married')) {
+    const partnerForward = available.filter((option) =>
+      (option.flagsSet || []).includes('married') ||
+      option.romance?.advanceTo === 'committed' ||
+      option.romance?.advanceTo === 'cohabiting' ||
+      option.romance?.advanceTo === 'engaged_or_discussing_marriage' ||
+      option.romance?.advanceTo === 'married_or_long_term_partner' ||
+      option.romance?.realIssue ||
+      option.romance?.cohabitation
+    );
+    if (partnerForward.length && Math.random() < 0.68) return partnerForward[Math.floor(Math.random() * partnerForward.length)];
+  }
+  const advancingRomance = available.filter((option) => option.romance?.advanceTo && !option.romance?.breakup);
+  if (advancingRomance.length && Math.random() < 0.58) {
+    return advancingRomance[Math.floor(Math.random() * advancingRomance.length)];
+  }
+  if ((event.id === 're_child_choice' || event.id === 're_child_discussion_followup') && state.flags.married) {
+    const child = available.find((option) => option.family?.childDecision === 'child' || (option.flagsSet || []).includes('has_child'));
+    const defer = available.find((option) => option.family?.childDecision === 'defer');
+    const dink = available.find((option) => option.family?.childDecision === 'dink' || (option.flagsSet || []).includes('dink'));
+    const roll = Math.random();
+    if (child && roll < 0.52) return child;
+    if (defer && roll < 0.82) return defer;
+    if (dink) return dink;
+  }
   const safe = available.filter((option) => option.safeChoice || option.label === '稳妥');
   if (safe.length && Math.random() < 0.35) return safe[Math.floor(Math.random() * safe.length)];
   return available[Math.floor(Math.random() * available.length)];
@@ -706,7 +981,7 @@ function triggerFinanceCrisis(state) {
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = 're_forced_financial_crisis';
   state.stage = randomMap.get('re_forced_financial_crisis').stage;
-  state.seenRandom.add('re_forced_financial_crisis');
+  if (!randomMap.get('re_forced_financial_crisis')?.repeatable) state.seenRandom.add('re_forced_financial_crisis');
 }
 
 function maybeTriggerScheduled(state) {
@@ -733,14 +1008,14 @@ function maybeTriggerScheduled(state) {
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = triggered.eventId;
   state.stage = randomMap.get(triggered.eventId)?.stage || state.stage;
-  state.seenRandom.add(triggered.eventId);
+  if (!randomMap.get(triggered.eventId)?.repeatable) state.seenRandom.add(triggered.eventId);
   return true;
 }
 
-const SPECIALTY_CHAPTER_QUOTA = 3;
 const ROMANCE_GUARANTEE_AGE = 32;
 const ROMANCE_GUARANTEE_EVENT_ID = 're_rm_guarantee_late';
 const ROMANCE_SKIP_FLAGS = ['has_partner', 'single_choice', 'dink', 'romance_guarantee_used'];
+const REGIONAL_TIERS = new Set(['prefecture_tier3_strong2', 'regular_tier2', 'county_basic']);
 
 function applySpecialtyToState(state, specialtyId) {
   if (!specialtyId || !specialtyProfiles[specialtyId]) return;
@@ -757,7 +1032,7 @@ function getSpecialtyChapterCandidates(state) {
   return randomEvents.filter((re) =>
     re.specialtyChapter === state.specialty &&
     !state.specialtyChapter.seen.has(re.id) &&
-    !state.seenRandom.has(re.id) &&
+    (!state.seenRandom.has(re.id) || re.repeatable) &&
     evaluateConditions({ ...(re.conditions || {}), requireFlags: [...(re.conditions?.requireFlags || []), ...(re.requireFlags || [])], forbidFlags: [...(re.conditions?.forbidFlags || []), ...(re.forbidFlags || [])] }, state)
   );
 }
@@ -788,8 +1063,62 @@ function maybeTriggerSpecialtyChapter(state) {
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = chosen.id;
   state.stage = chosen.stage || state.stage;
-  state.seenRandom.add(chosen.id);
+  if (!chosen.repeatable) state.seenRandom.add(chosen.id);
   noteSpecialtyChapterProgress(state, chosen.id);
+  return true;
+}
+
+function syncRegionalChapter(state) {
+  const eligible = REGIONAL_TIERS.has(state.hospitalTier);
+  if (!eligible) {
+    state.regionalChapter.active = false;
+    state.regionalChapter.tier = state.hospitalTier || null;
+    return;
+  }
+  if (state.regionalChapter.tier !== state.hospitalTier || (!state.regionalChapter.active && state.regionalChapter.done === 0)) {
+    state.regionalChapter.active = true;
+    state.regionalChapter.tier = state.hospitalTier;
+    state.regionalChapter.quota = REGIONAL_CHAPTER_QUOTA;
+    state.regionalChapter.turnsWaited = 0;
+  }
+}
+
+function getRegionalChapterCandidates(state) {
+  if (!state.regionalChapter?.active || !REGIONAL_TIERS.has(state.hospitalTier)) return [];
+  return randomEvents.filter((re) =>
+    re.regionalChapter === true &&
+    !state.regionalChapter.seen.has(re.id) &&
+    (!state.seenRandom.has(re.id) || re.repeatable) &&
+    evaluateConditions({ ...(re.conditions || {}), requireFlags: [...(re.conditions?.requireFlags || []), ...(re.requireFlags || [])], forbidFlags: [...(re.conditions?.forbidFlags || []), ...(re.forbidFlags || [])] }, state)
+  );
+}
+
+function noteRegionalChapterProgress(state, eventId) {
+  const event = randomMap.get(eventId);
+  if (!event || event.regionalChapter !== true) return;
+  if (state.regionalChapter.seen.has(eventId)) return;
+  state.regionalChapter.seen.add(eventId);
+  state.regionalChapter.done = Math.min(state.regionalChapter.quota, state.regionalChapter.done + 1);
+  state.regionalChapter.turnsWaited = 0;
+  if (state.regionalChapter.done >= state.regionalChapter.quota) state.regionalChapter.active = false;
+}
+
+function maybeTriggerRegionalChapter(state) {
+  const chapter = state.regionalChapter;
+  if (!chapter?.active || chapter.done >= chapter.quota) return false;
+  const candidates = getRegionalChapterCandidates(state);
+  if (!candidates.length) return false;
+  chapter.turnsWaited = (chapter.turnsWaited || 0) + 1;
+  const remaining = chapter.quota - chapter.done;
+  const overdue = chapter.turnsWaited >= Math.max(2, remaining * 2);
+  if (!overdue && Math.random() >= 0.55) return false;
+  const chosen = pickWeighted(candidates.map((re) => ({ ...re, weight: (re.weight || 1) * 2.2 })));
+  state.inRandom = true;
+  state.randomReturnTo = state.currentEventId;
+  state.currentEventId = chosen.id;
+  state.stage = chosen.stage || state.stage;
+  if (!chosen.repeatable) state.seenRandom.add(chosen.id);
+  noteRegionalChapterProgress(state, chosen.id);
   return true;
 }
 
@@ -802,7 +1131,7 @@ function maybeTriggerRomanceGuarantee(state) {
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = ROMANCE_GUARANTEE_EVENT_ID;
   state.stage = randomMap.get(ROMANCE_GUARANTEE_EVENT_ID)?.stage || state.stage;
-  state.seenRandom.add(ROMANCE_GUARANTEE_EVENT_ID);
+  if (!randomMap.get(ROMANCE_GUARANTEE_EVENT_ID)?.repeatable) state.seenRandom.add(ROMANCE_GUARANTEE_EVENT_ID);
   return true;
 }
 
@@ -812,13 +1141,18 @@ const MARRIAGE_EVENT_CANDIDATES = ['re_marriage', 're_marriage_resident'];
 function maybeTriggerMarriageGuarantee(state) {
   if (state.age < MARRIAGE_GUARANTEE_AGE) return false;
   if (!state.flags.has_partner || state.flags.married || state.flags.dink) return false;
-  const candidate = MARRIAGE_EVENT_CANDIDATES.find((id) => randomMap.has(id) && !state.seenRandom.has(id));
+  const candidate = MARRIAGE_EVENT_CANDIDATES.find((id) => {
+    const event = randomMap.get(id);
+    if (!event || state.seenRandom.has(id)) return false;
+    const conditions = { ...(event.conditions || {}), requireFlags: [...(event.conditions?.requireFlags || []), ...(event.requireFlags || [])], forbidFlags: [...(event.conditions?.forbidFlags || []), ...(event.forbidFlags || [])] };
+    return evaluateConditions(conditions, state);
+  });
   if (!candidate) return false;
   state.inRandom = true;
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = candidate;
   state.stage = randomMap.get(candidate)?.stage || state.stage;
-  state.seenRandom.add(candidate);
+  if (!randomMap.get(candidate)?.repeatable) state.seenRandom.add(candidate);
   return true;
 }
 
@@ -828,15 +1162,41 @@ const NEXT_GEN_GUARANTEE_EVENT_ID = 're_child_choice';
 function maybeTriggerNextGenGuarantee(state) {
   if (state.age < NEXT_GEN_GUARANTEE_AGE) return false;
   if (!state.flags.married) return false;
-  if (state.flags.has_child || state.flags.dink || state.flags.adopted_child) return false;
+  if (state.flags.has_child || state.flags.dink || state.flags.adopted_child || state.flags.flag_dink_confirmed) return false;
+  if (state.family.childDecisionDeferred && typeof state.family.nextChildDiscussionAge === 'number' && state.age < state.family.nextChildDiscussionAge) return false;
   if (!randomMap.has(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
   if (state.seenRandom.has(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
   state.inRandom = true;
   state.randomReturnTo = state.currentEventId;
   state.currentEventId = NEXT_GEN_GUARANTEE_EVENT_ID;
   state.stage = randomMap.get(NEXT_GEN_GUARANTEE_EVENT_ID)?.stage || state.stage;
-  state.seenRandom.add(NEXT_GEN_GUARANTEE_EVENT_ID);
+  if (!randomMap.get(NEXT_GEN_GUARANTEE_EVENT_ID)?.repeatable) state.seenRandom.add(NEXT_GEN_GUARANTEE_EVENT_ID);
   return true;
+}
+
+function advancePassiveRelationshipState(state, deltaYear) {
+  if (!deltaYear || !state.flags.has_partner || state.flags.married || state.flags.dink) return;
+  state.romance = state.romance || createDefaultRomance(state.flags.has_partner ? 'dating' : 'single');
+  for (let i = 0; i < deltaYear; i += 1) {
+    state.romance.interactions += 1;
+    state.romance.stageInteractions += 1;
+    if (state.romance.stage === 'dating' && state.romance.interactions >= 2 && Math.random() < 0.45) {
+      state.romance.realIssueCount += 1;
+      advanceRelationshipStage(state, 'committed');
+      continue;
+    }
+    if (state.romance.stage === 'committed' && Math.random() < 0.35) {
+      state.romance.realIssueCount += 1;
+      state.romance.cohabitationCount += 1;
+      advanceRelationshipStage(state, 'cohabiting');
+      continue;
+    }
+    if (state.romance.stage === 'cohabiting' && state.romance.realIssueCount >= 1 && Math.random() < 0.3) {
+      state.romance.realIssueCount += 1;
+      advanceRelationshipStage(state, 'engaged_or_discussing_marriage');
+    }
+  }
+  syncFamilyState(state);
 }
 
 function simulateRun(desiredSpecialty) {
@@ -845,6 +1205,9 @@ function simulateRun(desiredSpecialty) {
     stage: gameData.startStage || map.get(gameData.startEventId)?.stage,
     stats: { ...DEFAULT_STATS },
     flags: {},
+    settings: { historicalEventsRealNames: false },
+    family: { partner: false, married: false, child: false, dink: false, single: false, childDecisionDeferred: false, nextChildDiscussionAge: null },
+    romance: createDefaultRomance(),
     scheduled: [],
     scheduledHistory: new Set(),
     seenRandom: new Set(),
@@ -863,6 +1226,10 @@ function simulateRun(desiredSpecialty) {
     financialCrises: 0,
     retryState: {},
     specialtyChapter: null,
+    regionalChapter: { active: false, tier: null, done: 0, quota: REGIONAL_CHAPTER_QUOTA, seen: new Set(), turnsWaited: 0 },
+    childDeferralEver: false,
+    childRepromptCount: 0,
+    violenceInjurySeen: false,
     diminishingCarry: { skill: 0, network: 0, research: 0 }
   };
 
@@ -872,13 +1239,18 @@ function simulateRun(desiredSpecialty) {
     const event = map.get(state.currentEventId) || randomMap.get(state.currentEventId);
     if (!event) return buildRunResult(state, null, stepsTaken);
     if (event.type === 'ending') return buildRunResult(state, event.id, stepsTaken);
+    if (event.id === 're_child_discussion_followup') state.childRepromptCount += 1;
 
     const option = chooseOption(event, state, desiredSpecialty);
     if (!option) return buildRunResult(state, null, stepsTaken);
     applyEffects(state, option.effects);
     applyFlags(state, option.flagsSet);
+    if ((option.flagsSet || []).some((flag) => flag === 'violence_injury' || flag === 'violence_minor_injury')) state.violenceInjurySeen = true;
+    clearFlags(state, option.flagsCleared);
+    applyNarrativeState(state, option);
     if (option.specialty) applySpecialtyToState(state, option.specialty);
     applyCareer(state, option);
+    syncRegionalChapter(state);
     queueScheduled(state, option.scheduledEvents);
 
     const deltaYear = typeof option.yearDelta === 'number' ? option.yearDelta : (event.yearDelta || 0);
@@ -890,8 +1262,12 @@ function simulateRun(desiredSpecialty) {
       targetId = branchResult.targetId;
       applyEffects(state, branchResult.container.effects);
       applyFlags(state, branchResult.container.flagsSet);
+      if ((branchResult.container.flagsSet || []).some((flag) => flag === 'violence_injury' || flag === 'violence_minor_injury')) state.violenceInjurySeen = true;
+      clearFlags(state, branchResult.container.flagsCleared);
+      applyNarrativeState(state, branchResult.container);
       if (branchResult.container.specialty) applySpecialtyToState(state, branchResult.container.specialty);
       applyCareer(state, branchResult.container);
+      syncRegionalChapter(state);
       queueScheduled(state, branchResult.container.scheduledEvents);
       if (option.retry && !state.inRandom && branchResult.success === false) {
         const record = state.retryState[event.id] || { attempts: 0, bonus: 0 };
@@ -918,6 +1294,7 @@ function simulateRun(desiredSpecialty) {
     const targetEvent = map.get(state.currentEventId) || randomMap.get(state.currentEventId);
     state.stage = targetEvent?.stage || state.stage;
     if (!retriedStay && deltaYear > 0) {
+      advancePassiveRelationshipState(state, deltaYear);
       state.age += deltaYear;
       state.careerYear += deltaYear;
     }
@@ -929,6 +1306,7 @@ function simulateRun(desiredSpecialty) {
 
     if (!retriedStay && maybeTriggerScheduled(state)) continue;
     if (!retriedStay && maybeTriggerSpecialtyChapter(state)) continue;
+    if (!retriedStay && maybeTriggerRegionalChapter(state)) continue;
     if (!retriedStay && maybeTriggerRomanceGuarantee(state)) continue;
     if (!retriedStay && maybeTriggerMarriageGuarantee(state)) continue;
     if (!retriedStay && maybeTriggerNextGenGuarantee(state)) continue;
@@ -940,8 +1318,9 @@ function simulateRun(desiredSpecialty) {
         state.randomReturnTo = state.currentEventId;
         state.currentEventId = chosen.id;
         state.stage = chosen.stage;
-        state.seenRandom.add(chosen.id);
+        if (!chosen.repeatable) state.seenRandom.add(chosen.id);
         noteSpecialtyChapterProgress(state, chosen.id);
+        noteRegionalChapterProgress(state, chosen.id);
       }
     }
   }
@@ -958,8 +1337,19 @@ function buildRunResult(state, endingId, stepsTaken) {
     finalStats: { ...state.stats },
     chapterDone: state.specialtyChapter?.seen ? state.specialtyChapter.seen.size : 0,
     chapterQuota: state.specialtyChapter?.quota || SPECIALTY_CHAPTER_QUOTA,
+    regionalChapterDone: state.regionalChapter?.seen ? state.regionalChapter.seen.size : 0,
+    regionalChapterQuota: state.regionalChapter?.quota || REGIONAL_CHAPTER_QUOTA,
     hasPartner: !!(state.flags.has_partner || state.flags.dink),
     hasNextGen: !!(state.flags.has_child || state.flags.adopted_child),
+    relationshipStage: state.romance?.stage || 'single',
+    relationshipHistory: [...(state.romance?.history || ['single'])],
+    childDeferred: !!state.family?.childDecisionDeferred,
+    childDeferralEver: !!state.childDeferralEver,
+    childRepromptCount: state.childRepromptCount || 0,
+    dinkConfirmed: !!(state.flags.dink || state.flags.flag_dink_confirmed),
+    violenceInjurySeen: !!state.violenceInjurySeen,
+    whistleArcSeen: !!state.flags.flag_whistleblower_arc_seen,
+    retrialArcSeen: !!state.flags.flag_retrial_arc_seen,
     careerTitle: state.careerTitle,
     hospitalTier: state.hospitalTier
   };
@@ -1053,6 +1443,39 @@ if (partnerRate < 0.30 || partnerRate > 0.60) {
 if (nextGenRate < 0.15 || nextGenRate > 0.40) {
   issues.push(`下一代入口达成率超出预期区间（目标 20%-35%，允许 15%-40% 容差）：${(nextGenRate * 100).toFixed(1)}%`);
 }
+const historicalEventRate = bulkResults.filter((r) => r.whistleArcSeen || r.retrialArcSeen).length / bulkResults.length;
+const whistleblowerEndingRate = bulkResults.filter((r) => r.endingId === 'ending_whistleblower').length / bulkResults.length;
+const fictionalRetrialRate = bulkResults.filter((r) => r.endingId === 'ending_fictional_retrial_overturned').length / bulkResults.length;
+const violenceInjuryRate = bulkResults.filter((r) => r.violenceInjurySeen).length / bulkResults.length;
+const violenceDeathRate = bulkResults.filter((r) => r.endingId === 'ending_violence_fatality').length / bulkResults.length;
+const financialFreedomRate = bulkResults.filter((r) => POSITIVE_FINANCE_ENDINGS.has(r.endingId)).length / bulkResults.length;
+const regionalEligibleRuns = bulkResults.filter((r) => ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'].includes(r.hospitalTier));
+const regionalCompletionRate = regionalEligibleRuns.length ? regionalEligibleRuns.filter((r) => r.regionalChapterDone >= r.regionalChapterQuota).length / regionalEligibleRuns.length : 0;
+const relationshipStageDistribution = RELATIONSHIP_STAGES.reduce((acc, stage) => {
+  acc[stage] = bulkResults.filter((r) => r.relationshipStage === stage).length;
+  return acc;
+}, {});
+for (const result of bulkResults) {
+  for (let i = 1; i < result.relationshipHistory.length; i += 1) {
+    const prev = getRelationshipStageIndex(result.relationshipHistory[i - 1]);
+    const next = getRelationshipStageIndex(result.relationshipHistory[i]);
+    const resetToSingle = result.relationshipHistory[i] === 'single';
+    if (!resetToSingle && next - prev > 1) {
+      issues.push(`关系阶段发生跳级：${result.relationshipHistory[i - 1]} -> ${result.relationshipHistory[i]}`);
+      break;
+    }
+  }
+}
+const deferredRuns = bulkResults.filter((r) => r.childDeferralEver);
+const deferredRepromptRate = deferredRuns.length ? deferredRuns.filter((r) => r.childRepromptCount > 0 || r.hasNextGen || r.dinkConfirmed).length / deferredRuns.length : 1;
+if (deferredRuns.length && deferredRepromptRate < 0.6) {
+  issues.push(`孩子延期后再次进入讨论/结局的比例过低：${(deferredRepromptRate * 100).toFixed(1)}%`);
+}
+if (violenceDeathRate >= 0.01) issues.push(`暴力风险死亡率过高：${(violenceDeathRate * 100).toFixed(2)}%`);
+if (financialFreedomRate <= 0 || financialFreedomRate >= 0.15) issues.push(`经济自由结局需“可达但稀有”，当前占比 ${(financialFreedomRate * 100).toFixed(1)}%`);
+if (historicalEventRate > 0.12) issues.push(`历史原型/复合虚构链触发率过高：${(historicalEventRate * 100).toFixed(1)}%`);
+if (!bulkResults.some((r) => r.endingId === 'ending_whistleblower')) issues.push('固定种子模拟未触发“吹哨人”结局');
+if (!bulkResults.some((r) => r.endingId === 'ending_fictional_retrial_overturned')) issues.push('固定种子模拟未触发“架空再审”结局');
 
 const chapterCompletionRate = bulkResults.filter((r) => r.chapterDone >= r.chapterQuota).length / bulkResults.length;
 if (chapterCompletionRate < 0.5) {
@@ -1108,7 +1531,11 @@ console.log(`--- 固定种子大规模模拟（种子 ${BULK_SIM_SEED}，共 ${B
 console.log(`skill: 均值 ${skillStat.mean.toFixed(1)}，中位数 ${skillStat.median}，P90 ${skillStat.p90}，P95 ${skillStat.p95}，95+比例 ${(skillStat.rate95 * 100).toFixed(1)}%，100比例 ${(skillStat.rate100 * 100).toFixed(1)}%`);
 console.log(`network: 均值 ${networkStat.mean.toFixed(1)}，中位数 ${networkStat.median}，P90 ${networkStat.p90}，P95 ${networkStat.p95}，95+比例 ${(networkStat.rate95 * 100).toFixed(1)}%，100比例 ${(networkStat.rate100 * 100).toFixed(1)}%`);
 console.log(`伴侣关系达成率: ${(partnerRate * 100).toFixed(1)}%，下一代入口达成率: ${(nextGenRate * 100).toFixed(1)}%`);
+console.log(`历史事件触发率: ${(historicalEventRate * 100).toFixed(1)}%，吹哨人结局率: ${(whistleblowerEndingRate * 100).toFixed(2)}%，架空再审结局率: ${(fictionalRetrialRate * 100).toFixed(2)}%`);
+console.log(`医闹/暴力风险受伤率: ${(violenceInjuryRate * 100).toFixed(1)}%，死亡率: ${(violenceDeathRate * 100).toFixed(2)}%`);
+console.log(`关系阶段分布: ${JSON.stringify(relationshipStageDistribution)}`);
+console.log(`孩子延期后回流率: ${(deferredRepromptRate * 100).toFixed(1)}%，经济自由结局率: ${(financialFreedomRate * 100).toFixed(2)}%`);
 console.log(`科室体验 3/3 达成率（总体）: ${(chapterCompletionRate * 100).toFixed(1)}%`);
 console.log(`科室体验 3/3 达成率（分科室）: ${JSON.stringify(chapterCompletionBySpecialty)}`);
+console.log(`低层级医院区域章节 ${REGIONAL_CHAPTER_QUOTA}/${REGIONAL_CHAPTER_QUOTA} 达成率: ${(regionalCompletionRate * 100).toFixed(1)}%`);
 console.log(`幽默/讽刺文案密度: ${(humorDensity * 100).toFixed(1)}%（${humorScanHit}/${humorScanTotal} 条含行业梗关键词）`);
-
