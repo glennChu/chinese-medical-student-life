@@ -53,30 +53,64 @@
 
   // ===== 成长边际递减：医术/人脉/科研越高，越难继续增长 =====
   const DIMINISHING_STATS = new Set(['skill', 'network', 'research']);
-  const DIMINISHING_TIERS = [
-    { from: 95, factor: 0.15 },
-    { from: 85, factor: 0.35 },
-    { from: 70, factor: 0.6 },
-    { from: 0, factor: 1 }
-  ];
+  // skill 增长机会明显多于 network（主线复访事件更集中在医术上），
+  // 因此 skill 曲线更早、更严地衰减；network/research 保留原有强度。
+  const DIMINISHING_TIERS = {
+    skill: [
+      { from: 92, factor: 0.15 },
+      { from: 80, factor: 0.42 },
+      { from: 60, factor: 0.5 },
+      { from: 0, factor: 1 }
+    ],
+    network: [
+      { from: 95, factor: 0.15 },
+      { from: 85, factor: 0.44 },
+      { from: 70, factor: 0.6 },
+      { from: 0, factor: 1 }
+    ],
+    research: [
+      { from: 95, factor: 0.15 },
+      { from: 85, factor: 0.44 },
+      { from: 70, factor: 0.6 },
+      { from: 0, factor: 1 }
+    ]
+  };
+  // 每个 stat 曲线的最高一级门槛：越过它之后，只有高代价里程碑（原始 delta>=6）
+  // 才能继续 +1，避免琐碎选项的小数堆积把角色顶到满值。
+  const TOP_TIER_FLOOR = { skill: 92, network: 95, research: 95 };
 
-  function getDiminishingFactor(current) {
-    for (const tier of DIMINISHING_TIERS) {
+  function getDiminishingFactor(current, stat) {
+    const tiers = DIMINISHING_TIERS[stat] || DIMINISHING_TIERS.research;
+    for (const tier of tiers) {
       if (current >= tier.from) return tier.factor;
     }
     return 1;
   }
 
   // 增益按当前值分段衰减；扣减不受影响。
-  function applyDiminishingReturns(stat, current, delta) {
+  // carryState（可选）：用于在衰减区间内累积小数余量，避免“每次都被舍成 0”
+  // 或“只要 delta>=6 就必涨”这类离散跳变；顶层门槛以上不做小数累积，
+  // 只放行高代价里程碑事件，保证 95+/满值仍然是稀有事件。
+  function applyDiminishingReturns(stat, current, delta, carryState) {
     if (!DIMINISHING_STATS.has(stat)) return delta;
     if (typeof delta !== 'number' || delta <= 0) return delta;
-    const factor = getDiminishingFactor(current);
+    const factor = getDiminishingFactor(current, stat);
     if (factor >= 1) return delta;
     const scaled = delta * factor;
-    // 保证高成本事件仍能推动 95+，但普通事件基本被磨平
     if (scaled <= 0) return 0;
-    return scaled < 1 ? (delta >= 6 ? 1 : 0) : Math.round(scaled);
+
+    const topFloor = TOP_TIER_FLOOR[stat] ?? 95;
+    if (current >= topFloor) {
+      return scaled < 1 ? (delta >= 6 ? 1 : 0) : Math.round(scaled);
+    }
+
+    if (!carryState) {
+      return scaled < 1 ? (delta >= 6 ? 1 : 0) : Math.round(scaled);
+    }
+    const total = scaled + (carryState[stat] || 0);
+    const wholePart = Math.floor(total);
+    carryState[stat] = total - wholePart;
+    return wholePart;
   }
 
   const api = {

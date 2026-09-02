@@ -239,6 +239,37 @@ for (const event of events) {
   }
 }
 
+// ===== 需求4：高收益（skill/research/network 单次 >=5）必须伴随可辨识代价 =====
+function hasRecognizedCost(effects, option) {
+  if (!effects) return false;
+  return (effects.health || 0) < 0
+    || (effects.stress || 0) > 0
+    || (effects.money || 0) < 0
+    || (effects.ethics || 0) < 0
+    || (effects.legalRisk || 0) > 0
+    || (typeof option?.yearDelta === 'number' && option.yearDelta > 0)
+    || (Array.isArray(option?.scheduledEvents) && option.scheduledEvents.length > 0)
+    || Boolean(option?.delayed);
+}
+function validateHighGainCost(eventId, label, effects, option) {
+  if (!effects) return;
+  const gainKeys = ['skill', 'research', 'network'].filter((key) => (effects[key] || 0) >= 5);
+  if (!gainKeys.length) return;
+  if (!hasRecognizedCost(effects, option)) {
+    issues.push(`事件 ${eventId} ${label} 高收益(${gainKeys.join('/')})缺少代价（health/stress/money/ethics/legalRisk/yearDelta/scheduled 之一）`);
+  }
+}
+for (const event of [...events, ...randomEvents]) {
+  for (const [index, option] of (event.options || []).entries()) {
+    validateHighGainCost(event.id, `选项 ${index + 1}`, option.effects, option);
+    if (option.check) {
+      validateHighGainCost(event.id, `选项 ${index + 1} check-failure`, option.check.failure?.effects, option);
+      // check-success 分支的收益已由失败分支的真实风险覆盖，因此不单独要求代价
+    }
+  }
+}
+
+
 const adjacency = new Map(events.map((event) => [event.id, []]));
 for (const event of events) {
   for (const option of event.options || []) {
@@ -287,6 +318,68 @@ if (events.filter((event) => event.type === 'ending').length < 14) issues.push('
 for (const event of events) {
   if (reachable.has(event.id) && !canReachEnding.has(event.id)) {
     issues.push(`事件 ${event.id} 可达但无法通向任何结局`);
+  }
+}
+
+// ===== 需求5：晋升长链（副高 → 主任医师 → 科室负责人）可达性 =====
+const PROMOTION_CHAIN_EVENTS = [
+  'career_mobility_county_chief', 'promotion_gate', 'chief_competition', 'promotion_setback',
+  'assoc_subspecialty_focus', 'assoc_duty_portfolio', 'assoc_faction_alignment',
+  'chief_title_qualification', 'chief_title_review', 'chief_title_setback', 'chief_title_outcome',
+  'dept_head_competition', 'dept_head_coordination', 'dept_head_external_recruit', 'dept_head_outcome',
+  'ending_department_chief', 'ending_county_dept_head', 'ending_chief_physician_expert',
+  'ending_dept_head_builder', 'ending_dept_head_handover', 'ending_dept_head_reckoning'
+];
+const promotionChainPresent = PROMOTION_CHAIN_EVENTS.filter((id) => map.has(id));
+const promotionChainReachable = promotionChainPresent.filter((id) => reachable.has(id));
+if (promotionChainPresent.length < PROMOTION_CHAIN_EVENTS.length) {
+  issues.push(`晋升链事件缺失: ${PROMOTION_CHAIN_EVENTS.filter((id) => !map.has(id)).join(', ')}`);
+}
+if (promotionChainReachable.length < 8) {
+  issues.push(`晋升链实际可达事件不足 8 个，当前 ${promotionChainReachable.length}`);
+}
+const promotionEndingIds = ['ending_department_chief', 'ending_county_dept_head', 'ending_chief_physician_expert', 'ending_dept_head_builder', 'ending_dept_head_handover', 'ending_dept_head_reckoning'];
+const promotionEndingsReachable = promotionEndingIds.filter((id) => reachable.has(id) && map.has(id));
+if (promotionEndingsReachable.length < 3) {
+  issues.push(`晋升链结局可达数量不足 3 个，当前 ${promotionEndingsReachable.length}`);
+}
+
+// ===== 需求3：早期经济压力/转行与私立路线可达性 =====
+const CAREER_SWITCH_EVENTS = [
+  'career_mobility_window', 'career_mobility_private', 'private_track',
+  'career_switch_gateway', 'career_switch_industry_pick', 'career_switch_private_pick',
+  'career_switch_public_pick', 'career_switch_probation', 'career_switch_settled', 'career_switch_unemployed'
+];
+const CAREER_SWITCH_SUCCESS_ENDINGS = [
+  'ending_switch_industry_lead', 'ending_switch_ops_stable', 'ending_switch_content_editor',
+  'ending_switch_return_clinic', 'ending_switch_reemployed', 'ending_switch_grassroots_return',
+  'ending_switch_freelance', 'ending_premium_private_expert'
+];
+const CAREER_SWITCH_FAILURE_ENDINGS = [
+  'ending_switch_probation_out', 'ending_switch_long_unemployed', 'ending_switch_gig_drift',
+  'ending_finance_debt_loop', 'ending_finance_forced_exit'
+];
+const switchEventsMissing = CAREER_SWITCH_EVENTS.filter((id) => !map.has(id));
+if (switchEventsMissing.length) issues.push(`转行/私立路线事件缺失: ${switchEventsMissing.join(', ')}`);
+const switchEventsReachable = CAREER_SWITCH_EVENTS.filter((id) => reachable.has(id));
+if (switchEventsReachable.length < CAREER_SWITCH_EVENTS.length) {
+  issues.push(`转行/私立路线事件不可达: ${CAREER_SWITCH_EVENTS.filter((id) => !reachable.has(id)).join(', ')}`);
+}
+const switchSuccessReachable = CAREER_SWITCH_SUCCESS_ENDINGS.filter((id) => map.has(id) && reachable.has(id));
+if (switchSuccessReachable.length < 3) {
+  issues.push(`转行/私立正向结局可达数量不足 3 个，当前 ${switchSuccessReachable.length}`);
+}
+const switchFailureReachable = CAREER_SWITCH_FAILURE_ENDINGS.filter((id) => map.has(id) && reachable.has(id));
+if (switchFailureReachable.length < 3) {
+  issues.push(`转行/私立失败（试用期淘汰/裁撤/失业等）结局可达数量不足 3 个，当前 ${switchFailureReachable.length}`);
+}
+const RECOVERY_AFTER_FAILURE_EVENTS = ['career_switch_unemployed'];
+for (const id of RECOVERY_AFTER_FAILURE_EVENTS) {
+  const event = map.get(id);
+  if (!event) continue;
+  const recoveryOptions = (event.options || []).filter((option) => option.check || option.target);
+  if (recoveryOptions.length < 2) {
+    issues.push(`失败恢复事件 ${id} 缺少足够的再就业/恢复路线选项`);
   }
 }
 
@@ -424,13 +517,36 @@ for (const [index, option] of (mobilityEvent?.options || []).entries()) {
 const specialtyProfiles = gameData.specialties || {};
 const specialtyIds = Object.keys(specialtyProfiles);
 if (specialtyIds.length < 12) issues.push(`specialty 数量不足 12，当前 ${specialtyIds.length}`);
+const SPECIALTY_CHAPTER_MIN_EVENTS = 5;
+const specialtyChapterEvents = new Map(specialtyIds.map((id) => [id, []]));
+for (const event of randomEvents) {
+  if (event.specialtyChapter && specialtyChapterEvents.has(event.specialtyChapter)) {
+    specialtyChapterEvents.get(event.specialtyChapter).push(event);
+  }
+}
 for (const [id, profile] of Object.entries(specialtyProfiles)) {
   for (const field of REQUIRED_SPECIALTY_FIELDS) {
     if (!(field in profile)) issues.push(`specialty ${id} 缺少字段 ${field}`);
   }
-  const relatedCount = randomEvents.filter((event) => event.id.startsWith(`re_sp_${id}_`)).length;
-  if (relatedCount < 3) issues.push(`specialty ${id} 的专属事件不足 3 个，当前 ${relatedCount}`);
+  const legacyCount = randomEvents.filter((event) => event.id.startsWith(`re_sp_${id}_`)).length;
+  const chapterList = specialtyChapterEvents.get(id) || [];
+  if (chapterList.length < SPECIALTY_CHAPTER_MIN_EVENTS) {
+    issues.push(`specialty ${id} 的 specialtyChapter 专属事件不足 ${SPECIALTY_CHAPTER_MIN_EVENTS} 个，当前 ${chapterList.length}`);
+  }
+  for (const event of chapterList) {
+    const requireFlags = event.requireFlags || [];
+    if (!requireFlags.includes(`specialty_${id}`)) {
+      issues.push(`specialtyChapter 事件 ${event.id} 未设置 requireFlags: specialty_${id}`);
+    }
+    if (!event.returnTo || !map.has(event.returnTo)) {
+      issues.push(`specialtyChapter 事件 ${event.id} 的 returnTo 目标无效: ${event.returnTo}`);
+    }
+  }
+  if (legacyCount < 3 && chapterList.length < 3) {
+    issues.push(`specialty ${id} 的专属事件（旧+新）合计不足 3 个`);
+  }
 }
+
 
 const flagSets = new Map(KEY_FLAGS.map((flag) => [flag, 0]));
 const flagReads = new Map(KEY_FLAGS.map((flag) => [flag, 0]));
@@ -515,7 +631,10 @@ function applyEffects(state, effects) {
   for (const [stat, delta] of Object.entries(effects)) {
     if (!(stat in state.stats)) continue;
     const [min, max] = gameData.statBounds[stat];
-    state.stats[stat] = checkSystem.clamp(state.stats[stat] + delta, min, max);
+    const scaledDelta = checkSystem.DIMINISHING_STATS?.has(stat)
+      ? checkSystem.applyDiminishingReturns(stat, state.stats[stat], delta, state.diminishingCarry)
+      : delta;
+    state.stats[stat] = checkSystem.clamp(state.stats[stat] + scaledDelta, min, max);
   }
 }
 
@@ -618,6 +737,108 @@ function maybeTriggerScheduled(state) {
   return true;
 }
 
+const SPECIALTY_CHAPTER_QUOTA = 3;
+const ROMANCE_GUARANTEE_AGE = 32;
+const ROMANCE_GUARANTEE_EVENT_ID = 're_rm_guarantee_late';
+const ROMANCE_SKIP_FLAGS = ['has_partner', 'single_choice', 'dink', 'romance_guarantee_used'];
+
+function applySpecialtyToState(state, specialtyId) {
+  if (!specialtyId || !specialtyProfiles[specialtyId]) return;
+  const isNew = state.specialty !== specialtyId;
+  state.specialty = specialtyId;
+  state.flags[`specialty_${specialtyId}`] = true;
+  if (isNew) {
+    state.specialtyChapter = { active: true, done: 0, quota: SPECIALTY_CHAPTER_QUOTA, seen: new Set(), turnsWaited: 0 };
+  }
+}
+
+function getSpecialtyChapterCandidates(state) {
+  if (!state.specialty || !state.specialtyChapter?.active) return [];
+  return randomEvents.filter((re) =>
+    re.specialtyChapter === state.specialty &&
+    !state.specialtyChapter.seen.has(re.id) &&
+    !state.seenRandom.has(re.id) &&
+    evaluateConditions({ ...(re.conditions || {}), requireFlags: [...(re.conditions?.requireFlags || []), ...(re.requireFlags || [])], forbidFlags: [...(re.conditions?.forbidFlags || []), ...(re.forbidFlags || [])] }, state)
+  );
+}
+
+function noteSpecialtyChapterProgress(state, eventId) {
+  const chapter = state.specialtyChapter;
+  if (!chapter || !state.specialty) return;
+  const event = randomMap.get(eventId);
+  if (!event || event.specialtyChapter !== state.specialty) return;
+  if (chapter.seen.has(eventId)) return;
+  chapter.seen.add(eventId);
+  chapter.done = Math.min(chapter.quota, chapter.done + 1);
+  chapter.turnsWaited = 0;
+  if (chapter.done >= chapter.quota) chapter.active = false;
+}
+
+function maybeTriggerSpecialtyChapter(state) {
+  const chapter = state.specialtyChapter;
+  if (!chapter?.active || chapter.done >= chapter.quota) return false;
+  const candidates = getSpecialtyChapterCandidates(state);
+  if (!candidates.length) return false;
+  chapter.turnsWaited = (chapter.turnsWaited || 0) + 1;
+  const remaining = chapter.quota - chapter.done;
+  const overdue = chapter.turnsWaited >= Math.max(2, remaining * 3);
+  if (!overdue && Math.random() >= 0.5) return false;
+  const chosen = pickWeighted(candidates.map((re) => ({ ...re, weight: (re.weight || 1) * 2 })));
+  state.inRandom = true;
+  state.randomReturnTo = state.currentEventId;
+  state.currentEventId = chosen.id;
+  state.stage = chosen.stage || state.stage;
+  state.seenRandom.add(chosen.id);
+  noteSpecialtyChapterProgress(state, chosen.id);
+  return true;
+}
+
+function maybeTriggerRomanceGuarantee(state) {
+  if (state.age < ROMANCE_GUARANTEE_AGE) return false;
+  if (ROMANCE_SKIP_FLAGS.some((flag) => state.flags[flag])) return false;
+  if (!randomMap.has(ROMANCE_GUARANTEE_EVENT_ID)) return false;
+  if (state.seenRandom.has(ROMANCE_GUARANTEE_EVENT_ID)) return false;
+  state.inRandom = true;
+  state.randomReturnTo = state.currentEventId;
+  state.currentEventId = ROMANCE_GUARANTEE_EVENT_ID;
+  state.stage = randomMap.get(ROMANCE_GUARANTEE_EVENT_ID)?.stage || state.stage;
+  state.seenRandom.add(ROMANCE_GUARANTEE_EVENT_ID);
+  return true;
+}
+
+const MARRIAGE_GUARANTEE_AGE = 30;
+const MARRIAGE_EVENT_CANDIDATES = ['re_marriage', 're_marriage_resident'];
+
+function maybeTriggerMarriageGuarantee(state) {
+  if (state.age < MARRIAGE_GUARANTEE_AGE) return false;
+  if (!state.flags.has_partner || state.flags.married || state.flags.dink) return false;
+  const candidate = MARRIAGE_EVENT_CANDIDATES.find((id) => randomMap.has(id) && !state.seenRandom.has(id));
+  if (!candidate) return false;
+  state.inRandom = true;
+  state.randomReturnTo = state.currentEventId;
+  state.currentEventId = candidate;
+  state.stage = randomMap.get(candidate)?.stage || state.stage;
+  state.seenRandom.add(candidate);
+  return true;
+}
+
+const NEXT_GEN_GUARANTEE_AGE = 33;
+const NEXT_GEN_GUARANTEE_EVENT_ID = 're_child_choice';
+
+function maybeTriggerNextGenGuarantee(state) {
+  if (state.age < NEXT_GEN_GUARANTEE_AGE) return false;
+  if (!state.flags.married) return false;
+  if (state.flags.has_child || state.flags.dink || state.flags.adopted_child) return false;
+  if (!randomMap.has(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
+  if (state.seenRandom.has(NEXT_GEN_GUARANTEE_EVENT_ID)) return false;
+  state.inRandom = true;
+  state.randomReturnTo = state.currentEventId;
+  state.currentEventId = NEXT_GEN_GUARANTEE_EVENT_ID;
+  state.stage = randomMap.get(NEXT_GEN_GUARANTEE_EVENT_ID)?.stage || state.stage;
+  state.seenRandom.add(NEXT_GEN_GUARANTEE_EVENT_ID);
+  return true;
+}
+
 function simulateRun(desiredSpecialty) {
   const state = {
     currentEventId: gameData.startEventId,
@@ -640,19 +861,23 @@ function simulateRun(desiredSpecialty) {
     hospitalType: null,
     careerTitle: null,
     financialCrises: 0,
-    retryState: {}
+    retryState: {},
+    specialtyChapter: null,
+    diminishingCarry: { skill: 0, network: 0, research: 0 }
   };
 
+  let stepsTaken = 0;
   for (let steps = 0; steps < 90; steps += 1) {
+    stepsTaken = steps;
     const event = map.get(state.currentEventId) || randomMap.get(state.currentEventId);
-    if (!event) return { endingId: null, specialty: state.specialty, financialCrises: state.financialCrises };
-    if (event.type === 'ending') return { endingId: event.id, specialty: state.specialty, financialCrises: state.financialCrises };
+    if (!event) return buildRunResult(state, null, stepsTaken);
+    if (event.type === 'ending') return buildRunResult(state, event.id, stepsTaken);
 
     const option = chooseOption(event, state, desiredSpecialty);
-    if (!option) return { endingId: null, specialty: state.specialty, financialCrises: state.financialCrises };
+    if (!option) return buildRunResult(state, null, stepsTaken);
     applyEffects(state, option.effects);
     applyFlags(state, option.flagsSet);
-    if (option.specialty) state.specialty = option.specialty;
+    if (option.specialty) applySpecialtyToState(state, option.specialty);
     applyCareer(state, option);
     queueScheduled(state, option.scheduledEvents);
 
@@ -665,7 +890,7 @@ function simulateRun(desiredSpecialty) {
       targetId = branchResult.targetId;
       applyEffects(state, branchResult.container.effects);
       applyFlags(state, branchResult.container.flagsSet);
-      if (branchResult.container.specialty) state.specialty = branchResult.container.specialty;
+      if (branchResult.container.specialty) applySpecialtyToState(state, branchResult.container.specialty);
       applyCareer(state, branchResult.container);
       queueScheduled(state, branchResult.container.scheduledEvents);
       if (option.retry && !state.inRandom && branchResult.success === false) {
@@ -703,6 +928,10 @@ function simulateRun(desiredSpecialty) {
     }
 
     if (!retriedStay && maybeTriggerScheduled(state)) continue;
+    if (!retriedStay && maybeTriggerSpecialtyChapter(state)) continue;
+    if (!retriedStay && maybeTriggerRomanceGuarantee(state)) continue;
+    if (!retriedStay && maybeTriggerMarriageGuarantee(state)) continue;
+    if (!retriedStay && maybeTriggerNextGenGuarantee(state)) continue;
     if (!retriedStay && Math.random() < RANDOM_EVENT_CHANCE) {
       const candidates = eligibleRandomEvents(state);
       if (candidates.length) {
@@ -712,12 +941,30 @@ function simulateRun(desiredSpecialty) {
         state.currentEventId = chosen.id;
         state.stage = chosen.stage;
         state.seenRandom.add(chosen.id);
+        noteSpecialtyChapterProgress(state, chosen.id);
       }
     }
   }
 
-  return { endingId: null, specialty: state.specialty, financialCrises: state.financialCrises };
+  return buildRunResult(state, null, stepsTaken);
 }
+
+function buildRunResult(state, endingId, stepsTaken) {
+  return {
+    endingId,
+    stepsTaken,
+    specialty: state.specialty,
+    financialCrises: state.financialCrises,
+    finalStats: { ...state.stats },
+    chapterDone: state.specialtyChapter?.seen ? state.specialtyChapter.seen.size : 0,
+    chapterQuota: state.specialtyChapter?.quota || SPECIALTY_CHAPTER_QUOTA,
+    hasPartner: !!(state.flags.has_partner || state.flags.dink),
+    hasNextGen: !!(state.flags.has_child || state.flags.adopted_child),
+    careerTitle: state.careerTitle,
+    hospitalTier: state.hospitalTier
+  };
+}
+
 
 const specialtyResults = {};
 const endingSet = new Set();
@@ -741,6 +988,108 @@ for (const specialtyId of specialtyIds) {
 if (endingSet.size < 7) issues.push(`批量模拟结局多样性不足，当前仅 ${endingSet.size} 种`);
 if (financeEndingRuns / totalRuns > 0.35) issues.push(`财务结局占比过高：${financeEndingRuns}/${totalRuns}`);
 
+// ===== 固定种子的大规模模拟：成长曲线分布 + 恋爱/下一代比例 + 科室章节达成率 =====
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function random() {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function percentile(sortedArr, p) {
+  if (!sortedArr.length) return 0;
+  const idx = Math.min(sortedArr.length - 1, Math.floor((p / 100) * sortedArr.length));
+  return sortedArr[idx];
+}
+
+const BULK_SIM_SEED = 20260902;
+const BULK_SIM_RUNS = 2400;
+const originalRandom = Math.random;
+Math.random = mulberry32(BULK_SIM_SEED);
+
+const bulkResults = [];
+try {
+  for (let i = 0; i < BULK_SIM_RUNS; i += 1) {
+    const specialtyId = specialtyIds[i % specialtyIds.length];
+    bulkResults.push(simulateRun(specialtyId));
+  }
+} finally {
+  Math.random = originalRandom;
+}
+
+function summarizeStat(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mean = sorted.reduce((sum, v) => sum + v, 0) / (sorted.length || 1);
+  const median = percentile(sorted, 50);
+  const p90 = percentile(sorted, 90);
+  const p95 = percentile(sorted, 95);
+  const rate95 = sorted.filter((v) => v >= 95).length / (sorted.length || 1);
+  const rate100 = sorted.filter((v) => v >= 100).length / (sorted.length || 1);
+  return { mean, median, p90, p95, rate95, rate100 };
+}
+
+const skillValues = bulkResults.map((r) => r.finalStats.skill);
+const networkValues = bulkResults.map((r) => r.finalStats.network);
+const skillStat = summarizeStat(skillValues);
+const networkStat = summarizeStat(networkValues);
+
+for (const [label, stat] of [['skill', skillStat], ['network', networkStat]]) {
+  if (stat.rate95 < 0.03 || stat.rate95 > 0.18) {
+    issues.push(`${label} 达到 95+ 的比例超出预期区间（约 6%-14%，允许 3%-18% 容差）：${(stat.rate95 * 100).toFixed(1)}%`);
+  }
+  if (stat.rate100 > 0.05) {
+    issues.push(`${label} 达到 100 的比例过高：${(stat.rate100 * 100).toFixed(1)}%`);
+  }
+}
+
+const partnerRate = bulkResults.filter((r) => r.hasPartner).length / bulkResults.length;
+const nextGenRate = bulkResults.filter((r) => r.hasNextGen).length / bulkResults.length;
+if (partnerRate < 0.30 || partnerRate > 0.60) {
+  issues.push(`伴侣关系达成率超出预期区间（目标 35%-55%，允许 30%-60% 容差）：${(partnerRate * 100).toFixed(1)}%`);
+}
+if (nextGenRate < 0.15 || nextGenRate > 0.40) {
+  issues.push(`下一代入口达成率超出预期区间（目标 20%-35%，允许 15%-40% 容差）：${(nextGenRate * 100).toFixed(1)}%`);
+}
+
+const chapterCompletionRate = bulkResults.filter((r) => r.chapterDone >= r.chapterQuota).length / bulkResults.length;
+if (chapterCompletionRate < 0.5) {
+  issues.push(`科室体验章节 3/3 达成率过低：${(chapterCompletionRate * 100).toFixed(1)}%`);
+}
+
+const chapterCompletionBySpecialty = {};
+for (const id of specialtyIds) {
+  const runsOfSpecialty = bulkResults.filter((r) => r.specialty === id);
+  const completed = runsOfSpecialty.filter((r) => r.chapterDone >= r.chapterQuota).length;
+  chapterCompletionBySpecialty[id] = runsOfSpecialty.length ? `${completed}/${runsOfSpecialty.length}` : '0/0';
+}
+
+// ===== 需求9：幽默/讽刺文案密度抽查 =====
+const HUMOR_MARKERS = ['Excel', '群里', '群消息', 'KPI', '绩效', '指标', 'OA', '通知', '排班', '考核', '系统', '医保', '质控', 'DRG', '飞检', '打卡', '红头文件', '表格', '汇报', '复盘', '截图', '已阅', '会议纪要'];
+let humorScanTotal = 0;
+let humorScanHit = 0;
+function scanHumorText(text) {
+  if (!text) return;
+  humorScanTotal += 1;
+  if (HUMOR_MARKERS.some((marker) => text.includes(marker))) humorScanHit += 1;
+}
+for (const event of [...events, ...randomEvents]) {
+  scanHumorText(event.text);
+  for (const option of event.options || []) {
+    scanHumorText(option.resultText);
+    if (option.check) {
+      scanHumorText(option.check.success?.resultText);
+      scanHumorText(option.check.failure?.resultText);
+    }
+  }
+}
+const humorDensity = humorScanTotal ? humorScanHit / humorScanTotal : 0;
+if (humorDensity < 0.15) {
+  issues.push(`幽默/讽刺文案密度过低（${(humorDensity * 100).toFixed(1)}%），行业梗未实际接入正文`);
+}
+
 if (issues.length) {
   console.error('❌ 数据校验失败:');
   for (const issue of issues) console.error('-', issue);
@@ -755,3 +1104,11 @@ console.log(`随机事件数: ${randomEvents.length}`);
 console.log(`判定选项数: ${events.reduce((sum, event) => sum + (event.options || []).filter((option) => option.check).length, 0)}`);
 console.log(`各阶段随机事件: ${JSON.stringify(stageCounts)}`);
 console.log(`specialty 模拟覆盖: ${specialtyIds.length} 个方向，结局 ${endingSet.size} 种，财务结局 ${financeEndingRuns}/${totalRuns}`);
+console.log(`--- 固定种子大规模模拟（种子 ${BULK_SIM_SEED}，共 ${BULK_SIM_RUNS} 局） ---`);
+console.log(`skill: 均值 ${skillStat.mean.toFixed(1)}，中位数 ${skillStat.median}，P90 ${skillStat.p90}，P95 ${skillStat.p95}，95+比例 ${(skillStat.rate95 * 100).toFixed(1)}%，100比例 ${(skillStat.rate100 * 100).toFixed(1)}%`);
+console.log(`network: 均值 ${networkStat.mean.toFixed(1)}，中位数 ${networkStat.median}，P90 ${networkStat.p90}，P95 ${networkStat.p95}，95+比例 ${(networkStat.rate95 * 100).toFixed(1)}%，100比例 ${(networkStat.rate100 * 100).toFixed(1)}%`);
+console.log(`伴侣关系达成率: ${(partnerRate * 100).toFixed(1)}%，下一代入口达成率: ${(nextGenRate * 100).toFixed(1)}%`);
+console.log(`科室体验 3/3 达成率（总体）: ${(chapterCompletionRate * 100).toFixed(1)}%`);
+console.log(`科室体验 3/3 达成率（分科室）: ${JSON.stringify(chapterCompletionBySpecialty)}`);
+console.log(`幽默/讽刺文案密度: ${(humorDensity * 100).toFixed(1)}%（${humorScanHit}/${humorScanTotal} 条含行业梗关键词）`);
+
