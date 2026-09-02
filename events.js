@@ -4887,6 +4887,2307 @@
     ...event
   })));
 
+  // ===== 扩展内容锚点（新增章节在此之前追加） =====
+  // @@EXTENSION_ANCHOR@@
+
+  // ===== 科室体验章节：每个科室 ≥5 个专属深度事件 =====
+  const SPECIALTY_CHAPTER_THEMES = ['clinical', 'shift', 'communication', 'team', 'career'];
+
+  function addChapterEvents(specialtyId, entries) {
+    for (const entry of entries) {
+      randomEvents.push({
+        id: `re_sp_${specialtyId}_${entry.suffix}`,
+        stage: 'resident',
+        specialtyChapter: specialtyId,
+        chapterTheme: entry.theme,
+        title: entry.title,
+        text: entry.text,
+        rarity: 'uncommon',
+        weight: entry.weight || 6,
+        returnTo: entry.returnTo || 'ward_rounds',
+        requireFlags: [specialtyFlag(specialtyId)],
+        options: entry.options
+      });
+    }
+  }
+
+  addChapterEvents('pediatrics', [
+    {
+      suffix: 'ch_fever_triage', theme: 'clinical', title: '🩺 儿科：夜里第 47 个发热',
+      text: '流感季的候诊区像春运。分诊台喊号的声音已经哑了，你面前这个孩子精神状态却和前面 46 个不太一样。',
+      options: [
+        { text: '停下节奏，把这一个从头到脚重新查一遍', label: '稳妥', effects: { skill: 3, ethics: 3, legalRisk: -3, stress: 3 }, resultText: '你把听诊器移到了别人不会多停的位置，发现了一处不该有的杂音。后面排队的家长开始不耐烦，但这个孩子当晚就收进了病房。护士站小声说了句“幸好”，你把这两个字记了很久。' },
+        { text: '按流程快速处理，先把候诊队列压下去', label: '均衡', effects: { skill: 2, stress: 4, health: -2 }, resultText: '你用九十分钟消化了三十个号，效率写进了当月简报。简报没写的是，你下班后在更衣室反复回想有没有漏掉谁——这个环节从来不在任何考核指标里。' },
+        { text: '把可疑的几个全部留观，宁可被投诉也不放走', label: '激进', effects: { ethics: 4, legalRisk: -4, stress: 6, health: -3 }, resultText: '留观室瞬间坐满，家长的脸色和床位数一起紧张起来。第二天有两个孩子确实转了重，也有五个家长投诉“小题大做”。你同时收获了一封表扬信和一封投诉信，它们在同一个文件夹里躺着。' }
+      ]
+    },
+    {
+      suffix: 'ch_night_flu_peak', theme: 'shift', title: '🌙 儿科：高峰季的排班表',
+      text: '排班表在科室群里发出来，@全体成员，附言只有四个字：“克服一下。”',
+      options: [
+        { text: '主动认领最难的两个班，换后面的调休承诺', label: '激进', effects: { skill: 3, network: 3, stress: 7, health: -5 }, resultText: '你成了排班表上最好用的那个名字。调休承诺被记在主任的备忘录里，而备忘录后来跟着主任一起去开了会。你多了两句“辛苦了”，少了两个周末。' },
+        { text: '如实说明身体状况，请科里重新平衡', label: '稳妥', effects: { health: 4, stress: -5, network: -2 }, resultText: '你在群里发了一段措辞谨慎的话，隔了十一分钟才有人回“收到”。班调整了，你也第一次体会到“会哭的孩子有奶吃”后面那半句：哭完还得自己擦脸。' },
+        { text: '和同期私下互换，把班拼成能活的形状', label: '团队协作', effects: { network: 5, stress: -3, health: 2 }, resultText: '你们几个人在一个只有五个人的小群里，用三十条消息完成了整个科室的排班优化。这份成果不会出现在任何管理经验总结里，但它确实让四个人多睡了几晚。' }
+      ]
+    },
+    {
+      suffix: 'ch_parent_conflict', theme: 'communication', title: '💬 儿科：家长带着搜索结果来了',
+      text: '一位家长把手机屏幕举到你面前，上面是一篇十万加：《这些症状，医生都不会告诉你》。',
+      options: [
+        { text: '逐条对着病情解释，把误解拆开', label: '长期主义', effects: { ethics: 5, network: 3, stress: 4, health: -2 }, resultText: '你花了二十二分钟，把那篇文章从标题拆到结尾。家长最后说“那我信你”，你却在想：这二十二分钟，在门诊量统计里等于零点五个号。' },
+        { text: '请护士长一起沟通，把场面稳住', label: '团队协作', effects: { network: 5, legalRisk: -3, stress: -2 }, resultText: '护士长出场十秒就把气氛压了下来——她比你多的不是知识，是把话说到人心里的年头。你在旁边默默学会了一招，这招后来救过你好几次。' },
+        { text: '简短说明后请对方按流程投诉', label: '均衡', effects: { stress: -4, ethics: -3, legalRisk: 4 }, resultText: '你把话说得滴水不漏，也把人推得干干净净。投诉件三周后转到科里，写着“态度冷淡”。你在回复栏里写了八百字，比当时多说两句要费劲得多。' }
+      ]
+    },
+    {
+      suffix: 'ch_team_handover', theme: 'team', title: '🤝 儿科：一次交接班的裂缝',
+      text: '上一班留下的记录里，有一句“家属已知情”，但没写知情了什么。',
+      options: [
+        { text: '当面问清楚再签字，哪怕多耗二十分钟', label: '稳妥', effects: { legalRisk: -5, skill: 2, stress: 3 }, resultText: '你把上一班的人从电梯口叫了回来。她愣了两秒，然后说“谢谢你叫住我”。那句含糊的记录被补成了三行字，三行字后来在一次纠纷里成了最关键的三行。' },
+        { text: '推动科里改交接模板，把模糊表述堵死', label: '团队协作', effects: { network: 5, legalRisk: -4, stress: 3 }, resultText: '新模板上线第一周，全科都在骂它太啰嗦；第三周，有人靠它躲过了一次追责。质量管理的意义大概就是：被讨厌，然后被需要。' },
+        { text: '照签不误，反正大家都这么写', label: '激进', effects: { stress: -3, legalRisk: 6, ethics: -3 }, flagsSet: ['record_shortcut'], resultText: '你签了字，笔尖顿了一下。那一顿是你自己知道的部分，病历上看不出来——直到很久以后，有人一页页翻它的时候，才会看出来。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_shortage', theme: 'career', title: '📈 儿科：紧缺岗位的诱惑与账单',
+      text: '院里放出儿科紧缺岗位补贴，同时新增“专病门诊建设”任务。补贴是真的，任务也是真的。',
+      options: [
+        { text: '接下专病门诊，把儿科做出自己的招牌', label: '长期主义', effects: { skill: 4, network: 4, money: 4, stress: 6, health: -3 }, resultText: '你的名字第一次单独出现在门诊排班表上。同时出现的还有一个 Excel，要求每月报三十七项数据。你终于理解了什么叫“既要专业深度，又要数据颗粒度，还要患者满意度”。' },
+        { text: '拿补贴但不接额外任务，先保住生活', label: '稳妥', effects: { money: 3, health: 3, stress: -4, network: -2 }, resultText: '你成了科里那个“可以，但不多”的人。年终评优没有你，年终体检报告倒是很给面子。你把两张纸并排放着看了一会儿，选择先睡个好觉。' },
+        { text: '把机会让给更需要的同事，换一份人情', label: '团队协作', effects: { network: 6, ethics: 4, money: -2 }, resultText: '你让出去的那个名额，后来变成了同事的第一篇核心期刊。他请你吃了顿饭，说“这份人情我记着”。在医院里，记着的人情有时候比补贴保值。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('emergency_critical', [
+    {
+      suffix: 'ch_mass_casualty', theme: 'clinical', title: '🚑 急诊：同时来了三个红色预警',
+      text: '一辆车、一场施工事故、一个自己走进来却马上倒下的人，在四分钟内挤进同一个抢救室。',
+      options: [
+        { text: '按分级抢救，冷静排优先级', label: '稳妥', effects: { skill: 4, legalRisk: -4, stress: 6, health: -3 }, resultText: '你在白板上写下三个名字和三个数字，手很稳，字很丑。事后复盘会说你的分级"教科书级别"，你只记得当时脑子里反复循环的是一句：别抖，别抖，别抖。' },
+        { text: '自己顶最重的那个，其余交给同事', label: '激进', effects: { skill: 5, stress: 8, health: -5 }, resultText: '你守住了最重的那个，代价是接下来七十二小时里，你的胃只见过速溶咖啡。同事说你像开了挂，只有你知道那不是挂，是透支。' },
+        { text: '立刻呼叫院内应急，把资源拉进来', label: '团队协作', effects: { network: 6, legalRisk: -3, stress: 2 }, resultText: '你一个电话叫醒了半个医院。有人在群里问"有必要吗"，两小时后没人再问了。你学会了一件事：在急诊，宁可被问一次"有必要吗"，也不要被问"当时为什么不叫人"。' }
+      ]
+    },
+    {
+      suffix: 'ch_shift_cycle', theme: 'shift', title: '🌙 急诊：连轴转第三个夜班',
+      text: '你已经分不清今天是周几，只知道再过两个小时天会亮，而天亮不代表你能走。',
+      options: [
+        { text: '交班后强制自己回家睡满八小时', label: '休息', effects: { health: 6, stress: -8, skill: -1 }, resultText: '你把手机调成飞行模式，醒来时有十九条未读。世界没有塌，只是你的名字在几个群里被 @ 了几次。你第一次发现，"必不可少"这个感觉大部分是自我暗示。' },
+        { text: '硬撑着把交班记录和病历补完再走', label: '激进', effects: { legalRisk: -3, skill: 2, health: -6, stress: 5 }, resultText: '病历补完了，你在更衣室坐了十分钟才想起来站不站得起来。质控数据很好看，好看到你怀疑它们是用睡眠换的——因为确实是。' },
+        { text: '和同事约定互相盯睡眠，超时就赶人走', label: '团队协作', effects: { network: 5, health: 4, stress: -5 }, resultText: '你们在值班室贴了一张纸：谁超过三十小时没睡，另一个人有权把他赶出去。这张纸后来被主任看见了，他没撕，还在下面签了个名。' }
+      ]
+    },
+    {
+      suffix: 'ch_family_rage', theme: 'communication', title: '💬 急诊：走廊里的怒吼',
+      text: '一位家属的情绪在等待的第四十分钟彻底爆开，声音大到抢救室里都听得见。',
+      options: [
+        { text: '走出去，先接住情绪再讲事实', label: '长期主义', effects: { ethics: 5, network: 3, stress: 5, health: -2 }, resultText: '你说的第一句不是"请您冷静"，而是"我知道您等了很久"。对方的音量降了一半。你后来才明白，急诊沟通里最难的技术不是解释病情，是让人相信你没有在敷衍。' },
+        { text: '按流程叫保卫科，先保证抢救不被打断', label: '稳妥', effects: { legalRisk: -5, stress: 2, ethics: -2 }, resultText: '秩序恢复得很快，代价是那位家属从此认定"医院和保安是一伙的"。你保住了抢救室，也失去了一个本来可以说通的人。这道题没有满分答案。' },
+        { text: '让年轻医生去顶，自己继续抢救', label: '均衡', effects: { skill: 3, network: -3, stress: 3 }, resultText: '你选了抢救。年轻医生在走廊里被骂了十五分钟，回来时眼睛红着说"没事"。你说了句"辛苦了"，然后发现这三个字在急诊科的通货膨胀率高得惊人。' }
+      ]
+    },
+    {
+      suffix: 'ch_bed_negotiation', theme: 'team', title: '🤝 急诊：床位是一门外交学',
+      text: '病人需要收住院，专科说没床，ICU 说不够重，你说再等就来不及。',
+      options: [
+        { text: '一个个科室打电话磨，直到有人松口', label: '激进', effects: { network: 4, stress: 7, skill: 2 }, resultText: '你打了七个电话，被拒绝六次，第七次对方说"看在你打了这么多个的份上"。这句话让你意识到，急诊留观区的床位分配学，本质上是一门关于脸皮厚度的学科。' },
+        { text: '拉医务处协调，让规则替你说话', label: '团队协作', effects: { network: 6, legalRisk: -3, stress: 1 }, resultText: '医务处一个电话，床位十分钟到位。你有点复杂：明明是同样的病人、同样的病情，只是说话的人换了个工号。' },
+        { text: '就地升级监护，在急诊自己扛', label: '稳妥', effects: { skill: 4, legalRisk: -2, health: -4, stress: 5 }, resultText: '你把抢救室当成了临时 ICU，也把自己当成了临时全能。病人稳住了，你的腰在第六小时开始抗议。急诊的一切都是临时的，除了这份腰痛。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_burnrate', theme: 'career', title: '📈 急诊：三十五岁的续航评估',
+      text: '有人问你：急诊这条路，你打算跑到几岁？这个问题比任何一次抢救都难回答。',
+      options: [
+        { text: '继续深耕重症，做最硬的那块骨头', label: '激进', effects: { skill: 5, network: 3, stress: 7, health: -5 }, resultText: '你选择了继续跑。三年后你成了科里最能扛的人，也成了体检报告最丰富的人。硬骨头这个称呼，一半是敬意，一半是提醒。' },
+        { text: '转向院前急救/急诊管理，换个位置继续', label: '均衡', effects: { network: 5, health: 4, stress: -4, skill: -1 }, resultText: '你从抢救室走到了调度台。同事说"你解脱了"，你说"只是换了个地方被叫醒"。但至少，现在被叫醒时你穿着睡衣，而不是隔离衣。' },
+        { text: '认真评估转到节奏可控的方向', label: '长期主义', effects: { health: 6, stress: -6, network: -3, money: -2 }, flagsSet: ['consider_switching_specialty'], resultText: '你把这个念头写进了备忘录，标题叫"关于活到六十岁的可行性研究"。写完之后你反而睡了一个好觉——原来光是承认自己撑不住，就已经卸掉一半重量。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('internal', [
+    {
+      suffix: 'ch_diagnostic_maze', theme: 'clinical', title: '🩺 内科：查了两周还是查不明白',
+      text: '所有能做的检查都做了，所有能想的鉴别都想了，患者的发热还在，家属的耐心在减少。',
+      options: [
+        { text: '重新问一遍病史，从头开始', label: '稳妥', effects: { skill: 4, ethics: 3, stress: 3 }, resultText: '你搬了张凳子坐下来，问到第四十分钟，患者忽然说"哦对了，我上个月去过一趟山里"。这句话推翻了两周的思路。内科的真相经常藏在没人问过的那一句里。' },
+        { text: '发起多学科会诊，把问题摊开', label: '团队协作', effects: { network: 6, skill: 3, stress: 2 }, resultText: '会诊室坐了七个科室，讨论了五十分钟，结论是"建议随访观察"。但会后感染科的老师私下给你指了一条路——真正有用的信息，往往在会议纪要之外。' },
+        { text: '按经验先上治疗，边治边看', label: '激进', effects: { skill: 3, legalRisk: 4, stress: 4 }, resultText: '你赌了一把，赌对了。患者第三天退烧，你在病程记录里写得非常谨慎。有些正确的决定，事后是不敢写得太理直气壮的。' }
+      ]
+    },
+    {
+      suffix: 'ch_chronic_followup', theme: 'shift', title: '🌙 内科：门诊、病房、值班的三体问题',
+      text: '同一周里你要出四个半天门诊、管十六张床、值两个夜班，还要交一份教学材料。',
+      options: [
+        { text: '把病房交给下级，自己守住门诊质量', label: '均衡', effects: { skill: 3, network: 2, stress: 3 }, resultText: '你学会了授权，也学会了在别人做得没你好的时候闭嘴。这是内科医生成长里最难的一课：接受"够用"，而不是追求"最好"。' },
+        { text: '全部自己抓，一个环节都不放手', label: '激进', effects: { skill: 4, legalRisk: -3, health: -6, stress: 8 }, resultText: '这一周你处理得滴水不漏，也在周五下午的门诊上第一次叫错了病人的名字。事无巨细的另一面，是人的带宽终究是有限的。' },
+        { text: '主动和主任谈工作量，请求重排', label: '稳妥', effects: { network: 3, stress: -5, health: 3 }, resultText: '主任听完点点头，说"你说得对"，然后把你的门诊减了半天，教学材料的截止日期提前了三天。你意识到，沟通有时候只是把压力换个形状。' }
+      ]
+    },
+    {
+      suffix: 'ch_bad_news', theme: 'communication', title: '💬 内科：如何说出那个诊断',
+      text: '病理结果出来了。家属在门外，患者在门内，两边都想先知道，两边想知道的答案不一样。',
+      options: [
+        { text: '先和家属沟通节奏，再一起告诉患者', label: '长期主义', effects: { ethics: 5, network: 3, stress: 4 }, resultText: '你花了四十分钟做"告知的预告"。患者听完之后说了句"我早就猜到了，谢谢你没骗我"。你在走廊里站了一会儿——这份工作最重的部分，从来不在病历里。' },
+        { text: '按知情同意原则直接告知患者本人', label: '稳妥', effects: { ethics: 4, legalRisk: -4, stress: 5, network: -2 }, resultText: '你守住了原则，家属在门外骂了你二十分钟。你把两件事都记在心里：法律站在你这边，但你还是希望当时能有更好的方式。' },
+        { text: '含糊带过，把难题留给上级', label: '均衡', effects: { stress: -4, ethics: -4, network: -2 }, resultText: '你说了三句非常专业的话，专业到没有传递任何信息。上级第二天替你补上了这场谈话，回来只说了句："下次你来。"这四个字比批评更重。' }
+      ]
+    },
+    {
+      suffix: 'ch_ward_teaching', theme: 'team', title: '🤝 内科：带教查房的公开处刑',
+      text: '主任查房时点了实习生的名，实习生答不上来，全组沉默。主任转头看向你。',
+      options: [
+        { text: '替实习生兜住，然后课后单独复盘', label: '团队协作', effects: { network: 5, ethics: 4, skill: 2, stress: 2 }, resultText: '你接住了那个问题，也接住了一个年轻人的自尊。三年后他成了别人的带教，第一节课讲的就是"不要在床边让学生难堪"。' },
+        { text: '如实说明学生的知识盲区，公事公办', label: '稳妥', effects: { skill: 3, ethics: 2, network: -3 }, resultText: '你说的每个字都对，气氛冷得像影像科的机房。实习生后来学得更认真了，也再没主动问过你问题。正确和有效之间，隔着一整条走廊。' },
+        { text: '顺势把问题拉高，转成全组讨论', label: '长期主义', effects: { skill: 4, network: 4, stress: 2 }, resultText: '你把"你不会"变成了"我们一起想"，主任眉毛动了一下。这一招后来成了你的招牌，只是没人知道你是那天在走廊上被逼出来的。' }
+      ]
+    },
+    {
+      suffix: 'ch_subspecialty_pick', theme: 'career', title: '📈 内科：亚专科的分岔口',
+      text: '内科太大了，大到你必须选一小块地深挖。心内、消化、呼吸、内分泌、血液——每一块都有人已经站在那里。',
+      options: [
+        { text: '选竞争激烈但资源集中的热门亚专科', label: '激进', effects: { skill: 4, research: 4, network: 3, stress: 7, health: -3 }, resultText: '你挤进了科里最挤的那条赛道。好处是资源多、机会多、论文多；坏处是排在你前面的人也多，而他们比你早站了十年。' },
+        { text: '选相对冷门但你真正感兴趣的方向', label: '长期主义', effects: { skill: 4, research: 3, ethics: 3, money: -2, stress: 3 }, resultText: '你选了一个连科室介绍页都写在最后一行的方向。五年后这个方向因为一个新药火了，你成了科里唯一有积累的人。运气眷顾长期主义，但它迟到了五年。' },
+        { text: '暂不站队，先把通科能力做扎实', label: '稳妥', effects: { skill: 4, health: 3, stress: -3, research: -2 }, resultText: '你成了那个"什么都会一点"的人。评职称时这不是优势，值班时这是全科室的保险。两种价值，只有一种能写进材料。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('surgery', [
+    {
+      suffix: 'ch_first_solo', theme: 'clinical', title: '🔪 外科：第一次真正主刀',
+      text: '上级站在你身后半步，那半步的距离意味着：这台手术是你的了。',
+      options: [
+        { text: '严格按步骤走，慢一点也不冒进', label: '稳妥', effects: { skill: 4, legalRisk: -4, stress: 6, health: -2 }, resultText: '你比标准时间多用了四十分钟，上级一句话没说。下台后他递给你一瓶水："快是练出来的，稳是选出来的。"这句话你记了很多年。' },
+        { text: '遇到解剖变异时坚持自己判断处理', label: '激进', effects: { skill: 6, legalRisk: 4, stress: 8, health: -4 }, resultText: '你处理对了，但过程中有十几秒钟你的手心全是汗。术后上级说"可以"，语气里有欣赏也有后怕。外科的成长曲线，就是由这样一些十几秒钟串起来的。' },
+        { text: '主动请上级接手关键步骤', label: '团队协作', effects: { network: 4, skill: 2, legalRisk: -4, stress: -2 }, resultText: '你说了"老师您来"，上级接过器械时点了点头。有人觉得这是示弱，但手术室里最贵的东西是病人的安全，不是你的面子。' }
+      ]
+    },
+    {
+      suffix: 'ch_or_schedule', theme: 'shift', title: '🌙 外科：连台手术排到晚上十点',
+      text: '手术通知单上还有三台，麻醉科在问能不能接，护士在问饭点怎么算，你在问自己还能不能站。',
+      options: [
+        { text: '全部接下来，把手术量做上去', label: '激进', effects: { skill: 4, money: 3, stress: 8, health: -6 }, resultText: '你在第三台的缝合阶段发现手指在抖，于是把最后一层交给了一助。当晚的手术量数据很漂亮，你的膝盖不太同意这个说法。' },
+        { text: '主动推掉一台，改到次日择期', label: '稳妥', effects: { health: 4, legalRisk: -3, stress: -4, money: -2 }, resultText: '你在群里发了推台通知，收到两个"好的"和一个句号。那个句号让你不太舒服，但第二天你的手很稳——这笔账算下来还是赚的。' },
+        { text: '和麻醉、护理一起重排顺序，把风险最高的提前', label: '团队协作', effects: { network: 5, skill: 3, legalRisk: -3, stress: 2 }, resultText: '三个科室在手术室门口开了个五分钟的站立会议，效率高得不像医院。你第一次感受到，手术室其实是全院最像一个团队的地方。' }
+      ]
+    },
+    {
+      suffix: 'ch_complication_talk', theme: 'communication', title: '💬 外科：术后并发症的那场谈话',
+      text: '手术很成功，但患者出现了发生率写在同意书第三页的那个并发症。家属拿着同意书站在办公室门口。',
+      options: [
+        { text: '坦诚说明经过与后续方案，不推卸', label: '长期主义', effects: { ethics: 6, legalRisk: -5, network: 3, stress: 5 }, resultText: '你把术中每一步都讲了一遍，包括你当时的犹豫。家属沉默了很久，最后说"我们再想想"。三天后他们签了二次手术同意书，并且指定还是你做。' },
+        { text: '强调风险已提前告知，走正式流程', label: '稳妥', effects: { legalRisk: -4, stress: 2, ethics: -3 }, resultText: '你的表述无懈可击，法律风险归零，家属的信任也归零。你在办公室里对着那份签好的同意书看了很久，它保护了你，但没保护住那段关系。' },
+        { text: '请科主任和医务处一起面对', label: '团队协作', effects: { network: 5, legalRisk: -5, stress: -2, ethics: 2 }, resultText: '主任说的话和你想说的其实一样，但从他嘴里出来就多了三十年的分量。你在旁边记笔记，记的不是内容，是节奏。' }
+      ]
+    },
+    {
+      suffix: 'ch_or_hierarchy', theme: 'team', title: '🤝 外科：谁上台，是一门政治学',
+      text: '一台罕见术式排下来，科里三个人都想上。名单还没定，微信已经开始转圈。',
+      options: [
+        { text: '摆出自己的病例积累，正面争取', label: '激进', effects: { network: 3, skill: 4, stress: 6 }, resultText: '你把这三年的病例做成了一页 PPT，主任看了两眼说"你上"。争取有用，但前提是你手里真有东西——PPT 做得再好看，也变不出病例数。' },
+        { text: '主动做一助，把技术学到手再说', label: '长期主义', effects: { skill: 5, network: 4, stress: 3, health: -2 }, resultText: '你站在了第二位置，看清了每一个细节。三个月后同样的术式又来了一台，主任直接点了你的名。有些位置是争来的，有些是等来的。' },
+        { text: '找主任私下沟通长期分工', label: '团队协作', effects: { network: 6, stress: -2, skill: 2 }, resultText: '你们聊了二十分钟，从术式聊到了亚专科规划。你走出办公室时明白了一件事：外科的技术天花板在手上，职业天花板在这样的二十分钟里。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_volume', theme: 'career', title: '📈 外科：手术量、腰椎和家庭时间',
+      text: '你的手术量在科里排第二，腰椎 MRI 也在科里排第二。家里的合影里，最近三张都没有你。',
+      options: [
+        { text: '继续冲量，趁能开的时候多开', label: '激进', effects: { skill: 5, money: 4, stress: 7, health: -6 }, resultText: '你的年手术量创了新高，也第一次开始戴护腰上台。同事说你像台机器，你说机器还有保养周期，我没有。' },
+        { text: '控制台次，把精力放在难度而非数量', label: '均衡', effects: { skill: 4, health: 3, stress: -3, money: -2 }, resultText: '你开始挑病例，也开始被说"不接活"。但一年后你的复杂手术占比全科第一，而那个说你不接活的人腰椎间盘突出了。' },
+        { text: '申请调整排班，把周末真正还给家庭', label: '稳妥', effects: { health: 5, stress: -6, network: -2, money: -2 }, resultText: '你在家庭合影里重新出现了。代价是科室群里那句"某某最近状态不错，就是有点佛"。你决定把"佛"当成一句表扬来收。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('obgyn', [
+    {
+      suffix: 'ch_delivery_crisis', theme: 'clinical', title: '🩺 妇产：产房里最长的三分钟',
+      text: '胎心突然掉下来。所有人的动作在同一秒变快，只有时间变慢了。',
+      options: [
+        { text: '立即启动紧急剖宫产流程', label: '稳妥', effects: { skill: 5, legalRisk: -5, stress: 8, health: -4 }, resultText: '从决定到取出，用了十一分钟。你在写记录时才发现自己一直屏着呼吸。产房的时间单位不是分钟，是"来不来得及"。' },
+        { text: '再观察片刻，尝试保住顺产', label: '激进', effects: { skill: 4, legalRisk: 6, stress: 9, health: -4 }, resultText: '胎心回来了，你也回来了。但那两分钟的判断，你后来在心里重放了不下二十次——产科没有"如果当时"，只有"幸好"和"要是"。' },
+        { text: '呼叫上级和新生儿科同时到位', label: '团队协作', effects: { network: 5, legalRisk: -4, skill: 3, stress: 4 }, resultText: '三个科室在四分钟内挤满了产房，场面像调度失控，其实每个人都知道自己站在哪。事后你想：这大概就是所谓的"体系"，平时看不见，关键时刻托得住。' }
+      ]
+    },
+    {
+      suffix: 'ch_night_delivery', theme: 'shift', title: '🌙 妇产：孩子不看排班表',
+      text: '凌晨两点四十，第三个产妇进产房。你的值班记录已经写到第五页。',
+      options: [
+        { text: '坚持全程自己盯，不交给下级', label: '激进', effects: { skill: 4, legalRisk: -3, health: -6, stress: 7 }, resultText: '天亮时你接生了四个孩子，收获了四声啼哭和一次视野发黑。产科的成就感来得非常直接，代价也是。' },
+        { text: '按分工放手，自己守住高危那一个', label: '均衡', effects: { skill: 3, network: 3, stress: 2, health: -2 }, resultText: '你把两个低危交给了住院医，自己盯着那个疤痕子宫。事实证明分配是对的——凌晨的判断力是有限资源，得花在刀刃上。' },
+        { text: '交班时主动申请下一周减夜班', label: '稳妥', effects: { health: 5, stress: -6, network: -2 }, resultText: '护士长看了你一眼说"早该说了"。你才发现，科室里没人觉得你必须硬撑，只有你自己这么觉得。' }
+      ]
+    },
+    {
+      suffix: 'ch_decision_conflict', theme: 'communication', title: '💬 妇产：谁来签这个字',
+      text: '产妇本人的意愿、丈夫的意见和婆婆的坚持，在同一张知情同意书前正面相撞。',
+      options: [
+        { text: '明确以产妇本人意愿为准，并做好记录', label: '长期主义', effects: { ethics: 7, legalRisk: -5, stress: 5, network: -2 }, resultText: '你把办公室的门关上，只留下产妇一个人问她想怎么做。她哭了，然后签了字。走廊上的争吵还在继续，但那扇门里的决定是干净的。' },
+        { text: '组织家庭会议，把分歧摆到台面上', label: '团队协作', effects: { network: 5, ethics: 4, stress: 4 }, resultText: '你主持了一场四十分钟的家庭会议，比很多科室会议更有成效。散会时婆婆说了句"医生你辛苦了"——这句话来得比你预想的晚，但确实来了。' },
+        { text: '按常规请家属代签，先推进流程', label: '均衡', effects: { stress: -3, ethics: -5, legalRisk: 6 }, resultText: '流程走完了，你却在整理病历时停了一下。这个字签得合规，但不太合心。有些操作在制度上没问题，在夜里想起来会有点问题。' }
+      ]
+    },
+    {
+      suffix: 'ch_team_midwife', theme: 'team', title: '🤝 妇产：助产士说她有个感觉',
+      text: '资深助产士拉住你："这个产妇我看着不对劲，说不上来哪里。"监护数据是正常的。',
+      options: [
+        { text: '相信经验，加强监护并提前准备', label: '稳妥', effects: { skill: 4, legalRisk: -5, network: 4, stress: 3 }, resultText: '两小时后情况确实变了，因为准备做在前面，一切都在掌控内。你后来常跟年轻医生说：数据是证据，但老助产士的"说不上来"也是。' },
+        { text: '按数据判断，暂不改变方案', label: '均衡', effects: { skill: 2, legalRisk: 3, network: -3, stress: 4 }, resultText: '这次没出事，但助产士后来再没跟你说过"我有个感觉"。你损失的不是一次判断，是一条预警线路。' },
+        { text: '请上级一起评估，把分歧变成讨论', label: '团队协作', effects: { network: 6, skill: 3, legalRisk: -3, stress: 1 }, resultText: '上级听完两边说了句"那就都做上"。这种既不否定数据也不否定直觉的处理方式，你后来抄了很多次。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_reputation', theme: 'career', title: '📈 妇产：口碑是怎么长出来的',
+      text: '一位产妇在网上写了长文感谢你，随后门诊量涨了三成，投诉风险也涨了三成。',
+      options: [
+        { text: '顺势建立自己的专病门诊和随访体系', label: '长期主义', effects: { network: 5, skill: 4, money: 4, stress: 6, health: -3 }, resultText: '你的号变得很难挂，你的时间变得更难约。随访体系建起来那天，你在系统里看到自己名下有四百多个待随访——成就感和窒息感同时到达。' },
+        { text: '低调处理，避免被流量绑架', label: '稳妥', effects: { health: 3, stress: -4, ethics: 3, network: -2 }, resultText: '你婉拒了宣传科的采访请求。科里有人不理解，你说流量来得快去得也快，但医疗事故的记录是永久的。' },
+        { text: '接受院方宣传安排，把个人品牌做起来', label: '激进', effects: { network: 6, money: 4, stress: 5, ethics: -2 }, resultText: '你上了医院公众号头条，配图是一张你自己都没见过的摆拍照片。评论区很热闹，热闹到有人开始问"这个医生是不是收红包"。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('anesthesia', [
+    {
+      suffix: 'ch_airway_crisis', theme: 'clinical', title: '🩺 麻醉：预料之外的困难气道',
+      text: '评估时一切正常，诱导后你发现根本插不进去。血氧开始往下走。',
+      options: [
+        { text: '按困难气道流程逐级升级处理', label: '稳妥', effects: { skill: 5, legalRisk: -5, stress: 8, health: -3 }, resultText: '你在四十秒内换了三种方案，第三种成功了。术后你把这台写成了科室案例，标题很朴素："流程为什么必须背下来"。' },
+        { text: '立刻叫人，同时保持面罩通气', label: '团队协作', effects: { network: 5, legalRisk: -4, skill: 3, stress: 5 }, resultText: '上级冲进来时你已经把氧合维持住了。他说的第一句是"叫得好"。麻醉科的英雄主义，往往表现为及时承认自己需要帮手。' },
+        { text: '再试一次，相信自己的手感', label: '激进', effects: { skill: 4, legalRisk: 6, stress: 9, health: -4 }, resultText: '你成功了，血氧最低掉到八十六。手术顺利结束，但你在麻醉记录上写下那个数字时，笔迹比平时用力。' }
+      ]
+    },
+    {
+      suffix: 'ch_or_marathon', theme: 'shift', title: '🌙 麻醉：一个人管三间手术室',
+      text: '今天走了两个人，剩下的台次没有减少。调度问你能不能"兼顾一下"。',
+      options: [
+        { text: '明确拒绝超范围兼顾，要求增派人手', label: '稳妥', effects: { legalRisk: -5, ethics: 4, stress: 3, network: -3 }, resultText: '你在群里写下"麻醉不能一人多间，这是底线"，然后等了十九分钟。人手来了，你也上了某位领导的心理小名单。有些底线守住的代价就是这样。' },
+        { text: '答应兼顾，但只接风险最低的台', label: '均衡', effects: { skill: 2, stress: 6, health: -4, legalRisk: 2 }, resultText: '你在三个房间之间来回走了六个小时，走出了微信步数第一名。晚上你想：如果哪天出事，这一天的步数会不会被当成证据？' },
+        { text: '全部接下来，先保住手术不停摆', label: '激进', effects: { network: 4, money: 3, stress: 9, health: -7, legalRisk: 5 }, resultText: '所有台次都做完了，医院的运营数据保住了。你回家后倒在沙发上，忽然觉得"保住"这个词用在自己身上有点奢侈。' }
+      ]
+    },
+    {
+      suffix: 'ch_invisible_talk', theme: 'communication', title: '💬 麻醉：患者说"你只是打个针的吧"',
+      text: '术前访视时，患者摆摆手："麻醉嘛，我知道，睡一觉就好了。"',
+      options: [
+        { text: '认真解释麻醉风险与围术期管理', label: '长期主义', effects: { ethics: 5, legalRisk: -4, skill: 2, stress: 3 }, resultText: '你讲了七分钟，患者的表情从敷衍变成了认真。他最后说"原来这么复杂"。麻醉科最大的职业困境就是：做得越好，越像没做什么。' },
+        { text: '简要说明重点，把时间留给更多访视', label: '均衡', effects: { skill: 2, stress: -2, legalRisk: 2 }, resultText: '你用两分钟走完了流程，效率很高。当天你访视了二十三个患者，其中十九个到最后也不知道麻醉医生是干什么的。' },
+        { text: '递上科室做的科普卡片，顺便刷存在感', label: '团队协作', effects: { network: 4, ethics: 3, stress: -1 }, resultText: '那张卡片是科里几个人熬夜做的，印刷费自掏腰包。患者收下了，还拍照发了朋友圈。这大概是麻醉科最划算的一次品牌投资。' }
+      ]
+    },
+    {
+      suffix: 'ch_surgeon_pressure', theme: 'team', title: '🤝 麻醉：外科医生说"再等等，快好了"',
+      text: '手术已经超时，患者生命体征在往不好的方向漂。你说该停了，术者说还差最后一步。',
+      options: [
+        { text: '坚持叫停，把安全放在台次前面', label: '稳妥', effects: { ethics: 6, legalRisk: -5, skill: 3, stress: 6, network: -3 }, resultText: '你按住了那句"停"。手术分两期做完，患者平安。术者三天没跟你说话，一个月后他在电梯里说了句"那次是你对"。' },
+        { text: '边支持边设最后期限，给术者十分钟', label: '均衡', effects: { skill: 4, network: 3, legalRisk: -2, stress: 5 }, resultText: '你给了十分钟，也做好了随时叫停的准备。手术在第九分钟结束。麻醉医生的谈判技巧，本质上是给别人台阶，同时把手放在刹车上。' },
+        { text: '继续硬撑，避免和外科正面冲突', label: '激进', effects: { network: 2, legalRisk: 7, health: -3, stress: 8, ethics: -4 }, resultText: '手术做完了，患者当晚进了 ICU。没有人明确追究，但你自己知道那句没说出口的话去了哪里——它留在你心里，比留在病历上更沉。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_pain_clinic', theme: 'career', title: '📈 麻醉：疼痛门诊还是继续台上',
+      text: '科里要开疼痛门诊，需要一个人牵头。这意味着白天坐诊，但也意味着离开手术室的主战场。',
+      options: [
+        { text: '接下疼痛门诊，开辟自己的方向', label: '长期主义', effects: { skill: 4, network: 4, money: 3, stress: 5 }, resultText: '你从幕后走到了台前，第一次有患者记住了你的名字并且指名要挂你的号。麻醉医生被看见的方式不多，这是其中一种。' },
+        { text: '留在手术室，把围术期管理做到极致', label: '稳妥', effects: { skill: 5, legalRisk: -3, stress: 3, health: -2 }, resultText: '你选择了继续做那个不被看见的人。三年后科里出了并发症最少的记录，数据表格上没有你的名字，但每个人都知道那几年是谁在盯。' },
+        { text: '两边都做，赌一次全面开花', label: '激进', effects: { skill: 4, network: 4, money: 4, stress: 8, health: -5 }, resultText: '你的日程表变成了俄罗斯方块，而且是加速版。半年后你在门诊上打了个盹，被自己的鼾声惊醒。全面开花的前提，是人不是花。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('dental', [
+    {
+      suffix: 'ch_root_canal_fail', theme: 'clinical', title: '🦷 口腔：那颗牙的根管有四个',
+      text: '术前片子上是三个根管，操作到一半你发现还有第四个，而且弯得像迷宫。',
+      options: [
+        { text: '停下来重新拍片，宁可加时也要看清', label: '稳妥', effects: { skill: 4, legalRisk: -4, stress: 3, money: -2 }, resultText: '你加了一次影像，多花了四十分钟。患者抱怨时间太久，三年后那颗牙还好好的。口腔科的时间账，要按年结算才看得懂。' },
+        { text: '凭手感继续处理，先把这次做完', label: '激进', effects: { skill: 3, legalRisk: 5, stress: 5 }, resultText: '你处理完了，感觉还行。八个月后患者带着疼痛回来，你在片子上看到了那个被遗漏的角落。有些捷径的账单是延期送达的。' },
+        { text: '请上级会诊，把病例转成教学案例', label: '团队协作', effects: { network: 5, skill: 4, stress: 1 }, resultText: '上级来了，一边操作一边讲，围了三个规培生。这台治疗最后花了两小时，产出了一颗好牙和四个学到东西的人。' }
+      ]
+    },
+    {
+      suffix: 'ch_appointment_flood', theme: 'shift', title: '🌙 口腔：预约表被塞成了俄罗斯方块',
+      text: '一个上午排了十四个号，其中三个是需要一小时的复杂治疗。前台还在加号。',
+      options: [
+        { text: '拒绝加号，保证每台治疗的时间', label: '稳妥', effects: { skill: 3, legalRisk: -3, health: 3, money: -3, network: -2 }, resultText: '你在前台系统里点了"停止加号"，前台小姑娘松了口气。当月你的门诊量排名下降了三位，你的返工率也下降了三位。' },
+        { text: '全部接下，压缩每台时间', label: '激进', effects: { money: 4, skill: 2, stress: 7, health: -5, legalRisk: 3 }, resultText: '你在四个小时里完成了十七个患者，创下科室纪录。颈椎在第三小时开始报警，你把它理解成"设备提示音"，继续操作。' },
+        { text: '和前台重新设计预约规则，按复杂度分时段', label: '团队协作', effects: { network: 5, skill: 2, stress: -3, money: 2 }, resultText: '你花了一个中午做了张排班规则表。第一周大家都嫌麻烦，第二周所有人都在用。管理的本质原来就是把混乱写成表格。' }
+      ]
+    },
+    {
+      suffix: 'ch_price_talk', theme: 'communication', title: '💬 口腔：患者问"为什么这么贵"',
+      text: '一份种植方案报价出来，患者的表情从期待变成怀疑："隔壁诊所只要一半。"',
+      options: [
+        { text: '把材料、工艺和长期成本一条条讲清楚', label: '长期主义', effects: { ethics: 5, network: 3, skill: 2, stress: 3 }, resultText: '你画了张对比表，讲了十五分钟。患者最后说"我再考虑一下"，两周后回来做了。信任这个东西的转化周期很长，但转化率不低。' },
+        { text: '给出可选的简化方案，尊重预算', label: '均衡', effects: { ethics: 4, money: 2, network: 3, stress: 2 }, resultText: '你做了个降级方案，明确告诉他区别在哪。患者选了中间档，还介绍了两个亲戚过来。诚实定价的复利效应，来得比想象中快。' },
+        { text: '简单说"一分钱一分货"，不多解释', label: '激进', effects: { stress: -3, money: -2, ethics: -3, network: -3 }, resultText: '患者走了，去了隔壁。半年后他带着失败的修复体回来，第一句是"当时你要是多说两句就好了"。你想说我说了，但其实你只说了六个字。' }
+      ]
+    },
+    {
+      suffix: 'ch_tech_lab', theme: 'team', title: '🤝 口腔：技工室发来的第三次返工',
+      text: '修复体的边缘又不对。技工说是你的印模问题，你觉得是加工问题。患者已经跑了三趟。',
+      options: [
+        { text: '亲自去技工室，把流程一起走一遍', label: '团队协作', effects: { network: 5, skill: 4, stress: 3 }, resultText: '你在技工室待了一下午，发现问题出在中间的消毒环节。这个发现让全科的返工率降了一半，也让你和技工师傅成了朋友。' },
+        { text: '重做印模，用自己能控制的环节兜底', label: '稳妥', effects: { skill: 4, ethics: 3, stress: 4, money: -2 }, resultText: '第四次终于合适了。患者说"辛苦你了"，你笑了笑没解释。有些质量控制是在看不见的地方完成的，解释起来太费劲。' },
+        { text: '按流程提交质量反馈单，让制度去处理', label: '均衡', effects: { legalRisk: -3, network: -2, stress: -2 }, resultText: '反馈单提交了，三周后收到一封格式规范的回复，写着"已知悉并加强管理"。患者的第四趟还是你自己跑的。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_private', theme: 'career', title: '📈 口腔：公立与私立之间那道门',
+      text: '一家连锁口腔开出了三倍薪资，附加条件是业绩考核和患者转化率。',
+      options: [
+        { text: '认真了解后接受，去更市场化的平台', label: '激进', effects: { money: 8, network: 4, stress: 5, ethics: -3 }, flagsSet: ['consider_switching_specialty'], resultText: '你签了合同，第一个月的收入让你重新认识了自己的价值。第三个月，运营经理开始跟你讨论"客单价提升空间"，你重新认识了"价值"这个词。' },
+        { text: '留在公立，把学科和资历慢慢做深', label: '稳妥', effects: { skill: 4, ethics: 4, stress: -2, money: -2 }, resultText: '你拒绝了三倍薪资，选择了三倍的时间。同事说你想不开，五年后你成了本地颌面外科的常规会诊人选——公立平台的复利，只对熬得住的人生效。' },
+        { text: '谈一个多点执业方案，两边都不放弃', label: '均衡', effects: { money: 5, network: 5, stress: 5, health: -3 }, resultText: '你把周末卖给了私立，把工作日留给了公立。收入曲线漂亮了，休息日曲线归零了。多点执业的关键词是"多点"，不是"执业"。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('ent_oph', [
+    {
+      suffix: 'ch_micro_surgery', theme: 'clinical', title: '🔬 眼耳鼻喉：显微镜下的一毫米',
+      text: '视野里的结构比头发丝还细，你的每一次呼吸都会让画面晃一下。',
+      options: [
+        { text: '放慢节奏，用呼吸控制稳住每一步', label: '稳妥', effects: { skill: 4, legalRisk: -3, stress: 5, health: -2 }, resultText: '你学会了在关键动作时屏气三秒。这个技巧没有写在任何教材里，是上级用一句"你喘什么"教会你的。' },
+        { text: '主动申请多做几台，靠量堆出手感', label: '激进', effects: { skill: 5, stress: 6, health: -5 }, resultText: '你的手感确实上来了，代价是每天晚上眼前都还有显微镜的圆形视野。同事说这叫职业烙印，眼科医生的浪漫大概就是这么朴素。' },
+        { text: '录下自己的操作视频，回去逐帧复盘', label: '长期主义', effects: { skill: 4, research: 3, stress: 2 }, resultText: '你看自己的第一台录像时全程尴尬，看到第十遍时开始发现问题。这套自我复盘的方法后来被科里学了去，还起了个名字叫"回放教学法"。' }
+      ]
+    },
+    {
+      suffix: 'ch_clinic_volume', theme: 'shift', title: '🌙 眼耳鼻喉：一上午八十个号',
+      text: '专家门诊的号排到了走廊，平均每个患者你有三分十二秒。',
+      options: [
+        { text: '严格控制单个时长，保证所有人都看上', label: '均衡', effects: { skill: 3, stress: 5, health: -3 }, resultText: '你看完了八十个，最后一个患者是下午一点二十。你的喉咙哑了，这在耳鼻喉科算是一种黑色幽默。' },
+        { text: '把复杂的转到专病门诊，简单的快速处理', label: '稳妥', effects: { skill: 3, network: 3, stress: -3, legalRisk: -2 }, resultText: '分流之后节奏顺了很多。有患者抱怨"怎么又让我改天来"，你想解释三分钟真的看不了他的病，但那样就只剩两分钟了。' },
+        { text: '主动加号看完所有等候的人', label: '激进', effects: { ethics: 4, network: 3, stress: 7, health: -5 }, resultText: '你把最后一个号看完时，保洁阿姨已经开始拖地。她说"你们医生真辛苦"，你说习惯了。这三个字是医生最常用也最不该用的自我安慰。' }
+      ]
+    },
+    {
+      suffix: 'ch_expectation_gap', theme: 'communication', title: '💬 眼耳鼻喉：患者以为手术能"恢复如初"',
+      text: '术前谈话时患者反复确认："做完就跟以前一样了对吧？"你知道答案是"接近，但不是"。',
+      options: [
+        { text: '把预期一次讲透，哪怕对方失望', label: '长期主义', effects: { ethics: 6, legalRisk: -5, stress: 4, network: -2 }, resultText: '患者的表情肉眼可见地垮下去，最后还是签了字。术后他说"你当时说得对"。这五个字比任何锦旗都值钱，因为它意味着没有纠纷。' },
+        { text: '给出乐观但留有余地的说法', label: '均衡', effects: { stress: -2, legalRisk: 4, ethics: -2 }, resultText: '你用了"通常""大部分""个体差异"这些安全词。手术效果不错，但患者术后一直在追问"为什么还有一点点"。你为当初省下的五分钟，付出了后来的五次门诊。' },
+        { text: '用真实案例照片和数据来说明', label: '团队协作', effects: { ethics: 5, skill: 3, network: 3, stress: 2 }, resultText: '你调出了科室的术后随访数据，一张张给他看。数据比语言更有说服力，尤其当它连不完美的部分也一起展示的时候。' }
+      ]
+    },
+    {
+      suffix: 'ch_equipment_queue', theme: 'team', title: '🤝 眼耳鼻喉：设备排队与科室博弈',
+      text: '全院只有两台那个设备，三个科室都想用，排期表已经成了一份外交文件。',
+      options: [
+        { text: '牵头制定共享排期规则', label: '团队协作', effects: { network: 6, skill: 2, stress: 3 }, resultText: '你做了张排期表，考虑了急诊优先、科室配额和临时插队机制。三个科室都不完全满意，这说明你做对了——好的规则从来不让所有人满意。' },
+        { text: '靠个人关系抢时段，先保住自己的病人', label: '激进', effects: { network: 3, skill: 3, ethics: -3, stress: 4 }, resultText: '你的病人都排上了，靠的是设备科老师欠你的一个人情。人情用一次少一次，你开始计算自己的"人情余额"，这个念头本身就有点悲凉。' },
+        { text: '推动院里申购第三台，走正式流程', label: '长期主义', effects: { network: 4, research: 3, money: -2, stress: 4 }, resultText: '你写了份八页的申购论证，三个月后收到"暂缓考虑"。一年后设备到位了，附件里还是你那份材料。有些事只是慢，不是没用。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_subspecialty', theme: 'career', title: '📈 眼耳鼻喉：专病门诊的窗口期',
+      text: '科里空出一个专病方向，谁先站上去，未来十年就是谁的。',
+      options: [
+        { text: '主动申请，把这个方向做成自己的', label: '激进', effects: { skill: 4, network: 4, research: 3, stress: 6, health: -3 }, resultText: '你举了手，然后花了两年时间证明自己举得对。第一年只有零星几个患者，第三年你的专病门诊号提前一周挂完。窗口期的意思是：它只开一次。' },
+        { text: '先在旁边积累病例，等条件成熟再上', label: '长期主义', effects: { skill: 4, research: 3, stress: 2 }, resultText: '你选择了先攒够弹药。等到第二次机会来临时，你手里已经有一百二十例的数据。稳妥的代价是等待，回报是不会掉下来。' },
+        { text: '不争这个方向，把精力放在手术技术上', label: '稳妥', effects: { skill: 5, health: 2, stress: -3, network: -2 }, resultText: '你成了科里技术最好但方向最模糊的人。评职称的时候，"技术好"这三个字在材料上占了半行。你有点不服，但也知道规则就是这么写的。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('imaging_ultrasound', [
+    {
+      suffix: 'ch_missed_nodule', theme: 'clinical', title: '🩻 影像：那个差点被略过的影子',
+      text: '一天读了三百多份，第两百八十七份的角落里，有一个不到五毫米的东西。',
+      options: [
+        { text: '停下来放大细看，宁可耽误进度', label: '稳妥', effects: { skill: 4, ethics: 4, legalRisk: -5, stress: 3 }, resultText: '你把它写进了报告的"建议"栏。三周后临床打电话来说确诊了早期，语气里有点激动。影像科的成就感来得很延迟，但来的时候很重。' },
+        { text: '按常规标准出报告，保证时效', label: '均衡', effects: { skill: 2, stress: -2, legalRisk: 4 }, resultText: '你的报告时效在全科排前三，这个数据会出现在季度考核里。那个五毫米的影子不会出现在任何考核里，直到有一天它出现在纠纷材料里。' },
+        { text: '标记存疑并主动联系临床沟通', label: '团队协作', effects: { network: 5, skill: 3, legalRisk: -4, stress: 2 }, resultText: '你打了个电话，说了三句话。临床医生说"谢谢你专门打过来"。影像科最有价值的输出，有时候不是报告，是那个电话。' }
+      ]
+    },
+    {
+      suffix: 'ch_report_backlog', theme: 'shift', title: '🌙 影像：报告积压与时效指标',
+      text: '系统显示未出报告 214 份，绿色的时效指标条已经变成了红色。',
+      options: [
+        { text: '按风险分级处理，急的先出', label: '稳妥', effects: { skill: 3, legalRisk: -4, stress: 4 }, resultText: '你先清了急诊和住院的，门诊的往后压。时效指标当天还是红的，但没有一个真正着急的人被耽误。你在心里给自己打了个及格。' },
+        { text: '加班到深夜，把积压全部清完', label: '激进', effects: { skill: 3, money: 2, health: -6, stress: 7 }, resultText: '凌晨一点四十，最后一份报告发出。指标变绿了，你的眼睛变红了。第二天早上你在读片时揉了三次眼睛——效率和准确率是一对此消彼长的兄弟。' },
+        { text: '向科里反映人力问题，要求增援', label: '团队协作', effects: { network: 4, stress: -3, health: 2 }, resultText: '你把工作量数据做成图发到群里，主任回了句"我去说"。两周后来了个进修医生。数据比抱怨管用，这是影像科教会你的第一课。' }
+      ]
+    },
+    {
+      suffix: 'ch_clinical_dispute', theme: 'communication', title: '💬 影像：临床说"你报得太保守"',
+      text: '一位主治打电话来：“你这个「不排除」到底是排除还是不排除？我怎么跟病人说？”',
+      options: [
+        { text: '解释影像学的边界，同时给出倾向性意见', label: '长期主义', effects: { skill: 4, network: 4, ethics: 3, stress: 3 }, resultText: '你说"从影像看更倾向 A，但需要结合临床"，然后加了一句"如果是我，我会先做这个"。对方说"这就够了"。影像医生最难的不是看片，是把不确定说得有用。' },
+        { text: '坚持规范表述，请对方按流程申请会诊', label: '稳妥', effects: { legalRisk: -4, stress: -2, network: -3 }, resultText: '你守住了报告的严谨性，也守住了和临床之间那道墙。墙的两边都很安全，只是病人夹在中间多等了两天。' },
+        { text: '约临床医生一起看片，当面讨论', label: '团队协作', effects: { network: 6, skill: 4, stress: 2 }, resultText: '他来了机房，你们对着屏幕聊了二十分钟。他走的时候说"以后有疑难我直接来找你"。这大概是影像科能收到的最高评价。' }
+      ]
+    },
+    {
+      suffix: 'ch_ai_assist', theme: 'team', title: '🤝 影像：AI 说这里有问题，你觉得没有',
+      text: 'AI 辅助系统在一个位置标了红框，置信度 0.87。你反复看了三遍，觉得那是伪影。',
+      options: [
+        { text: '坚持自己的判断，并在报告中注明理由', label: '稳妥', effects: { skill: 5, ethics: 4, legalRisk: -3, stress: 4 }, resultText: '你写下了"结合扫描参数考虑为伪影"。随访证明你是对的。AI 的置信度是 0.87，你的置信度是十年的片子——这一局，人赢了。' },
+        { text: '按 AI 提示加做一个序列确认', label: '均衡', effects: { skill: 3, legalRisk: -4, stress: 2, money: -2 }, resultText: '加做的序列证明了你的判断，也多花了患者两百块和二十分钟。你开始思考一个新问题：为了给机器一个交代，谁来买单？' },
+        { text: '直接采纳 AI 结论，省时省心', label: '激进', effects: { stress: -4, legalRisk: 6, ethics: -3, skill: -2 }, flagsSet: ['ai_overtrust'], resultText: '报告发出去了，临床加做了增强，结果什么都没有。患者投诉多花了钱，你在解释时说"系统提示"。这四个字听起来像理由，其实是免责声明。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_platform', theme: 'career', title: '📈 影像：做技术骨干还是做平台建设',
+      text: '科里要建区域影像会诊平台，需要有人从读片室走出来做统筹。',
+      options: [
+        { text: '接下平台建设，把影响力做出机房', label: '长期主义', effects: { network: 6, research: 3, money: 3, stress: 6 }, resultText: '你开始参加各种会议，PPT 做得越来越熟练，片子读得越来越少。一年后区域平台上线，你在庆功宴上想起了那间没有窗户的读片室。' },
+        { text: '留在读片室，把亚专科诊断做到顶尖', label: '稳妥', effects: { skill: 5, research: 3, stress: 2, network: -2 }, resultText: '你成了神经影像的第一把手。全院疑难片最后都会流到你桌上，这个位置没有头衔，但有一种更实在的东西：不可替代。' },
+        { text: '两头都占，先把话语权拿到手', label: '激进', effects: { network: 5, skill: 3, stress: 8, health: -5 }, resultText: '你白天开会，晚上读片，周末写材料。半年后你在一次会议上把两个专业术语说混了，会场很安静。全能选手的极限，通常是这样被发现的。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('pathology_lab', [
+    {
+      suffix: 'ch_borderline_case', theme: 'clinical', title: '🔬 病理：一个说不清是良是恶的切片',
+      text: '显微镜下的细胞介于两者之间。临床在等，患者在等，手术方案取决于你这一句话。',
+      options: [
+        { text: '请上级和外院会诊，宁可慢也要准', label: '稳妥', effects: { skill: 4, ethics: 4, legalRisk: -5, stress: 5, money: -2 }, resultText: '外院会诊回来的意见和你的倾向一致。多花的五天让临床催了三次，但那份报告上的每个字都站得住。病理科的时间账，是用手术方案来算的。' },
+        { text: '给出倾向性诊断并注明建议随访', label: '均衡', effects: { skill: 3, legalRisk: -2, stress: 3 }, resultText: '你在报告里用了一个精确到令人难受的表述，把不确定性完整传递了出去。临床医生打电话说"看不懂"，你说"看不懂就是重点"。' },
+        { text: '按最可能的方向出明确结论', label: '激进', effects: { skill: 3, legalRisk: 6, stress: 4 }, resultText: '你给了一个干脆的答案，临床很满意。半年后复发病例回来复核，你在灯下重新看那张切片，看了很久很久。' }
+      ]
+    },
+    {
+      suffix: 'ch_sample_backlog', theme: 'shift', title: '🌙 病理/检验：标本堆到了走廊',
+      text: '一台设备坏了，另一台在排队维保。标本量没有减少，报告时限也没有延长。',
+      options: [
+        { text: '按临床紧急程度重排，主动告知延期', label: '稳妥', effects: { legalRisk: -4, network: 3, stress: 4 }, resultText: '你给每个相关科室打了电话说明情况。有两个人抱怨，五个人说理解。主动沟通不能修好设备，但能修好关系。' },
+        { text: '加班手工处理，硬把时限保住', label: '激进', effects: { skill: 3, health: -6, stress: 8 }, resultText: '你们几个人连着熬了三个晚上，时限一天没超。质控报告上写着"运行良好"，没写这四个字背后是四个人的黑眼圈。' },
+        { text: '把设备问题正式上报，推动流程改进', label: '团队协作', effects: { network: 5, legalRisk: -3, stress: 2 }, resultText: '你写了份情况说明，附上了三个月的故障记录。设备科终于批了新机器。你发现在医院里推动改变的秘诀是：把痛苦转换成可归档的格式。' }
+      ]
+    },
+    {
+      suffix: 'ch_report_explain', theme: 'communication', title: '💬 病理：患者拿着报告直接找到了实验室',
+      text: '一位患者绕过临床，直接敲开了病理科的门："我想知道这上面写的到底是什么意思。"',
+      options: [
+        { text: '耐心解释术语，但不越界谈治疗方案', label: '长期主义', effects: { ethics: 5, network: 3, legalRisk: -3, stress: 3 }, resultText: '你把那几个拉丁词翻译成了人话，然后请他回去找主诊医生谈方案。他临走时说"你是第一个跟我说人话的"。病理科的门很少被敲响，敲响时都很重要。' },
+        { text: '按规定请他回临床咨询', label: '稳妥', effects: { legalRisk: -4, stress: -2, ethics: -2 }, resultText: '你说了句"请您回主诊那边"，然后关上了门。规定是这么写的，但那个人在走廊上站了很久的背影，你从猫眼里看到了。' },
+        { text: '联系他的主诊医生，三方一起说明', label: '团队协作', effects: { network: 5, ethics: 4, stress: 2 }, resultText: '你打了个电话，十分钟后临床医生下来了。三个人在小会议室聊了半小时。跨部门协作最有效的形式，往往就是有人愿意多走那十步路。' }
+      ]
+    },
+    {
+      suffix: 'ch_quality_control', theme: 'team', title: '🤝 检验：室间质评的成绩出来了',
+      text: '有一个项目不合格。科里开始找原因，也开始找"是谁那天值班"。',
+      options: [
+        { text: '推动系统性排查，不停留在追责', label: '团队协作', effects: { network: 6, skill: 4, legalRisk: -4, stress: 4 }, resultText: '你把整个流程画成了一张图，最后发现问题出在试剂的运输温度。没有人被追责，问题被解决了。这两件事同时发生的概率不高，你争取到了。' },
+        { text: '如实说明自己那天的操作细节', label: '稳妥', effects: { ethics: 5, legalRisk: -3, stress: 4, network: -2 }, resultText: '你举手说"那天是我"。会议室安静了两秒，然后主任说"好，我们看看流程哪里有洞"。承认是需要勇气的，但也需要一个不会立刻砍人的环境。' },
+        { text: '低调处理，先把复检数据补漂亮', label: '激进', effects: { stress: -3, ethics: -5, legalRisk: 6 }, flagsSet: ['over_controlled_cost'], resultText: '复检数据很漂亮，漂亮到没人再提这件事。你把原始记录锁进了抽屉，也把某种东西一起锁了进去。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_research', theme: 'career', title: '📈 病理/检验：科研合作的橄榄枝',
+      text: '临床科室来找你合作课题，条件是提供样本库和病理数据，署名排在中间。',
+      options: [
+        { text: '谈清署名与数据边界后合作', label: '稳妥', effects: { research: 4, network: 4, ethics: 4, stress: 3 }, resultText: '你在合作前写了一页纸的约定，对方觉得你事多。文章发表时你的名字在该在的位置上，那一页纸值三个作者位。' },
+        { text: '主动牵头，把病理数据做成自己的平台', label: '长期主义', effects: { research: 5, network: 5, skill: 3, stress: 6, money: -2 }, resultText: '你花了两年建起一个样本库，从此全院的课题都得先来找你。病理科从后台走到了台前，靠的不是发声，是掌握了原材料。' },
+        { text: '婉拒，专心把日常诊断做好', label: '休息', effects: { health: 4, stress: -5, skill: 3, research: -2 }, resultText: '你把科研的邀请挡在门外，日子清净了很多。评职称那年你才发现，清净是有标价的，标价写在"科研工作量"那一栏。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('psychiatry', [
+    {
+      suffix: 'ch_risk_assessment', theme: 'clinical', title: '🩺 精神科：风险评估的那条线',
+      text: '你需要判断这位来访者当下的风险等级。量表给出一个分数，你的直觉给出另一个。',
+      options: [
+        { text: '按更高风险处理，安排加强观察', label: '稳妥', effects: { ethics: 6, legalRisk: -5, skill: 3, stress: 5 }, resultText: '你选择了保守一侧。事后证明确有必要。精神科的很多判断没有影像和化验可以复核，只能靠你愿不愿意为"万一"多做一步。' },
+        { text: '按量表结果处理，同时缩短复诊间隔', label: '均衡', effects: { skill: 3, legalRisk: -2, stress: 3 }, resultText: '你在量表和直觉之间做了个折中，把下次见面提前到了三天后。这三天你查了两次记录系统，这个动作你没跟任何人说。' },
+        { text: '与家属和团队一起制定安全计划', label: '团队协作', effects: { network: 5, ethics: 5, legalRisk: -4, stress: 3 }, resultText: '你把家属、社工和病房护士拉进了同一个方案里。安全计划写了两页纸，最有用的其实是最后那行电话号码。' }
+      ]
+    },
+    {
+      suffix: 'ch_emotional_load', theme: 'shift', title: '🌙 精神科：把别人的故事带回了家',
+      text: '连着一周听了太多沉重的事。今晚你躺在床上，脑子里播放的还是白天诊室里的画面。',
+      options: [
+        { text: '主动接受督导，把情绪处理掉', label: '稳妥', effects: { health: 5, stress: -8, skill: 3, money: -2 }, resultText: '督导老师听你说了四十分钟，只问了三个问题。你走出来时觉得轻了。精神科医生最容易忘的一件事：自己也需要有人听。' },
+        { text: '硬扛，靠时间自己消化', label: '激进', effects: { skill: 2, stress: 7, health: -6 }, resultText: '你以为自己扛得住，直到某天在诊室里对一位来访者失去了耐心。那一刻你知道，共情是有额度的，而你已经透支。' },
+        { text: '和同事组建定期同辈支持小组', label: '团队协作', effects: { network: 6, health: 4, stress: -6 }, resultText: '五个人，每周一次，一小时，不谈业务只谈感受。这个小组存活了三年，比科里大部分正式制度都长寿。' }
+      ]
+    },
+    {
+      suffix: 'ch_stigma_family', theme: 'communication', title: '💬 精神科：家属说"他就是想太多"',
+      text: '家属把病历本推回来："我们家没有这种病，他就是最近压力大。"',
+      options: [
+        { text: '不争辩，从家属能接受的角度重新说起', label: '长期主义', effects: { ethics: 6, network: 3, skill: 3, stress: 4 }, resultText: '你没有纠正"想太多"这三个字，而是从睡眠和食欲开始聊。四十分钟后家属主动问："那我们要怎么帮他？"有些墙不能推，只能绕。' },
+        { text: '摆出诊断依据，坚持规范治疗建议', label: '稳妥', effects: { ethics: 4, legalRisk: -3, stress: 4, network: -2 }, resultText: '你说得完全正确，家属带着人走了。三个月后他们又回来了，情况更重了。正确有时候需要配合时机才能生效。' },
+        { text: '请社工和同伴支持一起做家庭工作', label: '团队协作', effects: { network: 5, ethics: 5, stress: 2 }, resultText: '社工用了一句你说不出口的话："我们不是要给他贴标签，是要让他能睡个觉。"家属点头了。团队的价值在于，总有人能找到那把钥匙。' }
+      ]
+    },
+    {
+      suffix: 'ch_ward_team', theme: 'team', title: '🤝 精神科：病房里的一次意外',
+      text: '一位患者在病区情绪激动，护士按流程处理了，但事后有人质疑处置过当。',
+      options: [
+        { text: '完整还原经过，支持一线同事', label: '团队协作', effects: { network: 6, ethics: 5, legalRisk: -3, stress: 4 }, resultText: '你在复盘会上把时间线一分钟一分钟摆出来，包括那些"看起来不太好看"的部分。护士后来说，那天你说的话让她敢继续上班。' },
+        { text: '推动完善约束与记录规范', label: '长期主义', effects: { legalRisk: -5, skill: 3, network: 3, stress: 4 }, resultText: '你牵头改了流程，加了三个记录节点。全科开始抱怨"又多了表格"，但一年后一次投诉里，正是这三个节点救了大家。' },
+        { text: '保持中立，等调查结论', label: '均衡', effects: { legalRisk: -2, stress: -2, network: -3 }, resultText: '你什么都没说，等来了一个不温不火的结论。护士也什么都没说，只是从那以后遇到事会先看你一眼再决定要不要开口。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_community', theme: 'career', title: '📈 精神科：从诊室走向社区',
+      text: '区里要建心理健康服务网络，问你愿不愿意兼任技术指导。钱不多，事不少。',
+      options: [
+        { text: '接下来，把服务网络真正建起来', label: '长期主义', effects: { ethics: 6, network: 5, skill: 3, stress: 5, money: -2 }, resultText: '两年后区里的转介流程能跑通了，你在会上被点名表扬三十秒。这三十秒背后是七十次下社区，但你还是觉得值。' },
+        { text: '只做技术指导，不承担行政事务', label: '稳妥', effects: { network: 3, skill: 3, stress: -2 }, resultText: '你划清了边界，也保住了周末。有人说你不够投入，你说投入是要按小时计算的，而我的小时数已经卖完了。' },
+        { text: '婉拒，专注门诊与个案质量', label: '均衡', effects: { skill: 4, health: 3, stress: -4, network: -3 }, resultText: '你把时间留给了诊室里的那些人。你的患者随访率是全科最高的，这个数据不在任何评优标准里，但你自己知道它意味着什么。' }
+      ]
+    }
+  ]);
+
+  addChapterEvents('general_practice', [
+    {
+      suffix: 'ch_undifferentiated', theme: 'clinical', title: '🩺 全科：患者说"就是浑身不舒服"',
+      text: '没有明确的主诉，没有典型的体征，只有一个说不清楚哪里不对的人坐在你面前。',
+      options: [
+        { text: '系统问诊 + 建立随访计划', label: '长期主义', effects: { skill: 4, ethics: 4, stress: 3 }, resultText: '你问了二十分钟，什么都没查出来，但约了两周后复诊。第二次见面时她说"上次说完就好多了"。全科的诊疗手段里，"被认真听"是排名很靠前的一种。' },
+        { text: '开一套基础检查先排除器质性问题', label: '稳妥', effects: { skill: 3, legalRisk: -3, money: -2, stress: 2 }, resultText: '检查全部正常。患者拿着报告问"那我到底怎么了"，你意识到排除法只解决了一半问题，另一半需要时间和信任。' },
+        { text: '转诊到上级医院让专科去查', label: '均衡', effects: { network: 3, stress: -3, ethics: -2 }, resultText: '你写了转诊单。三个月后她又回来了，带着五个专科的报告和更多的困惑。你开始理解基层医生存在的意义：有人得负责把碎片拼回一个人。' }
+      ]
+    },
+    {
+      suffix: 'ch_home_visit', theme: 'shift', title: '🌙 全科：一次雨天的上门随访',
+      text: '签约居民里有位老人三个月没来复诊，电话打不通。外面在下雨。',
+      options: [
+        { text: '骑车过去看一眼', label: '稳妥', effects: { ethics: 6, network: 4, health: -3, stress: 2 }, resultText: '老人在家，降压药吃完了没人帮买。你顺手带了两盒过去。这件事不会出现在任何绩效表上，但整条街的人后来都认识你。' },
+        { text: '联系居委会和家属协助上门', label: '团队协作', effects: { network: 6, ethics: 4, stress: -2 }, resultText: '居委会的干事比你更熟这栋楼，十分钟就找到了人。你意识到基层医疗的战斗力，一半来自你不认识的那些人。' },
+        { text: '记录在案，等下次随访周期', label: '均衡', effects: { stress: -3, ethics: -3, legalRisk: 2 }, resultText: '你在系统里点了"联系不上"。两个月后老人因为血压问题住了院。那个下拉菜单里有很多选项，但没有一个叫"我当时应该去的"。' }
+      ]
+    },
+    {
+      suffix: 'ch_trust_building', theme: 'communication', title: '💬 全科：居民说"你们这里能看什么"',
+      text: '一位新搬来的居民站在门口打量社区卫生服务中心，语气里有明显的不信任。',
+      options: [
+        { text: '不解释，先把这次的病看好', label: '长期主义', effects: { skill: 3, ethics: 5, network: 4, stress: 2 }, resultText: '你花了十五分钟处理了一个其实五分钟能搞定的问题。他走的时候说"下次我还来"。基层的信任不是宣传出来的，是一次一次积累出来的。' },
+        { text: '认真介绍中心的能力边界和转诊通道', label: '稳妥', effects: { ethics: 4, network: 3, stress: 2 }, resultText: '你告诉他哪些我们能做，哪些必须去上级医院。他有点意外："你们还会说自己不行？"诚实在基层是一种稀缺的竞争力。' },
+        { text: '简单处理，反正他也不会常来', label: '均衡', effects: { stress: -3, ethics: -4, network: -3 }, resultText: '三分钟结束，他确实没再来。你在年底签约率统计表前想起了这个人，以及另外几十个类似的三分钟。' }
+      ]
+    },
+    {
+      suffix: 'ch_referral_network', theme: 'team', title: '🤝 全科：上级医院的那个联系人',
+      text: '一位患者需要尽快转上去，但走正规流程要排三周。你手机里有一个可能有用的号码。',
+      options: [
+        { text: '打这个电话，同时补齐正式转诊材料', label: '均衡', effects: { network: 5, skill: 3, ethics: 3, stress: 3 }, resultText: '患者三天后就住上了院，正式材料一份没少。你把这条路径记了下来，后来变成了中心和上级医院之间的固定通道。' },
+        { text: '推动建立正式的绿色转诊通道', label: '长期主义', effects: { network: 6, ethics: 5, stress: 5, skill: 2 }, resultText: '你跑了四次上级医院，开了三次会，签了一份协议。从此不用再靠私人号码。制度化的意思就是：让好事不依赖于某个人还在不在。' },
+        { text: '按流程排队，一切照章办事', label: '稳妥', effects: { legalRisk: -3, stress: -2, ethics: -2 }, resultText: '三周后患者转上去了，病情比当初重了一些。流程没有任何问题，你在心里给这个流程记了一笔账。' }
+      ]
+    },
+    {
+      suffix: 'ch_career_policy', theme: 'career', title: '📈 全科：政策岗位的邀请',
+      text: '区卫健委在找懂基层的人，问你有没有兴趣过去做几年。事情多，但能影响更大的面。',
+      options: [
+        { text: '去，把基层的真实情况带进政策', label: '长期主义', effects: { network: 6, ethics: 5, money: 3, stress: 5, skill: -2 }, flagsSet: ['public_admin'], resultText: '你去了，开始写文件、开会、汇总数据。有一次你在文件里加了一句"应保证家庭医生实际随访时间"，那句话后来落到了三十万人身上。' },
+        { text: '留在中心，把这块地做深做实', label: '稳妥', effects: { ethics: 5, skill: 4, network: 3, stress: -2 }, flagsSet: ['community_trust'], resultText: '你选择了留下。十年后这个社区的慢病控制率是全区第一，而你依然记得每一位签约老人的名字。影响力有两种形态，你选了更慢的那种。' },
+        { text: '两边兼顾，做政策也不放下门诊', label: '激进', effects: { network: 5, skill: 3, money: 2, stress: 7, health: -4 }, resultText: '你的日程表上一半是会议一半是门诊，两边都觉得你不够专心。半年后你在一次会上把患者的名字叫成了文件编号，当晚决定得减掉一样。' }
+      ]
+    }
+  ]);
+
+
+
+  // ===== 规培/住院医早期经济压力事件 =====
+  const earlyCareerPressureEvents = [
+    {
+      id: 're_ec_rent_hike_mega', stage: 'training', title: '💸 房东说：明年涨一点',
+      text: '合同到期前一个月，房东在微信上发来一句“涨一点点”，后面跟着一个数字，一点也不点。',
+      rarity: 'common', weight: 11, returnTo: 'drg_bootcamp',
+      conditions: { requireCityTier: ['mega', 'strong_province'] },
+      options: [
+        { text: '搬到更远的地方，用通勤换房租', label: '稳妥', effects: { money: 8, health: -4, stress: 3 }, flagsSet: ['long_commute'], resultText: '你搬到了地铁末端，房租省下三分之一，通勤时间涨了一倍。你在早高峰的车厢里学会了站着背指南——这大概是本市医生独有的碎片化学习法。' },
+        { text: '咬牙续租，保住睡眠时间', label: '均衡', effects: { money: -10, health: 3, stress: 4 }, resultText: '你续了约，钱包薄了，离医院还是十分钟。你安慰自己：这十分钟每天两趟，一年就是一百二十个小时，相当于花钱买命。这个换算让你好受了一点点。' },
+        { text: '找同事合租，把成本对半砍', label: '团队协作', effects: { money: 10, network: 4, stress: 2, health: -2 }, resultText: '你和同科室的人合租了。好处是可以互相捎饭，坏处是两个人的排班表贴在冰箱上，看起来像一份作战计划——而且永远没有交集。' }
+      ]
+    },
+    {
+      id: 're_ec_exam_fee_stack', stage: 'training', title: '💸 报名费像叠罗汉',
+      text: '执业医师考试、规培结业、英语等级、继续教育学分，四张缴费单排着队来。',
+      rarity: 'common', weight: 10, returnTo: 'drg_bootcamp',
+      options: [
+        { text: '全部报名，一次性把资格清干净', label: '激进', effects: { money: -14, skill: 3, stress: 5, health: -2 }, resultText: '你把四张单子一起交了，账户余额变成了一个需要勇气才能看的数字。但至少这一年你不用再被系统提醒“您有待办事项 4 项”。' },
+        { text: '按优先级只报必考的', label: '稳妥', effects: { money: -5, skill: 2, stress: 2 }, resultText: '你砍掉了两项“建议参加”。三个月后其中一项变成了“必须参加”，通知发布日期是上周五下午五点半。你已经学会了不为这种事生气。' },
+        { text: '申请科室报销与培训经费', label: '团队协作', effects: { money: 5, network: 3, stress: 3 }, resultText: '你填了一张需要三个签字的报销单，跑了两栋楼。钱最后是报下来了，比原计划晚了四个月，中间还被退回一次，理由是"发票抬头多了一个字"。' }
+      ]
+    },
+    {
+      id: 're_ec_low_stipend', stage: 'training', title: '💸 规培补贴到账提醒',
+      text: '短信提示到账。你看了两遍，确认小数点没有放错位置。',
+      rarity: 'common', weight: 11, returnTo: 'drg_bootcamp',
+      options: [
+        { text: '多值几个班换补助', label: '激进', effects: { money: 9, health: -5, stress: 6, skill: 2 }, resultText: '你把周末排满了，月底多出来的数字刚好够交房租。你算了一下时薪，然后决定以后不再算时薪。' },
+        { text: '精打细算，把开销压到最低', label: '稳妥', effects: { money: 5, stress: 4, health: -2 }, resultText: '你开始记账，发现最大的支出是外卖，第二大是咖啡。你把咖啡换成了速溶，然后在第三个夜班时明白了什么叫"节流的边际成本"。' },
+        { text: '接受家里补贴一点', label: '均衡', effects: { money: 12, stress: -3, ethics: -2 }, flagsSet: ['family_support'], resultText: '妈妈转账时备注写着"别省着"。你盯着这三个字看了很久，然后默默把钱存进了应急账户。二十八岁还要被转账，这件事的分量比金额重。' }
+      ]
+    },
+    {
+      id: 're_ec_commute_cost', stage: 'resident', title: '💸 通勤这笔隐形账',
+      text: '你算了算：每天来回三小时，一个月的地铁费加上打车费，等于半个月的伙食预算。',
+      rarity: 'common', weight: 9, returnTo: 'ward_rounds',
+      conditions: { requireCityTier: ['mega', 'strong_province'] },
+      options: [
+        { text: '搬到医院附近，贵一点但省时间', label: '均衡', effects: { money: -12, health: 6, stress: -5 }, resultText: '你搬进了一个能听见救护车的房子。房租贵了，但你每天多睡一小时。第一周你还被鸣笛吵醒，第二周你已经能在鸣笛声中做梦了。' },
+        { text: '买辆电动车，风里来雨里去', label: '稳妥', effects: { money: -4, health: -3, stress: 2 }, resultText: '你买了辆二手电动车，从此风雨无阻。有天下大雨，你穿着雨衣冲进病区，护士说你像刚从抢救现场回来。你说我确实是。' },
+        { text: '维持现状，把通勤时间用来听讲座', label: '长期主义', effects: { skill: 3, stress: 3, health: -3 }, resultText: '你在地铁上听完了整套心电图课程。代价是你现在听到报站声就会想起房室传导阻滞。知识和场景绑定得如此紧密，这在教育学上叫情境记忆，在生活里叫没得选。' }
+      ]
+    },
+    {
+      id: 're_ec_registration_paper', stage: 'resident', title: '💸 注册、变更、备案，三件套',
+      text: '执业地点变更、多点执业备案、继续教育学分登记，每一项都要跑一趟，每一项都要交一点。',
+      rarity: 'uncommon', weight: 8, returnTo: 'ward_rounds',
+      options: [
+        { text: '请假一天，一次跑完所有窗口', label: '稳妥', effects: { money: -6, stress: 4, health: -2 }, resultText: '你在三个窗口之间跑了六个来回，因为第一个窗口要第三个窗口的回执，而第三个窗口要第一个窗口的证明。你最后是靠打电话给一位办事员的同学解决的。' },
+        { text: '找同事帮忙代办，欠个人情', label: '团队协作', effects: { network: 3, money: -3, stress: -3 }, resultText: '同事顺手帮你带了材料，回来说"下次帮我值个班"。这笔交易的汇率大概是：一天假期换一个夜班，你觉得不亏。' },
+        { text: '拖着不办，先应付眼前的事', label: '激进', effects: { stress: -3, legalRisk: 5, money: 2 }, resultText: '你把材料压在抽屉最底层。三个月后系统提示"执业信息异常"，你才知道有些拖延不是省时间，只是把利息记在了别处。' }
+      ]
+    },
+    {
+      id: 're_ec_housing_provided', stage: 'training', title: '💸 单位宿舍的意外惊喜',
+      text: '医院给规培生安排了宿舍。房间不大，但房租那一栏写着"免"。',
+      rarity: 'uncommon', weight: 8, returnTo: 'drg_bootcamp',
+      conditions: { requireHospitalTier: ['prefecture_tier3_strong2', 'regular_tier2', 'county_basic'] },
+      options: [
+        { text: '住进去，把省下的钱存起来', label: '稳妥', effects: { money: 14, stress: -4, health: 2 }, flagsSet: ['low_cost_city'], resultText: '你搬进了一间只有八平米的房间，室友是隔壁科的规培生。你们共用一个插座，也共用一种"至少不用交房租"的踏实感。' },
+        { text: '住宿舍但把省下的钱投到进修上', label: '长期主义', effects: { money: 6, skill: 4, network: 3, stress: 3 }, resultText: '你把省下的房租换成了两次进修班的报名费。同期笑你"住宿舍还这么卷"，三年后那两次进修变成了你简历上唯一不平凡的两行。' },
+        { text: '还是想有自己的空间，出去租', label: '均衡', effects: { money: -8, health: 4, stress: -5 }, resultText: '你租了个一居室，第一次拥有可以摔门的空间。房租吃掉了大半补贴，但你在下夜班后能一个人躺着发呆，这个体验被你评估为"物有所值"。' }
+      ]
+    },
+    {
+      id: 're_ec_talent_subsidy', stage: 'resident', title: '💸 人才补贴申报通知',
+      text: '人事处群里发了通知：符合条件者可申报青年人才生活补贴，附件是一份 17 页的申报指南。',
+      rarity: 'uncommon', weight: 8, returnTo: 'ward_rounds',
+      options: [
+        { text: '认真准备材料申报', label: '稳妥', effects: { money: 16, stress: 5, network: 3 }, resultText: '你花了三个晚上填完了所有表格，其中一张要求填写"近五年主要贡献"，你在那个格子里写了又删删了又写。补贴半年后到账，比预期少一点，但确实是笔真钱。' },
+        { text: '拉上同批的人一起研究政策', label: '团队协作', effects: { money: 12, network: 6, stress: 2 }, resultText: '你们建了个群，把 17 页指南拆成了一份人话版摘要。这份摘要后来在全院流传，你成了那个"懂政策的人"——一个听起来不太像医生的头衔。' },
+        { text: '看了两页附件就放弃了', label: '休息', effects: { stress: -5, health: 3, money: -2 }, resultText: '你在第三页的"申报人须同时满足以下六项条件"处关掉了 PDF。放弃的那一刻你很轻松，年底看到同事晒补贴时又不太轻松。' }
+      ]
+    },
+    {
+      id: 're_ec_overtime_pay', stage: 'resident', title: '💸 加班费和它的计算公式',
+      text: '财务下发了新的绩效说明，里面有一个包含七个变量的公式。有人算出自己该多拿，有人算出自己该倒贴。',
+      rarity: 'common', weight: 9, returnTo: 'ward_rounds',
+      options: [
+        { text: '多接夜班，把绩效冲上去', label: '激进', effects: { money: 11, health: -6, stress: 7, skill: 2 }, resultText: '你的绩效排名上了科室前三，体重掉了四斤。财务说你这个月是"贡献突出"，你在心里把这四个字翻译成了"透支到位"。' },
+        { text: '仔细核对公式，发现漏算主动申诉', label: '稳妥', effects: { money: 7, network: -2, stress: 4 }, resultText: '你把公式拆开算了三遍，发现夜班系数确实漏了。申诉之后补发了，财务说"你是第一个算出来的"。你不确定这是表扬。' },
+        { text: '不看了，反正也改不了', label: '休息', effects: { stress: -4, health: 3, money: -2 }, resultText: '你把绩效说明扔进了收藏夹里那个叫"以后再看"的文件夹。那个文件夹现在有两百多个文件，是你职业生涯最诚实的记录。' }
+      ]
+    },
+    {
+      id: 're_ec_partner_income', stage: 'resident', title: '💸 伴侣说：这个月我来',
+      text: '月底账单发过来时，伴侣先转了一笔钱，附言："你这个月值了九个班。"',
+      rarity: 'uncommon', weight: 9, returnTo: 'ward_rounds',
+      requireFlags: ['has_partner'],
+      options: [
+        { text: '坦然接受，把家庭当作一个整体', label: '均衡', effects: { money: 14, stress: -6, health: 3 }, resultText: '你接受了，也在心里记了一笔。家庭财务从"你的我的"变成"我们的"这一步，比很多职称评审都难跨过去。' },
+        { text: '坚持 AA，但答应多分担家务', label: '稳妥', effects: { money: -4, stress: 2, ethics: 3, network: 2 }, resultText: '你坚持了自己的原则，代价是接下来一个月你在下夜班后还要洗碗。对方说"你这是何苦"，你说这叫尊严，然后打翻了一个盘子。' },
+        { text: '接受并承诺以后加倍补回来', label: '长期主义', effects: { money: 10, stress: -3, network: 3, health: 2 }, resultText: '你说"等我熬出头"。对方笑了笑没说话。那个笑容里有信任，也有一点点"我听过很多次了"的意思。' }
+      ]
+    },
+    {
+      id: 're_ec_move_cheaper_city', stage: 'resident', title: '💸 换个城市，重新算账',
+      text: '有人给你算了一笔账：去二线城市，收入少两成，房价少六成。这个算术题看起来没有悬念。',
+      rarity: 'uncommon', weight: 7, returnTo: 'ward_rounds',
+      conditions: { requireCityTier: ['mega', 'strong_province'] },
+      options: [
+        { text: '认真考虑，联系目标城市的医院', label: '长期主义', effects: { money: 12, health: 5, stress: -6, network: -4 }, flagsSet: ['low_cost_city', 'consider_relocation'], resultText: '你投了三份简历，其中一家当天就回复了。你忽然意识到，自己在这座超大城市里排不上号的资历，在别处是被抢的。这个认知有点复杂。' },
+        { text: '留下来，赌这个平台的未来', label: '激进', effects: { skill: 4, network: 4, stress: 6, money: -6 }, resultText: '你决定留下。理由是这里有全国最好的病例和最难挂的号。代价是你的存款曲线在未来五年会保持一条优雅的水平线。' },
+        { text: '先不动，把简历和人脉都准备好', label: '稳妥', effects: { network: 4, stress: -2, money: 2 }, flagsSet: ['transfer_ready'], resultText: '你更新了简历，加了三个外地同行的微信，然后继续上班。有退路的人上班时腰杆会直一点，这是一种很难量化但确实存在的效应。' }
+      ]
+    },
+    {
+      id: 're_ec_scholarship_late', stage: 'training', title: '💸 那笔迟到的奖学金',
+      text: '两年前申请的专项培养资助终于批下来了，通知里写着"请于本月内完成领取手续"。',
+      rarity: 'rare', weight: 5, returnTo: 'drg_bootcamp',
+      options: [
+        { text: '去领，顺便把手续一次办完', label: '稳妥', effects: { money: 15, stress: 2, health: -2 }, resultText: '你请了半天假去办手续，被要求补交一份两年前的证明。你在旧邮箱里翻了四十分钟找到了它，这一刻你感谢了当年那个不删邮件的自己。' },
+        { text: '把这笔钱投进设备和学习', label: '长期主义', effects: { money: 5, skill: 5, research: 3, stress: 2 }, resultText: '你买了一台像样的笔记本电脑和两个正版软件授权。从此写论文时不用再和自动关机赛跑，这份幸福感是纯粹的。' },
+        { text: '拿去还掉学生贷款', label: '均衡', effects: { money: 12, stress: -8, ethics: 3 }, resultText: '你把余额清零的那条短信截了图。没发给任何人，只是自己看了三遍。有些成就没有证书，只有一条短信。' }
+      ]
+    },
+    {
+      id: 're_ec_medical_bill_family', stage: 'resident', title: '💸 家里来的电话',
+      text: '父亲住院了。电话那头说"不严重"，但同时把住院费的截图发了过来。',
+      rarity: 'uncommon', weight: 8, returnTo: 'ward_rounds',
+      options: [
+        { text: '立刻转钱，并托同行帮忙看着', label: '均衡', effects: { money: -18, network: 3, ethics: 5, stress: 6 }, resultText: '你转了钱，也给老家的同学打了电话。当医生最实用的技能之一，是知道该给谁打这个电话。这项技能不在任何考纲里。' },
+        { text: '请假回去一趟，亲自安排', label: '稳妥', effects: { money: -12, health: -3, stress: 4, ethics: 6 }, flagsSet: ['family_care_duty'], resultText: '你请了三天假，走的时候科里没人说什么，但排班表上你的名字被红笔圈了。你在高铁上想：救别人的父母是本职，救自己的父母要请假。' },
+        { text: '远程指导治疗方案，人先不回', label: '激进', effects: { skill: 3, stress: 8, ethics: -3, health: -3 }, resultText: '你在值班室里对着 CT 片子跟老家医生沟通了四十分钟，方案很专业。挂断后你坐了很久——专业能解决很多问题，但解决不了你不在场这件事。' }
+      ]
+    }
+  ];
+
+  // ===== 健康与恢复事件 =====
+  const healthLifeEvents = [
+    {
+      id: 're_hl_sleep_debt', stage: 'resident', title: '🏥 睡眠债的利滚利',
+      text: '你已经连续三周平均睡五小时。今天在电梯里，你对着关闭的门按了三次开门键。',
+      rarity: 'common', weight: 10, returnTo: 'ward_rounds',
+      options: [
+        { text: '调整作息，强制固定睡眠时间', label: '休息', effects: { health: 8, stress: -7, skill: -1 }, resultText: '你把手机放到了客厅，第一晚失眠到两点，第五晚睡了七小时。你发现睡眠这件事和病人依从性一样——道理都懂，执行才是难点。' },
+        { text: '靠咖啡和意志力继续顶', label: '激进', effects: { skill: 2, health: -7, stress: 6 }, resultText: '你把咖啡从一天两杯加到四杯，然后发现自己在四杯的状态下依然能在读片时睡着。人体是有极限的，咖啡因不是解决方案，只是延期通知。' },
+        { text: '和排班的人聊聊，把连班拆开', label: '团队协作', effects: { health: 5, stress: -5, network: 2 }, resultText: '你去找了排班的老师，她看了一眼表格说"这排得确实不是人干的"，然后改了。你才知道很多不合理只是因为没人说过。' }
+      ]
+    },
+    {
+      id: 're_hl_neck_back', stage: 'resident', title: '🏥 颈椎和腰椎的联名抗议',
+      text: '早上起床时，你的脖子有三十度是转不过去的。而今天有四台手术/一整天门诊。',
+      rarity: 'common', weight: 9, returnTo: 'ward_rounds',
+      options: [
+        { text: '去康复科认真治疗一次', label: '稳妥', effects: { health: 7, money: -6, stress: -3 }, resultText: '康复科的同事看了你的片子说"你这个是职业性的"，然后加了句"我们科室也一样"。你们对视一眼，笑得很苦。' },
+        { text: '贴个膏药继续上班', label: '激进', effects: { skill: 2, health: -6, stress: 5 }, resultText: '膏药很有效，有效到你忘了它只是止痛。三个月后你在弯腰系鞋带时听到了一声脆响，那一刻你想起了这个下午。' },
+        { text: '每天挤出二十分钟做拉伸', label: '长期主义', effects: { health: 6, stress: -4, skill: -1 }, resultText: '你在值班室的角落里做拉伸，被路过的实习生看到了。第二周他也跟着做，第三周变成五个人。医院里最容易传染的不是病毒，是自救。' }
+      ]
+    },
+    {
+      id: 're_hl_gi_trouble', stage: 'resident', title: '🏥 胃在提意见',
+      text: '连续两周中午的饭是在十四点四十吃的。今天它决定不再配合。',
+      rarity: 'common', weight: 9, returnTo: 'ward_rounds',
+      options: [
+        { text: '做个胃镜查清楚', label: '稳妥', effects: { health: 6, money: -7, stress: 2 }, resultText: '报告写着慢性胃炎，医生说"规律饮食就行"。你看着这四个字，觉得它和"多喝热水"属于同一类：完全正确，完全做不到。' },
+        { text: '设个闹钟，强制按点吃饭', label: '休息', effects: { health: 5, stress: -4, skill: -1 }, resultText: '你设了个十二点的闹钟，第一天在查房时响了，第二天在手术中响了，第三天你把它改成了震动。但你确实开始按点吃饭了，胜利来之不易。' },
+        { text: '备点胃药，先扛过这一阵', label: '均衡', effects: { health: -3, money: -2, stress: 2 }, resultText: '你的白大褂口袋里从此常驻两盒药。同事问你带的什么，你说"续命的"。这句玩笑话在科室里流传开来，因为大家口袋里都有。' }
+      ]
+    },
+    {
+      id: 're_hl_exposure', stage: 'resident', title: '🏥 针刺伤那三十秒',
+      text: '操作时手一滑，针头擦过了手套。你的第一反应不是疼，是"患者的检查结果是什么来着"。',
+      rarity: 'uncommon', weight: 8, returnTo: 'ward_rounds',
+      options: [
+        { text: '立即按暴露流程处理并上报', label: '稳妥', effects: { health: 3, legalRisk: -5, stress: 5, ethics: 4 }, resultText: '你按流程挤血、冲洗、上报、抽血、开药，全程二十五分钟。感控科的老师说"你处理得很规范"。规范的意思是，接下来三个月你还要复查两次。' },
+        { text: '自己处理一下，不想惊动科里', label: '激进', effects: { stress: 7, health: -5, legalRisk: 5 }, resultText: '你冲了两分钟水，然后回去继续干活。接下来的一个月，每次身体有点不舒服你都会多想三秒。这三秒的成本，比上报麻烦得多。' },
+        { text: '上报同时推动科室改进操作流程', label: '团队协作', effects: { network: 5, legalRisk: -5, ethics: 5, stress: 3 }, resultText: '你在上报表的"改进建议"栏里认真写了三条。三个月后科室换了带保护鞘的针具。表格终于发挥了它本该有的作用，这在医院里算小概率事件。' }
+      ]
+    },
+    {
+      id: 're_hl_burnout', stage: 'resident', title: '🏥 情绪的电量提示',
+      text: '你发现自己已经很久没有因为治好一个病人而高兴过了。也没有因为治不好而难过。',
+      rarity: 'uncommon', weight: 9, returnTo: 'ward_rounds',
+      options: [
+        { text: '找心理咨询谈一次', label: '稳妥', effects: { health: 6, stress: -10, money: -6 }, resultText: '咨询师问你"上一次觉得开心是什么时候"，你想了四十秒答不上来。这四十秒的沉默，比任何量表都说明问题。你决定继续来。' },
+        { text: '请一次年假，彻底断开', label: '休息', effects: { health: 8, stress: -12, money: -5, skill: -2 }, resultText: '你关掉了工作微信，去了个没什么信号的地方。第三天你才第一次没有下意识摸口袋。回来后同事说你气色好了，你说我只是终于想起自己是个人。' },
+        { text: '什么都不做，等它自己过去', label: '均衡', effects: { stress: 6, health: -5, skill: 2 }, resultText: '你继续上班，效率没有下降，甚至更高了——因为你不再在任何事情上花费情绪。这种状态被同事称赞为"稳"，只有你知道它的另一个名字。' }
+      ]
+    },
+    {
+      id: 're_hl_sedentary', stage: 'resident', title: '🏥 久坐、久站、以及从不运动',
+      text: '体检报告上有三项箭头。医生（也就是你的同事）说：建议加强锻炼。',
+      rarity: 'common', weight: 9, returnTo: 'ward_rounds',
+      options: [
+        { text: '办张健身卡，认真开始运动', label: '长期主义', effects: { health: 8, money: -8, stress: -5 }, resultText: '你办了卡，去了四次，然后卡在钱包里安静地躺了十一个月。第二年你换了策略：下班走楼梯回家。这个方案的坚持率高得多。' },
+        { text: '把通勤改成步行/骑行', label: '稳妥', effects: { health: 6, stress: -3, money: 3 }, resultText: '你开始骑车上班，每天四十分钟。三个月后箭头少了一个，你把体检报告拍给爸妈看，他们只关心为什么还有两个。' },
+        { text: '先记下来，等不忙了再说', label: '均衡', effects: { stress: -3, health: -4, skill: 2 }, resultText: '你把报告放进抽屉。"等不忙了"这四个字，是医生词典里最大的一句谎话，全国通用，年年有效。' }
+      ]
+    },
+    {
+      id: 're_hl_night_recovery', stage: 'resident', title: '🏥 下夜班之后的十二个小时',
+      text: '交完班是早上八点。理论上你可以回家睡觉，实际上你还有病历、会议和一个"顺便"。',
+      rarity: 'common', weight: 10, returnTo: 'ward_rounds',
+      options: [
+        { text: '所有事都推到明天，直接回家睡', label: '休息', effects: { health: 7, stress: -6, network: -2 }, resultText: '你在群里发了句"下夜班先撤"，然后关机。醒来时下午四点，天光正好。你发现世界没有因为你睡了八小时而崩塌，这个发现有点治愈。' },
+        { text: '把病历写完再走', label: '均衡', effects: { legalRisk: -3, health: -4, stress: 3 }, resultText: '你在十点半写完了最后一份病历，走出大楼时阳光刺得睁不开眼。质控数据保住了，你在公交车上睡过了两站。' },
+        { text: '再顶一个白天，反正撑得住', label: '激进', effects: { skill: 3, money: 3, health: -8, stress: 7 }, resultText: '你连着工作了三十二小时。下班时你觉得自己脚下的地面是软的。同事说你真拼，你说我只是不知道怎么拒绝——这句实话没人接。' }
+      ]
+    },
+    {
+      id: 're_hl_recovery_rotation', stage: 'resident', title: '🏥 申请一次轮转喘口气',
+      text: '科里有个相对轻松的岗位空出来，轮转三个月。有人说这是"养老"，也有人说这是"回血"。',
+      rarity: 'uncommon', weight: 7, returnTo: 'ward_rounds',
+      options: [
+        { text: '申请去，认真把身体养回来', label: '休息', effects: { health: 10, stress: -10, skill: -2, network: -2 }, resultText: '三个月后你回到病区，同事说你像换了个人。你确实换了个人——上一个已经在第七个连班的时候悄悄下线了。' },
+        { text: '不去，怕被贴上"不能扛"的标签', label: '激进', effects: { network: 3, stress: 6, health: -5 }, resultText: '你留下了，标签保住了。半年后你在病区走廊上扶着墙站了十秒，没有人看见。有些标签的维护费用，是自己付的。' },
+        { text: '去，但同时把这段时间用来写论文', label: '均衡', effects: { health: 5, research: 4, stress: -3 }, resultText: '你在"养老岗"上写完了两篇文章，还顺便把睡眠补回来了。有人说你不会休息，你说这已经是我能想到的最会休息的方式了。' }
+      ]
+    }
+  ];
+
+  // ===== 恋爱与家庭扩展事件 =====
+  const romanceLifeEvents = [
+    {
+      id: 're_rm_lab_partner', stage: 'graduate', title: '💞 实验室里的同频',
+      text: '凌晨一点，隔壁课题组那个人还在跑胶。你们同时抬头，同时叹气，同时笑了。',
+      rarity: 'common', weight: 12, returnTo: 'paper_deadline',
+      forbidFlags: ['has_partner', 'single_choice'],
+      options: [
+        { text: '约一顿宵夜，看看能不能聊得来', label: '均衡', effects: { stress: -6, network: 4 }, flagsSet: ['has_partner'], resultText: '你们在楼下的烧烤摊聊到三点，从跑胶聊到人生规划。回宿舍的路上你想：能理解"我在等结果"这四个字的人，其实不多。' },
+        { text: '继续做实验，感情的事以后再说', label: '长期主义', effects: { research: 4, stress: 3 }, resultText: '你把这个念头压了下去，专心跑完了那块胶。结果很好看，实验记录本上那一页你后来翻到过好几次，每次都会多停两秒。' },
+        { text: '主动约对方一起做课题，先当战友', label: '团队协作', effects: { research: 3, network: 5, stress: -3 }, flagsSet: ['has_partner'], resultText: '你们合作了一个小课题，然后合作了一顿饭，然后合作了周末。爱情有时候是从"这个数据你帮我看看"开始的，这不浪漫，但很真实。' }
+      ]
+    },
+    {
+      id: 're_rm_undergrad_club', stage: 'undergrad', title: '💞 社团活动的意外',
+      text: '医学生的社团活动通常是急救培训。你在教心肺复苏时，有人一直在偷偷看你。',
+      rarity: 'common', weight: 12, returnTo: 'clerkship_intro',
+      forbidFlags: ['has_partner', 'single_choice'],
+      options: [
+        { text: '主动加个微信', label: '激进', effects: { stress: -5, network: 4 }, flagsSet: ['has_partner'], resultText: '你说"练习记录我发你"，然后加上了微信。三个月后这个人的备注从"急救社"变成了别的。有些关系的起点非常具体：一个假人和三十次按压。' },
+        { text: '把培训做好，其他的顺其自然', label: '稳妥', effects: { skill: 4, network: 3, stress: -2 }, resultText: '你认真教完了整场，收获了一片掌声和一个没有发出去的微信。顺其自然的意思在医学生这里通常是：自然而然地没有下文。' },
+        { text: '认真准备下次活动，制造再见的机会', label: '长期主义', effects: { network: 5, skill: 3, stress: -3 }, flagsSet: ['has_partner'], resultText: '你策划了第二场活动，理由充分，动机不太纯。第二场结束后你们一起收拾器材，聊了四十分钟。策划案的第一条目标"扩大参与度"，算是超额完成了。' }
+      ]
+    },
+    {
+      id: 're_rm_training_shift', stage: 'training', title: '💞 值班室外的等候',
+      text: '有人在医院门口等了你两个小时，因为你说"再有十分钟就好"，然后说了十二次。',
+      rarity: 'common', weight: 12, returnTo: 'drg_bootcamp',
+      forbidFlags: ['has_partner', 'single_choice'],
+      options: [
+        { text: '认真道歉，认真开始这段关系', label: '均衡', effects: { stress: -8, health: 4, network: 3 }, flagsSet: ['has_partner'], resultText: '你出来时对方举着一杯已经凉了的奶茶。你说对不起，对方说"我知道你们是这样的"。能提前理解这件事的人，值得你少说十次"再有十分钟"。' },
+        { text: '解释清楚这份工作的常态，让对方决定', label: '稳妥', effects: { ethics: 4, stress: -3, network: 2 }, flagsSet: ['has_partner'], resultText: '你把排班表拍给对方看，说"以后大概都这样"。对方看了很久，说"那我以后带本书来等"。这个回答让你在走廊上站了一会儿。' },
+        { text: '算了，这样对人家不公平', label: '长期主义', effects: { stress: 6, skill: 3 }, resultText: '你说了"你别等我了"。对方走的时候没回头。你回到值班室继续写病历，那晚的病历写得格外工整。' }
+      ]
+    },
+    {
+      id: 're_rm_resident_intro', stage: 'resident', title: '💞 同事介绍的那个人',
+      text: '护士长说"我有个亲戚，人挺好的"，然后不等你回答就把微信推了过来。',
+      rarity: 'common', weight: 12, returnTo: 'ward_rounds',
+      forbidFlags: ['has_partner', 'single_choice'],
+      options: [
+        { text: '见一面，反正也没什么损失', label: '均衡', effects: { stress: -5, network: 4 }, flagsSet: ['has_partner'], resultText: '你们约在医院对面的咖啡店，你迟到了二十五分钟。对方说"没事，我看了会儿书"。第二次见面你只迟到了八分钟，这个进步被双方视为好兆头。' },
+        { text: '礼貌婉拒，现在实在没精力', label: '稳妥', effects: { stress: 3, skill: 3 }, resultText: '你说"最近科里忙"。护士长说"你们都这么说"，然后把微信收了回去。这句"你们都这么说"，比拒绝本身更让你沉默。' },
+        { text: '先聊着，看看合不合适', label: '长期主义', effects: { stress: -3, network: 3 }, flagsSet: ['has_partner'], resultText: '你们聊了两个月的微信，大部分内容是你在深夜发的"刚下班"和对方第二天早上回的"辛苦了"。异步聊天最后变成了同步生活，过程比想象中顺利。' }
+      ]
+    },
+    {
+      id: 're_rm_attending_meet', stage: 'senior', title: '💞 三十几岁的新开始',
+      text: '一场跨院学术活动之后，有人加了你微信，第一句是："你讲的那个病例，我想再请教一下。"',
+      rarity: 'uncommon', weight: 11, returnTo: 'promotion_gate',
+      forbidFlags: ['has_partner', 'single_choice'],
+      options: [
+        { text: '认真回复，然后约了一顿饭', label: '均衡', effects: { stress: -7, network: 5, health: 3 }, flagsSet: ['has_partner'], resultText: '请教病例的话题持续了四十分钟，剩下的两小时聊了别的。你发现三十几岁开始一段关系有个好处：双方都不再假装自己很闲。' },
+        { text: '保持专业距离，只谈学术', label: '稳妥', effects: { research: 4, network: 4, stress: 2 }, resultText: '你们合作发了一篇文章，通讯栏并列。你偶尔会想那顿没吃的饭，但很快被下一个截稿日期覆盖了。' },
+        { text: '坦白自己的作息，把选择权交给对方', label: '长期主义', effects: { ethics: 4, stress: -4, network: 3 }, flagsSet: ['has_partner'], resultText: '你发了一段很长的话，讲你的排班、你的加班和你的不确定。对方回了两个字："知道。"这两个字比一百句甜言蜜语都有分量。' }
+      ]
+    },
+    {
+      id: 're_rm_guarantee_late', stage: 'resident', title: '💞 三十二岁那年的一次意外',
+      text: '你已经很久没认真想过这件事了。直到某天下夜班，有个人在楼下递给你一份早餐，说"我妈让我带的，她说你们医生太辛苦"。',
+      rarity: 'uncommon', weight: 30, returnTo: 'ward_rounds',
+      forbidFlags: ['has_partner', 'single_choice', 'romance_guarantee_used'],
+      conditions: { age: { min: 32 } },
+      options: [
+        { text: '接受这份笨拙的好意，慢慢来', label: '均衡', effects: { stress: -8, health: 5, network: 4 }, flagsSet: ['has_partner', 'romance_guarantee_used'], resultText: '你接过了那份早餐，还是热的。你们后来在一起了，起点是一个包子和一句"我妈让我带的"。不是所有故事都需要浪漫的开场。' },
+        { text: '认真开始，把生活重新排进日程', label: '长期主义', effects: { stress: -6, health: 4, skill: -1 }, flagsSet: ['has_partner', 'romance_guarantee_used'], resultText: '你在排班表旁边贴了一张新的表格，上面写着周末。这张表格在接下来一年里被修改了三十七次，但它一直贴在那里。' },
+        { text: '感谢，但明确选择一个人过', label: '稳妥', effects: { health: 4, stress: -4, money: 5 }, flagsSet: ['single_choice', 'romance_guarantee_used'], resultText: '你认真地说了谢谢，也认真地说了不。回家路上你买了自己喜欢的花，插在一个人的房间里。一个人过不是失败选项，只是另一个选项。' }
+      ]
+    },
+    {
+      id: 're_rm_long_distance', stage: 'resident', title: '💞 异地的第 208 天',
+      text: '你们在两个城市，各自值班，各自加班。视频通话经常一个人在说，另一个人已经睡着。',
+      rarity: 'uncommon', weight: 10, returnTo: 'ward_rounds',
+      requireFlags: ['has_partner'],
+      options: [
+        { text: '一方申请调动，把两个人凑到一起', label: '长期主义', effects: { stress: -8, health: 4, network: -4, money: -8 }, flagsSet: ['relocated_for_family'], resultText: '最后是你调过去了。放弃了三年的积累，换了一个能一起吃晚饭的城市。有人说不值，你在第一个共同的周末早上觉得挺值。' },
+        { text: '维持异地，用假期硬撑', label: '均衡', effects: { stress: 6, money: -8, health: -3 }, resultText: '你们把所有年假都用在了高铁上。一年见了九次，每次三天。你在票夹里存了三十多张票根，这是一种昂贵而具体的爱情。' },
+        { text: '坦诚谈一次，决定要不要继续', label: '稳妥', effects: { stress: -5, ethics: 4, health: 2 }, resultText: '你们视频聊了三个小时，把所有不敢说的都说了。结论是继续，但设了个期限。有期限的坚持比无期限的消耗健康得多。' }
+      ]
+    },
+    {
+      id: 're_rm_cancelled_date', stage: 'resident', title: '💞 又一次被鸽掉的约会',
+      text: '你们订了餐厅，你在出发前十五分钟接到了急会诊电话。这是这个月第三次。',
+      rarity: 'common', weight: 10, returnTo: 'ward_rounds',
+      requireFlags: ['has_partner'],
+      options: [
+        { text: '会诊结束后立刻补一次，不管多晚', label: '均衡', effects: { stress: 3, health: -3, network: 3 }, resultText: '你在十一点二十赶到，餐厅已经关门。你们最后在便利店吃了关东煮。对方说"这也算"，你在心里给这三个字打了满分。' },
+        { text: '提前和对方约定"医生式约会"规则', label: '长期主义', effects: { stress: -6, ethics: 3, health: 3 }, resultText: '你们定了个规矩：所有约会都不订位、不提前买票、随时可取消。听起来毫无浪漫可言，实际执行下来成功率从三成提到了八成。' },
+        { text: '道歉，然后继续被工作牵着走', label: '稳妥', effects: { stress: 5, network: -2 }, resultText: '你发了个红包和一长串道歉。对方回了"没事"，你知道这两个字是有库存的，而库存正在减少。' }
+      ]
+    },
+    {
+      id: 're_rm_both_parents', stage: 'resident', title: '💞 两边父母的时间表',
+      text: '春节假期只有五天，你的父母在西边，对方的父母在东边，而你还要值一个班。',
+      rarity: 'uncommon', weight: 9, returnTo: 'ward_rounds',
+      requireFlags: ['married'],
+      options: [
+        { text: '把双方父母都接过来一起过', label: '团队协作', effects: { money: -12, stress: -4, ethics: 5, network: 4 }, resultText: '你租了个大房子，四位老人在客厅里聊了三天，比你们俩还熟。你在值班室吃盒饭时收到一张全家福，照片里唯一缺的人是拍照的那个。' },
+        { text: '轮流回，今年东边明年西边', label: '稳妥', effects: { stress: 3, money: -8, ethics: 3 }, resultText: '你们定了个轮换制度，写在备忘录里。听起来很像排班表，实际上也确实是排班表——只不过这次排的是亲情。' },
+        { text: '哪边都不去，两个人在值班室过', label: '均衡', effects: { stress: 5, money: 5, health: -3, network: -3 }, resultText: '你们在值班室煮了速冻饺子，配着心电监护的滴滴声。对方说"这是我过得最安静的一个年"。你分不清这是抱怨还是表扬。' }
+      ]
+    },
+    {
+      id: 're_rm_housing_decision', stage: 'resident', title: '💞 租还是买，这是个问题',
+      text: '中介说这个价格不会再有了，父母说该定下来了，你的账户说别开玩笑。',
+      rarity: 'uncommon', weight: 9, returnTo: 'ward_rounds',
+      requireFlags: ['has_partner'],
+      options: [
+        { text: '咬牙买，背上二十年', label: '激进', effects: { money: -22, stress: 10, health: -3 }, flagsSet: ['debt_burden'], resultText: '你签字的时候手有点抖。从此你每个月最重要的日子是还款日，最害怕的通知是"绩效调整"。房子是你的了，某种意义上你也是房子的了。' },
+        { text: '继续租，把钱留在手上', label: '稳妥', effects: { money: 8, stress: -4, health: 2 }, resultText: '你们决定继续租。父母不太理解，你说"我们这行调动很多"。这个理由一半是真的，另一半是你算过首付和自己的年薪之比。' },
+        { text: '先在低成本城市买，两地过渡', label: '长期主义', effects: { money: -12, stress: 3, health: 2 }, flagsSet: ['low_cost_city'], resultText: '你们在老家附近买了个小房子，作为"退路"。这个词你以前很不喜欢，现在觉得挺好——有退路的人，在前线才敢往前走。' }
+      ]
+    },
+    {
+      id: 're_rm_childcare_plan', stage: 'resident', title: '💞 谁来带孩子',
+      text: '孩子快出生了，你们开始面对一个没有标准答案的题：两个人都上夜班，孩子归谁。',
+      rarity: 'uncommon', weight: 9, returnTo: 'ward_rounds',
+      requireFlags: ['has_child'],
+      options: [
+        { text: '请老人来帮忙，接受一些磨合', label: '均衡', effects: { stress: -6, money: -5, health: 3, ethics: 2 }, resultText: '老人来了，孩子有人带了，客厅的电视音量从此固定在最大档。你在下夜班后戴着耳塞睡觉，但至少能睡。' },
+        { text: '请专业育儿嫂，用钱换时间', label: '激进', effects: { money: -20, stress: -8, health: 4 }, resultText: '育儿嫂的月薪比你高，这个事实你消化了一周。但那一周你睡了六个整觉，于是你决定不再消化，直接接受。' },
+        { text: '一方申请减少夜班，主动降速', label: '长期主义', effects: { money: -8, stress: -6, health: 5, network: -3 }, flagsSet: ['career_slowdown'], resultText: '你们商量后决定其中一个人先慢下来。这个决定在职业上是有代价的，在孩子第一次叫人的时候，那个在场的人觉得没有代价。' }
+      ]
+    },
+    {
+      id: 're_rm_adoption', stage: 'senior', title: '💞 另一种成为父母的方式',
+      text: '你们讨论了很久生育的事，最后有人先提出了另一个选项：领养。',
+      rarity: 'rare', weight: 7, returnTo: 'promotion_gate',
+      requireFlags: ['married'], forbidFlags: ['has_child'],
+      options: [
+        { text: '认真启动领养流程', label: '长期主义', effects: { ethics: 8, stress: 4, money: -10, health: 2 }, flagsSet: ['has_child', 'adopted_child'], resultText: '流程比你想象中长，材料比你写过的任何标书都厚。一年半以后，家里多了一个人。第一次听到"爸爸/妈妈"的时候，所有的表格都变得值得。' },
+        { text: '选择两个人的生活，不要孩子', label: '稳妥', effects: { money: 10, health: 5, stress: -8 }, flagsSet: ['dink'], resultText: '你们认真讨论后选择了丁克。亲戚不理解，同事偶尔会问。你们把周末用来旅行和睡觉，这个选择的满意度逐年上升。' },
+        { text: '再等等，把这件事放一放', label: '均衡', effects: { stress: 3, skill: 3 }, resultText: '你们说"过两年再说"。这句话在接下来的几年里被重复了很多次，直到某一天没有人再提起。有些决定是靠沉默做出的。' }
+      ]
+    },
+    {
+      id: 're_rm_partner_migration', stage: 'senior', title: '💞 对方拿到了另一个城市的机会',
+      text: '这次不是你，是对方拿到了一个很难拒绝的 offer。地点在一千两百公里之外。',
+      rarity: 'uncommon', weight: 9, returnTo: 'promotion_gate',
+      requireFlags: ['has_partner'],
+      options: [
+        { text: '支持对方去，自己想办法跟上', label: '长期主义', effects: { network: -5, stress: 6, ethics: 6, money: -6 }, flagsSet: ['consider_relocation'], resultText: '你说"你去，我来想办法"。这句话说出口很快，落地花了两年。你放弃了副高的第一次机会，换了一个能一起吃饭的城市。' },
+        { text: '劝对方留下，把自己的平台守住', label: '激进', effects: { network: 4, stress: 5, ethics: -4, health: -2 }, resultText: '对方留下了，也把那份 offer 的邮件保存在了收藏夹里。你偶尔会想起这件事，尤其是在你们吵架的时候。' },
+        { text: '一起做个五年计划，分阶段解决', label: '团队协作', effects: { stress: -5, network: 3, ethics: 4, health: 3 }, resultText: '你们在纸上画了个时间轴，标了四个节点。这份计划后来改了三次，但它至少让"异地"从一个困境变成了一个项目。' }
+      ]
+    }
+  ];
+
+  randomEvents.push(...earlyCareerPressureEvents, ...healthLifeEvents, ...romanceLifeEvents);
+
+
+
+  // ===== 转轨与再就业链条 =====
+  events.push(
+    {
+      id: 'career_switch_gateway',
+      stage: 'senior',
+      major: true,
+      title: '转轨窗口：要不要换一条跑道',
+      text: '猎头的消息、同学的朋友圈、招聘公告和你昨晚的体检报告，在同一周里指向同一个问题：这条路，你还要跑多久。\n换赛道不等于失败，也不等于解脱——它只是把一组问题换成另一组问题。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '看产业与内容方向：药械、临床运营、医学编辑、互联网医疗',
+          label: '均衡',
+          target: 'career_switch_industry_pick',
+          effects: { network: 4, stress: 2, money: -2 },
+          flagsSet: ['career_switch_exploring'],
+          impactHint: '打开产业方向｜需要重新证明自己',
+          resultText: '你把简历改成了非医院版本，第一次发现"熟练掌握三腔二囊管"在产业岗位上并不是加分项。招聘要求那一栏写着"具备跨部门沟通能力"，你想了想，觉得自己在协调床位这件事上确实很有经验。'
+        },
+        {
+          text: '看社会办医方向：民营连锁专科、高端私立、国际部',
+          label: '激进',
+          target: 'career_switch_private_pick',
+          effects: { money: 4, network: 4, stress: 3, ethics: -2 },
+          flagsSet: ['career_switch_exploring'],
+          impactHint: '收入上升｜合规与业绩压力上升',
+          resultText: '对方开出的数字很好看，合同附件里的"业绩考核细则"有十一页。你翻到第七页时看到了"客户转化率"，忽然意识到在那边，患者会有一个新称呼。'
+        },
+        {
+          text: '看公共部门方向：疾控、卫健、公共卫生项目',
+          label: '长期主义',
+          target: 'career_switch_public_pick',
+          effects: { ethics: 5, stress: -3, money: -3, network: 3 },
+          flagsSet: ['career_switch_exploring'],
+          impactHint: '压力下降｜收入下降｜影响面变大',
+          resultText: '你去参加了一场宣讲。台上的人说"我们做的事情，五年之后才看得见效果"。台下有人在打哈欠，你却听进去了——毕竟你已经习惯了做那种十年后才被感谢的工作。'
+        },
+        {
+          text: '留在公立体系，把这次动摇当成一次年检',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'senior_outcome',
+          effects: { ethics: 5, health: 3, stress: -6, skill: 4 },
+          impactHint: '压力下降｜稳定性上升',
+          resultText: '你把猎头的微信设成了免打扰，然后回到病区继续查房。留下不是因为没得选，而是因为你算完账之后发现，自己最舍不得的其实是那几个还在随访的病人。这个理由不够体面，但很真实。'
+        }
+      ]
+    },
+    {
+      id: 'career_switch_industry_pick',
+      stage: 'senior',
+      title: '产业方向：四个岗位，四种代价',
+      text: 'JD 写得都很漂亮，面试官也都很客气。真正的差别藏在"汇报关系"和"考核周期"这两栏里。',
+      yearDelta: 0,
+      options: [
+        {
+          text: '药械企业医学事务（MSL/MA）：做专业与商业之间的翻译',
+          label: '均衡',
+          target: 'career_switch_probation',
+          effects: { money: 12, network: 6, stress: 2, ethics: -3, health: 4 },
+          flagsSet: ['switch_industry_ma'],
+          career: { hospitalType: 'industry' },
+          impactHint: '收入明显上升｜医德轻微下降｜进入试用期',
+          resultText: '入职第一周你学会了三个新词：合规、循证支持、以及"这个说法我们不能这样表述"。你把它们记在手机备忘录里，旁边是你还没删掉的值班排表。'
+        },
+        {
+          text: '临床运营 / CRO：把试验流程跑通',
+          label: '稳妥',
+          target: 'career_switch_probation',
+          effects: { money: 9, skill: 3, stress: 3, health: 3 },
+          flagsSet: ['switch_ops'],
+          career: { hospitalType: 'industry' },
+          impactHint: '收入上升｜出差增加｜进入试用期',
+          resultText: '你开始满世界跑中心，行李箱里常年备着两套衣服和一沓知情同意书模板。有人问你现在做什么，你说"确保别人做的事情有据可查"，对方点点头，其实没听懂。'
+        },
+        {
+          text: '医学编辑与内容：把专业翻译成人话',
+          label: '长期主义',
+          target: 'career_switch_probation',
+          effects: { money: 4, research: 4, ethics: 4, stress: -4, health: 4 },
+          flagsSet: ['switch_content'],
+          career: { hospitalType: 'industry' },
+          impactHint: '压力下降｜收入小幅上升｜进入试用期',
+          resultText: '你写的第一篇科普被编辑打回三次，理由分别是"太专业""太啰嗦""标题不够抓人"。第四稿通过了，阅读量四千七。你算了一下：这相当于连续二十年门诊才能见到的人数。'
+        },
+        {
+          text: '互联网医疗：在线问诊与产品设计',
+          label: '激进',
+          target: 'career_switch_probation',
+          effects: { money: 10, network: 7, stress: 5, ethics: -3, health: 2 },
+          flagsSet: ['switch_internet'],
+          career: { hospitalType: 'industry' },
+          impactHint: '收入明显上升｜压力上升｜进入试用期',
+          resultText: '你的工位在一个开放式办公区，周围的人管用户叫"用户"，管转化叫"转化"。第一次线上问诊你打了六百字，产品经理善意提醒："平均回复长度建议控制在一百二十字。"'
+        }
+      ]
+    },
+    {
+      id: 'career_switch_private_pick',
+      stage: 'senior',
+      title: '社会办医：钱、患者与合同条款',
+      text: '三份合同摆在你面前。薪资一份比一份好看，附加条款也一份比一份长。',
+      yearDelta: 0,
+      options: [
+        {
+          text: '民营连锁专科：规模化，但考核到人头',
+          label: '激进',
+          target: 'career_switch_probation',
+          effects: { money: 14, network: 5, stress: 6, ethics: -4, health: -2 },
+          flagsSet: ['switch_chain_private'],
+          career: { hospitalTier: 'premium_private', hospitalType: 'private' },
+          impactHint: '收入大幅上升｜压力上升｜医德下降｜进入试用期',
+          resultText: '第一次周会上，运营总监展示了一张"医生产值排行榜"，你的名字在中间偏下。散会后有位同事拍拍你说："别急，前三名都是去年来的。"你不确定这是安慰还是预告。'
+        },
+        {
+          text: '高端私立 / 国际部：服务导向，节奏可控',
+          label: '均衡',
+          target: 'career_switch_probation',
+          effects: { money: 11, stress: -4, health: 5, network: 4, ethics: -2 },
+          flagsSet: ['switch_premium_private'],
+          career: { hospitalTier: 'international', hospitalType: 'international' },
+          impactHint: '收入明显上升｜压力下降｜进入试用期',
+          resultText: '你第一次拥有了每位患者三十分钟的门诊时长。第一个患者聊到第二十五分钟时说"你们这里真好"，你笑了笑，心里算的是：在原来那家，这三十分钟可以看十个人。'
+        },
+        {
+          text: '去更需要人的地方：地市/县域医院骨干岗',
+          label: '长期主义',
+          target: 'career_mobility_county_chief',
+          effects: { ethics: 7, network: 5, money: 5, stress: -4, health: 3 },
+          flagsSet: ['grassroots_path'],
+          career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', hospitalType: 'public_general' },
+          impactHint: '医德明显上升｜压力下降｜平台层级下降',
+          resultText: '你带着一箱书和一台旧笔记本去报到。院长亲自到门口接你，说的第一句是"我们等这样的人等了三年"。这句话的分量，比你在原单位听过的所有表扬加起来都重。'
+        }
+      ]
+    },
+    {
+      id: 'career_switch_public_pick',
+      stage: 'senior',
+      title: '公共部门：慢，但是面很宽',
+      text: '一边是疾控和公共卫生项目，一边是卫健系统的岗位。共同点是：都要写材料；不同点是：写给谁看。',
+      yearDelta: 0,
+      options: [
+        {
+          text: '进疾控/公共卫生项目，做人群健康',
+          label: '长期主义',
+          target: 'career_switch_probation',
+          effects: { ethics: 7, research: 4, money: -2, stress: -4, health: 4 },
+          flagsSet: ['switch_public_health'],
+          career: { hospitalType: 'academic_research' },
+          impactHint: '医德明显上升｜压力下降｜收入轻微下降',
+          resultText: '你的工作从"救这一个"变成了"让这一万个别得病"。成就感变得抽象了很多，唯一具体的是每个月都要交的那份数据报表，它一格都不能空。'
+        },
+        {
+          text: '备考进入卫生健康管理部门',
+          label: '均衡',
+          effects: { network: 5, stress: 5, money: -4, health: -2 },
+          flagsSet: ['public_admin'],
+          impactHint: '判定：成功进入体制内｜失败则需重新规划',
+          check: {
+            baseChance: 54,
+            stats: { network: 0.25, ethics: 0.25, research: 0.15, stress: -0.2 },
+            minChance: 26,
+            maxChance: 86,
+            success: {
+              target: 'ending_public_service',
+              effects: { network: 10, ethics: 6, money: 6, stress: -5 },
+              feedback: '笔试面试都过了，你换了一张工作证。',
+              log: '判定成功（转轨）：你进入了卫生健康管理部门。',
+              resultText: '你在体检表上填"现职业"时犹豫了三秒，最后写了"医师"。三个月后新的工作证下来，照片里的你看起来休息得不错。同事说你有临床背景是优势，你说但愿吧。'
+            },
+            failure: {
+              target: 'career_switch_unemployed',
+              effects: { stress: 10, money: -6, health: -3 },
+              feedback: '差了几分，而这几分意味着又是一年。',
+              log: '判定失败（转轨）：考试没过，你需要重新安排下一步。',
+              resultText: '成绩出来那天你看了三遍，确认那个小数点确实在它该在的位置。你已经辞了原来的岗位，现在手上什么都没有——这大概是三十几岁最不适合体验的一种自由。'
+            }
+          }
+        },
+        {
+          text: '再想想，先回临床把这一年过完',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'senior_outcome',
+          effects: { ethics: 4, skill: 4, stress: -4, health: 2 },
+          impactHint: '稳定性上升｜维持现状',
+          resultText: '你把宣讲会的资料塞进了抽屉。回到病区那天，正好有个老病人来复查，握着你的手说"还好你还在"。你想：所谓路径依赖，有时候只是舍不得。'
+        }
+      ]
+    },
+    {
+      id: 'career_switch_probation',
+      stage: 'senior',
+      major: true,
+      title: '试用期：新赛道的第一道门槛',
+      text: '入职培训第一天，HR 用很温和的语气介绍了"试用期考核标准"和"末位调整机制"。\n你忽然想起在医院时，从来没有人跟你说过"你可能会被淘汰"这件事。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '稳扎稳打：先摸清规则，把交付做到及格线以上',
+          label: '稳妥',
+          safeChoice: true,
+          effects: { skill: 3, network: 3, stress: 4, health: -2, money: -2 },
+          impactHint: '判定：通过试用期｜失败则转入待业',
+          check: {
+            baseChance: 74,
+            stats: { network: 0.2, skill: 0.2, ethics: 0.15, stress: -0.25 },
+            minChance: 48,
+            maxChance: 92,
+            success: {
+              target: 'career_switch_settled',
+              effects: { money: 8, network: 5, stress: -4, health: 3 },
+              feedback: '转正邮件抄送了整个部门，你的名字第一次出现在组织架构图上。',
+              log: '判定成功（试用期）：你通过考核，正式落地新赛道。',
+              resultText: '转正那天你收到一封群发邮件，标题是"欢迎正式加入"。你在工位上愣了一会儿——上一次有人正式欢迎你，还是十年前那场白大褂授予仪式，而那次你还得自己买袖标。'
+            },
+            failure: {
+              target: 'career_switch_unemployed',
+              effects: { stress: 12, money: -8, health: -4 },
+              feedback: 'HR 用同样温和的语气说：我们觉得可能不太匹配。',
+              log: '判定失败（试用期）：你没有通过考核。',
+              resultText: '谈话安排在周五下午四点，会议室订了三十分钟，实际用了十一分钟。走出大楼时天还亮着，你忽然发现自己已经很多年没有在天亮时下过班了，而这一次是因为没班可下。'
+            }
+          }
+        },
+        {
+          text: '猛冲：第一个季度就做出能被看见的成绩',
+          label: '激进',
+          effects: { skill: 4, network: 5, stress: 9, health: -6, money: -3 },
+          impactHint: '判定：高回报｜失败直接淘汰｜健康明显下降',
+          check: {
+            baseChance: 52,
+            stats: { network: 0.3, skill: 0.25, research: 0.15, stress: -0.3 },
+            minChance: 22,
+            maxChance: 86,
+            success: {
+              target: 'career_switch_settled',
+              effects: { money: 14, network: 9, stress: -2 },
+              flagsSet: ['switch_fast_track'],
+              feedback: '你的第一个项目直接被拿去汇报，老板记住了你。',
+              log: '判定成功（试用期）：你用一个季度证明了自己。',
+              resultText: '你的项目上了季度汇报的第三页 PPT，老板念了你的名字。散会后有同事过来加微信，说"以后多合作"。你在洗手间的镜子里看了看自己——瘦了六斤，但确实站进去了。'
+            },
+            failure: {
+              target: 'ending_switch_probation_out',
+              effects: { stress: 14, health: -8, money: -10 },
+              feedback: '你用力过猛，踩到了一个自己完全不知道存在的红线。',
+              log: '判定失败（试用期）：激进策略导致你被直接淘汰。',
+              resultText: '你越过了两个层级直接汇报，内容没问题，路径有问题。第二天你的账号权限被调整了，第三天 HR 找你谈话。医院里的等级是明的，这里的是暗的——而暗的更硬。'
+            }
+          }
+        },
+        {
+          text: '两手准备：保留执业注册与临床联系，随时能回去',
+          label: '长期主义',
+          effects: { ethics: 4, network: 4, stress: 2, money: -4, skill: 2 },
+          flagsSet: ['keep_clinical_license'],
+          impactHint: '判定：更容易通过｜投入被分散｜保留退路',
+          check: {
+            baseChance: 66,
+            stats: { ethics: 0.2, network: 0.25, skill: 0.2, stress: -0.2 },
+            minChance: 38,
+            maxChance: 88,
+            success: {
+              target: 'career_switch_settled',
+              effects: { money: 6, network: 5, ethics: 4, health: 3 },
+              feedback: '你既站住了新岗位，也没有把旧的桥烧掉。',
+              log: '判定成功（试用期）：你在保留退路的前提下完成了转轨。',
+              resultText: '你每个月还回原来的医院出半天门诊，同事说你"两头都想要"。你没反驳——因为你确实两头都想要，而且暂时确实都拿住了。'
+            },
+            failure: {
+              target: 'career_switch_unemployed',
+              effects: { stress: 9, money: -5, ethics: 3 },
+              feedback: '公司觉得你不够投入，这个判断不算错。',
+              log: '判定失败（试用期）：投入分散让你没能通过考核。',
+              resultText: '离职面谈时对方说："我们感觉你一直有一只脚在外面。"你想说那是因为我不敢把两只脚都放进来，但最后只说了"理解"。留退路的代价，就是别人也会给你留一条。'
+            }
+          }
+        }
+      ]
+    },
+    {
+      id: 'career_switch_settled',
+      stage: 'senior',
+      major: true,
+      title: '转轨之后的第三年',
+      text: '你已经适应了新的语言体系：里程碑、闭环、颗粒度、对齐一下。\n没适应的是每次听到救护车鸣笛时，身体还是会先紧一下。',
+      yearDelta: 2,
+      options: [
+        {
+          text: '往上做，带一支团队',
+          label: '激进',
+          target: 'ending_switch_industry_lead',
+          effects: { money: 16, network: 12, stress: 6, health: -3 },
+          impactHint: '收入大幅上升｜压力上升',
+          resultText: '你开始参加那种从早开到晚的战略会。有一次你在会上说"这个方案对患者不友好"，全场安静了两秒，然后有人说"这个视角很好"。你不知道那两秒里发生了什么，但你决定继续说下去。'
+        },
+        {
+          text: '把这条线做长做稳，不追求跃迁',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'ending_switch_ops_stable',
+          effects: { money: 9, health: 8, stress: -9, ethics: 4 },
+          impactHint: '健康明显上升｜压力大幅下降',
+          resultText: '你成了部门里最稳的那个人：不抢功，不掉链子，交付永远准时。年终评级是 B+，年终体检全部正常。你把这两张纸并排放在桌上，觉得这个组合比任何一个 A 都好。'
+        },
+        {
+          text: '做医学内容与科普，把专业还给公众',
+          label: '长期主义',
+          target: 'ending_switch_content_editor',
+          effects: { ethics: 9, research: 6, network: 8, money: 3, stress: 2 },
+          impactHint: '医德明显上升｜影响力上升｜收入变化不大',
+          resultText: '你写的一篇关于用药误区的文章被转发了十几万次。评论区里有人说"看完这个我把家里的药都扔了"，你赶紧又写了一篇《不是让你都扔》。科普这件事的难度在于，你永远无法预测读者会走到哪一步。'
+        },
+        {
+          text: '带着产业经验回临床，做转化与合作',
+          label: '团队协作',
+          target: 'ending_switch_return_clinic',
+          effects: { skill: 8, network: 10, ethics: 6, money: -4, stress: 4 },
+          conditions: { anyFlags: ['keep_clinical_license', 'switch_ops', 'switch_public_health'] },
+          impactHint: '人脉明显上升｜收入下降｜回到临床',
+          resultText: '你回来了，带着一套完全不同的方法论。有人说你"镀了层金"，也有人说你"绕了一大圈"。你自己知道，那圈没白绕——现在你看临床问题时，会自动多想一层"这件事能不能被复制"。'
+        }
+      ]
+    },
+    {
+      id: 'career_switch_unemployed',
+      stage: 'senior',
+      major: true,
+      title: '空窗期：没有工牌的日子',
+      text: '你第一次体会到工作日的上午十点，小区里是什么样子：安静、有阳光、有遛狗的人，以及一种你完全不熟悉的松弛。\n第三天，这种松弛开始变成另一种东西。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '重新求职，降薪也接受',
+          label: '稳妥',
+          safeChoice: true,
+          effects: { stress: 5, network: 3, money: -4 },
+          impactHint: '判定：重新就业｜失败则长期待业',
+          check: {
+            baseChance: 82,
+            stats: { network: 0.3, skill: 0.2, ethics: 0.15, stress: -0.2 },
+            minChance: 42,
+            maxChance: 90,
+            success: {
+              target: 'ending_switch_reemployed',
+              effects: { money: 8, stress: -8, network: 5, health: 4 },
+              feedback: '第九次面试之后，有人说：下周能来吗。',
+              log: '判定成功（再就业）：你重新找到了岗位。',
+              resultText: '你投了四十七份简历，收到十一次回复，去了九次面试。第九次结束时对方问"下周能来吗"，你说能。挂断电话后你在楼下坐了十分钟，然后给家里打了个电话，说"找到了"。'
+            },
+            failure: {
+              target: 'ending_switch_long_unemployed',
+              effects: { stress: 12, money: -10, health: -6 },
+              feedback: '简历石沉大海的次数多到你已经不再刷新邮箱。',
+              log: '判定失败（再就业）：求职长期没有结果。',
+              resultText: '你把简历改了七版，最后一版把"三甲医院十年临床经验"放到了最上面。HR 说这段经历"很好，但和岗位不太匹配"。你想问那什么才匹配，但对方已经在说"保持联系"。'
+            }
+          }
+        },
+        {
+          text: '备考公务员/事业单位，赌一个稳定',
+          label: '长期主义',
+          effects: { stress: 6, money: -6, skill: -2, health: -2 },
+          impactHint: '判定：进入体制｜失败则长期待业｜期间无收入',
+          check: {
+            baseChance: 48,
+            stats: { ethics: 0.25, network: 0.2, research: 0.2, stress: -0.25 },
+            minChance: 20,
+            maxChance: 82,
+            success: {
+              target: 'ending_public_service',
+              effects: { network: 8, ethics: 6, money: 6, stress: -8, health: 4 },
+              feedback: '拟录用公示挂出来那天，你反复确认了三遍名字。',
+              log: '判定成功（再就业）：你考进了公共部门。',
+              resultText: '公示期七天，你每天点开那个页面看一次。第七天下午页面撤了，你的心跳了一下，然后收到了电话。上岸这个词你以前觉得很土，现在觉得非常准确。'
+            },
+            failure: {
+              target: 'ending_switch_long_unemployed',
+              effects: { stress: 14, money: -12, health: -6 },
+              feedback: '年龄限制那一栏，把很多岗位提前替你筛掉了。',
+              log: '判定失败（再就业）：备考没有换来上岸。',
+              resultText: '你在职位表里筛来筛去，发现符合专业要求的岗位有十四个，符合年龄要求的有三个，两者交集是一个，而那一个的竞争比是四百八十七比一。你还是报了。'
+            }
+          }
+        },
+        {
+          text: '回基层医疗机构执业，重新拿起听诊器',
+          label: '均衡',
+          target: 'ending_switch_grassroots_return',
+          effects: { ethics: 8, health: 5, stress: -8, money: 4, network: -3 },
+          career: { cityTier: 'county_rural', hospitalTier: 'county_basic', hospitalType: 'grassroots' },
+          impactHint: '医德明显上升｜压力大幅下降｜平台层级下降',
+          resultText: '社区卫生服务中心的主任看了你的简历，说"你这样的怎么会来我们这"。你说想踏实干活。半年后你成了那里挂号最多的医生，签约居民管你叫"大医院来的那个"。'
+        },
+        {
+          text: '做自由职业/独立顾问，把经验直接卖出去',
+          label: '激进',
+          effects: { stress: 6, money: -4, network: 4 },
+          impactHint: '判定：自由职业站稳｜失败则长期漂着｜收入不稳定',
+          check: {
+            baseChance: 46,
+            stats: { network: 0.35, research: 0.2, skill: 0.2, stress: -0.2 },
+            minChance: 18,
+            maxChance: 82,
+            success: {
+              target: 'ending_switch_freelance',
+              effects: { money: 14, health: 6, stress: -6, network: 8 },
+              feedback: '第三个客户开始主动续约，你的日程表终于填满了。',
+              log: '判定成功（再就业）：你把自己做成了一个可持续的品牌。',
+              resultText: '你给自己印了名片，头衔那栏空了很久，最后写了"独立医学顾问"。第一年接了三个项目，第二年客户开始主动找上门。自由的意思是：你依然很忙，但至少是你自己排的班。'
+            },
+            failure: {
+              target: 'ending_switch_gig_drift',
+              effects: { stress: 12, money: -12, health: -5, network: -3 },
+              feedback: '零散的活接了不少，但没有一个能撑起下一年。',
+              log: '判定失败（再就业）：自由职业没能形成稳定收入。',
+              resultText: '你接过讲课、写稿、审稿、陪诊、线上答疑，每一样都能做，每一样都不够。年底你算了下总收入，相当于原来的六成，而工作时间是原来的一点二倍。自由这个词，账单不认。'
+            }
+          }
+        }
+      ]
+    },
+
+    // ===== 副高 → 主任医师 → 科室负责人 =====
+    {
+      id: 'assoc_subspecialty_focus',
+      stage: 'senior',
+      major: true,
+      title: '副高之后：你到底是做什么的',
+      text: '拿到副高之后的第一个月，你被问了三次同样的问题："你主攻哪个方向？"\n以前你可以说"什么都看一点"，现在这个答案会让人皱眉。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '锁定一个亚专科，用三年把病例做成体系',
+          label: '长期主义',
+          safeChoice: true,
+          target: 'assoc_duty_portfolio',
+          effects: { skill: 6, research: 4, stress: 5, health: -3, network: 3 },
+          flagsSet: ['subspecialty_focused'],
+          impactHint: '医术明显上升｜压力上升｜健康轻微下降',
+          resultText: '你在门诊系统里申请开了一个专病号源，第一个月挂出去十一个。三年后同一个号源提前一周约满，你的病例数据库里有八百多条记录，每一条都是你自己录的。'
+        },
+        {
+          text: '做交叉方向，把两个领域的病例串起来',
+          label: '激进',
+          target: 'assoc_duty_portfolio',
+          effects: { research: 6, network: 5, skill: 4, stress: 7, health: -4 },
+          flagsSet: ['crossover_track'],
+          impactHint: '科研明显上升｜压力明显上升｜方向风险高',
+          resultText: '你选了一条没什么人走的交叉线。评审专家听完你的规划说"很有意思"，这三个字在学术圈里的含义介于"我看好你"和"我看不懂"之间，你决定按前者理解。'
+        },
+        {
+          text: '不急着定位，先把科室里没人愿意接的活接下来',
+          label: '团队协作',
+          target: 'assoc_duty_portfolio',
+          effects: { network: 7, ethics: 5, skill: 3, stress: 6, health: -3 },
+          flagsSet: ['dept_workhorse'],
+          impactHint: '人脉明显上升｜医德上升｜压力上升',
+          resultText: '你接下了会诊值班、教学秘书和三个没人管的质控指标。主任说"辛苦你了"，同事说"你太老实了"。两年后科室开会讨论谁最了解全科运转，所有人同时看向了你。'
+        }
+      ]
+    },
+    {
+      id: 'assoc_duty_portfolio',
+      stage: 'senior',
+      title: '教学、科研、质控、排班：四个抽屉',
+      text: '副高之后你会自动获得四个抽屉，每个抽屉里都塞满了"顺便帮忙看一下"。\n院里最近在推"高质量发展考核"，四个抽屉同时开始震动。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '接教学与青年医师培养，做人才梯队',
+          label: '长期主义',
+          target: 'assoc_faction_alignment',
+          effects: { network: 6, ethics: 6, skill: 4, stress: 4 },
+          flagsSet: ['teaching_backbone'],
+          impactHint: '人脉上升｜医德上升｜压力上升',
+          resultText: '你带的第一批住院医里有两个后来留了下来。他们查房时的用词和你一模一样，包括你那句口头禅"先看病人，再看单子"。传承这件事最朴素的证据，就是别人开始说你的话。'
+        },
+        {
+          text: '接医疗质量与安全管理，把规则做实',
+          label: '稳妥',
+          target: 'assoc_faction_alignment',
+          effects: { legalRisk: -10, ethics: 6, network: 4, stress: 6, health: -2 },
+          flagsSet: ['quality_manager'],
+          impactHint: '法律风险明显下降｜压力上升｜容易得罪人',
+          resultText: '你上任第一件事是把病历质控名单公示到科室群。当天群里安静了两小时，第二天返修率降了一半。有人私下说你不近人情，也有人在半年后的一次投诉里悄悄谢了你。'
+        },
+        {
+          text: '接科研与课题申报，把成果做上去',
+          label: '激进',
+          target: 'assoc_faction_alignment',
+          effects: { research: 8, network: 4, stress: 8, health: -5, money: -3 },
+          flagsSet: ['research_backbone'],
+          impactHint: '科研大幅上升｜健康下降｜压力明显上升',
+          resultText: '你把本子写到第五版，最后一版是在孩子的家长会上用手机改的。中标那天你在科室群里发了个红包，二十个人抢，人均一块二。这大概是你这辈子性价比最低也最开心的一次发红包。'
+        },
+        {
+          text: '接排班与运行协调，掌握科室的时间',
+          label: '团队协作',
+          target: 'assoc_faction_alignment',
+          effects: { network: 9, stress: 7, ethics: -2, health: -3 },
+          flagsSet: ['schedule_power'],
+          impactHint: '人脉大幅上升｜压力明显上升｜医德轻微下降',
+          resultText: '你现在掌握着全科最有权力的一张表。第一个月你就收到了七条"能不能帮我调一下"的私信，其中三条来自比你资深的人。排班表教会你的第一课是：所有人都很讲道理，直到轮到自己值除夕。'
+        }
+      ]
+    },
+    {
+      id: 'assoc_faction_alignment',
+      stage: 'senior',
+      major: true,
+      title: '科室里那条看不见的线',
+      text: '老主任还有三年退休，两位副主任已经各自有了一圈人。\n没有人明说，但每次开会的座位、每个课题的署名、每次值班的调整，都在悄悄标记着谁是谁的人。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '明确站队，靠近其中一位副主任',
+          label: '激进',
+          effects: { network: 8, stress: 4, ethics: -5 },
+          flagsSet: ['faction_aligned'],
+          impactHint: '人脉明显上升｜医德下降｜绑定风险（后果延迟）',
+          delayed: [{ turns: 3, effects: { network: -6, stress: 8 }, log: '你站的那条线在人事调整中失势，你被顺带边缘化了一阵。' }],
+          check: {
+            baseChance: 58,
+            stats: { network: 0.35, stress: -0.2, ethics: -0.1, skill: 0.15 },
+            minChance: 28,
+            maxChance: 86,
+            success: {
+              target: 'chief_title_qualification',
+              effects: { network: 10, money: 5 },
+              feedback: '你被拉进了那个"小范围讨论一下"的群。',
+              log: '判定成功（站队）：你进入了核心圈层，资源开始向你倾斜。',
+              resultText: '你被加进了一个只有六个人的群。群里聊的东西你以前从来不知道存在，比如某个名额其实早在三个月前就定了。知情的感觉很好，代价是你从此也成了别人眼里"那边的人"。'
+            },
+            failure: {
+              target: 'chief_title_qualification',
+              effects: { network: -6, stress: 10, ethics: -3 },
+              feedback: '你靠得太明显，另一边也记住了你。',
+              log: '判定失败（站队）：站队没换来资源，反而树了敌。',
+              resultText: '你在一次会上替某位副主任说了句话，结果那句话被完整地转述给了另一位。第二周你的两个会诊班被调走了，理由是"工作量平衡"。科室里最快的传播路径不是电话，是走廊。'
+            }
+          }
+        },
+        {
+          text: '保持中立，只对病例和数据负责',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'chief_title_qualification',
+          effects: { ethics: 8, skill: 5, network: -3, stress: 3 },
+          flagsSet: ['neutral_professional'],
+          impactHint: '医德明显上升｜人脉轻微下降｜长期口碑积累',
+          resultText: '你在两位副主任的邀约里都选择了"我不太懂这些"。有人说你装糊涂，有人说你聪明。三年后老主任退休时说了一句："这些年科里只有他一个人从来没跟我说过别人坏话。"'
+        },
+        {
+          text: '两边都维持关系，谁的活都接',
+          label: '均衡',
+          target: 'chief_title_qualification',
+          effects: { network: 6, stress: 8, health: -4, ethics: -2 },
+          flagsSet: ['dual_alignment'],
+          impactHint: '人脉上升｜压力明显上升｜健康下降',
+          resultText: '你成了科里最忙的人，因为两边的活你都接。好处是谁都不讨厌你，坏处是谁也不真正把你当自己人。走钢丝的人看起来很稳，其实只是没人敢碰他。'
+        },
+        {
+          text: '把精力投到院外：学会任职、多中心合作',
+          label: '长期主义',
+          target: 'chief_title_qualification',
+          effects: { network: 7, research: 5, stress: 5, money: -4, health: -2 },
+          flagsSet: ['external_reputation'],
+          impactHint: '人脉上升｜科研上升｜院内存在感下降',
+          resultText: '你在学会里拿到了一个青年委员的位子，去外地开会的次数比在科里开会还多。科室有人嘀咕"整天不在"，直到有一次全院引进设备，厂商说"我们认识你们那位老师"。'
+        }
+      ]
+    },
+    {
+      id: 'chief_title_qualification',
+      stage: 'senior',
+      major: true,
+      title: '主任医师资格：条件、配额与那篇文章',
+      text: '正高的条件比副高长了一倍，其中三条是今年新加的。\n更麻烦的是：你名下有一篇文章，一助的位置上写着一个当年没怎么干活但现在很关键的名字。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '按规矩来：材料真实，署名争议公开说清楚',
+          label: '稳妥',
+          safeChoice: true,
+          effects: { ethics: 9, legalRisk: -8, stress: 7, network: -3, health: -2 },
+          flagsSet: ['clean_promotion'],
+          impactHint: '医德大幅上升｜法律风险下降｜短期得罪人',
+          check: {
+            baseChance: 80,
+            stats: { ethics: 0.25, skill: 0.25, research: 0.2, stress: -0.2 },
+            minChance: 40,
+            maxChance: 90,
+            success: {
+              target: 'chief_title_review',
+              effects: { ethics: 6, network: 4, skill: 5 },
+              feedback: '你把话说开了，出乎意料的是对方也松了口。',
+              log: '判定成功（正高资格）：材料真实过关，署名问题被摆平。',
+              resultText: '你约那位老师喝了杯茶，把当年的邮件记录带上了。对方看了两分钟，说"那就按实际情况改吧"。你准备了一晚上的说辞一句没用上——有时候人怕的不是被拒绝，是开口。'
+            },
+            failure: {
+              target: 'chief_title_setback',
+              effects: { stress: 12, network: -6, health: -4 },
+              feedback: '你说清楚了，但对方不接受，材料被压了下来。',
+              log: '判定失败（正高资格）：署名争议没能解决，申报受阻。',
+              resultText: '对方听完只说了句"当年不是这么说的"。你翻出邮件，对方说"邮件不能说明什么"。材料最后没能提交，理由栏里写着"待核实"，三个字，一年时间。'
+            }
+          }
+        },
+        {
+          text: '走捷径：按对方要求调整署名，先把资格拿到手',
+          label: '激进',
+          effects: { network: 8, research: 4, ethics: -10, legalRisk: 9, stress: 4 },
+          flagsSet: ['authorship_compromise'],
+          impactHint: '人脉上升｜医德大幅下降｜法律风险明显上升｜后果延迟',
+          delayed: [{ turns: 3, effects: { legalRisk: 8, ethics: -4, stress: 10 }, log: '当年那篇文章被人翻了出来，署名问题变成了一次正式调查。' }],
+          target: 'chief_title_review',
+          resultText: '你在署名修改说明上签了字，笔迹很工整。资格顺利通过，你在庆祝的饭局上喝了不少。回家路上你想起当年熬夜跑数据的那个自己，觉得应该跟他道个歉，但不知道从哪说起。'
+        },
+        {
+          text: '补短板：先花两年把临床与教学硬指标做扎实',
+          label: '长期主义',
+          target: 'chief_title_review',
+          effects: { skill: 7, ethics: 5, research: 3, stress: 6, health: -3, money: -3 },
+          yearDelta: 2,
+          flagsSet: ['solid_credentials'],
+          impactHint: '医术明显上升｜时间成本高｜医德上升',
+          resultText: '你主动推迟了一轮，用两年补齐了带教工作量和疑难病例数。有人说你傻，错过了名额宽松的那一年。但你提交材料时，每一项后面都能附上原始记录——这种踏实感，比早两年拿到更让你睡得着。'
+        }
+      ]
+    },
+    {
+      id: 'chief_title_review',
+      stage: 'senior',
+      major: true,
+      title: '评审年：名额、新规与一封通知',
+      text: '答辩前两周，人事处发来通知：本年度正高名额因"结构优化"暂缓一半，同时新增一项"近三年主持院级以上项目"的要求。\n通知的落款时间是周五下午五点四十七分。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '按新规硬补，能补多少补多少',
+          label: '激进',
+          effects: { research: 6, stress: 11, health: -6, money: -4 },
+          impactHint: '科研上升｜压力大幅上升｜健康明显下降',
+          check: {
+            baseChance: 50,
+            stats: { research: 0.3, skill: 0.2, network: 0.2, stress: -0.3 },
+            minChance: 20,
+            maxChance: 84,
+            success: {
+              target: 'chief_title_outcome',
+              effects: { research: 8, network: 6, money: 8 },
+              career: { careerTitle: 'chief' },
+              flagsSet: ['chief_title_holder'],
+              feedback: '你在两周里补出了别人两年的材料，评审组没再多问。',
+              log: '判定成功（正高评审）：你踩着新规的边缘通过了。',
+              resultText: '你在两周内完成了一个院级项目的立项、一份结题报告和三份支撑材料。评审那天你讲了十二分钟，专家只问了一个问题。走出会议室时你扶了一下墙，不是紧张，是低血糖。'
+            },
+            failure: {
+              target: 'chief_title_setback',
+              effects: { stress: 14, health: -6, research: 3 },
+              feedback: '新规是为某些人量身定做的，而你不在名单上。',
+              log: '判定失败（正高评审）：新增条件卡住了你。',
+              resultText: '公示名单出来那天，通过的三个人里有两个的项目立项时间是去年十二月——刚好在新规适用期的第一天。你没有去问，因为你已经知道答案了。'
+            }
+          }
+        },
+        {
+          text: '联合同批候选人，向人事处提出过渡期诉求',
+          label: '团队协作',
+          effects: { network: 7, ethics: 6, stress: 6 },
+          impactHint: '判定：争取到过渡条款｜人脉上升｜可能得罪管理层',
+          check: {
+            baseChance: 56,
+            stats: { network: 0.35, ethics: 0.25, stress: -0.2, skill: 0.1 },
+            minChance: 26,
+            maxChance: 86,
+            success: {
+              target: 'chief_title_outcome',
+              effects: { network: 12, ethics: 8, money: 6 },
+              career: { careerTitle: 'chief' },
+              flagsSet: ['chief_title_holder', 'collective_advocacy'],
+              feedback: '八个人一起署名的那封信，最后换来了一年过渡期。',
+              log: '判定成功（正高评审）：集体诉求争取到了过渡条款。',
+              resultText: '你们八个人写了一封措辞极其克制的信，逐字推敲了三个晚上。回复只有一行字："经研究，本年度按原标准执行。"这一行字背后，是八个人的下一年。'
+            },
+            failure: {
+              target: 'chief_title_setback',
+              effects: { stress: 10, network: 4, ethics: 5 },
+              feedback: '信递上去了，回复是"已收悉"。',
+              log: '判定失败（正高评审）：诉求没有改变结果。',
+              resultText: '"已收悉"这三个字挂在系统里，状态一直是"处理中"，直到评审结束后自动变成"已办结"。你截了个图，存在一个叫"留个纪念"的文件夹里。'
+            }
+          }
+        },
+        {
+          text: '找关系疏通，确保自己在保留的那一半名额里',
+          label: '均衡',
+          effects: { network: 6, money: -12, ethics: -8, legalRisk: 8, stress: 5 },
+          flagsSet: ['promotion_lobbying'],
+          impactHint: '医德明显下降｜法律风险上升｜经济成本高｜后果延迟',
+          delayed: [{ turns: 4, effects: { legalRisk: 6, stress: 8, ethics: -3 }, log: '当年疏通的事被人在一次谈话里提起，你的名字进入了某份清单。' }],
+          target: 'chief_title_outcome',
+          career: { careerTitle: 'chief' },
+          resultText: '事情办成了，过程你不太愿意回忆。拿到聘书那天你请了客，席间有人说"该你的"。你笑着举杯，心里清楚这三个字里有多少是"该"，有多少是"办"。'
+        },
+        {
+          text: '主动退出本轮，把重心转回临床与团队',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'chief_title_setback',
+          effects: { health: 7, stress: -10, ethics: 7, skill: 5 },
+          impactHint: '健康明显上升｜压力大幅下降｜职称推迟',
+          resultText: '你在申报系统里点了"撤回"。那天下午你按时下班，回家做了顿饭。晚上有同事发消息问"你真不评了？"，你回："今年不评。"两个字的差别，只有自己知道。'
+        }
+      ]
+    },
+    {
+      id: 'chief_title_setback',
+      stage: 'senior',
+      title: '没评上的那一年，日子照过',
+      text: '公示栏上没有你。第二天你还是要查房，还是要写病历，还是要在家属面前保持稳定。\n只是晚上关灯之后，你会想一想这条路还要不要走下去。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '再战一轮，把缺的那块补上',
+          label: '长期主义',
+          target: 'chief_title_review',
+          effects: { research: 6, skill: 5, stress: 7, health: -4 },
+          impactHint: '科研上升｜压力上升｜再次进入评审',
+          resultText: '你把评审反馈的每一条都抄在了一张纸上，贴在办公桌前。同事说这样太惨了，你说这叫需求文档。第二年再交材料时，那张纸上的字已经被摸得有点糊了。'
+        },
+        {
+          text: '不追职称了，去竞聘科室负责人岗位',
+          label: '激进',
+          target: 'dept_head_competition',
+          effects: { network: 8, stress: 6, ethics: -2 },
+          impactHint: '人脉上升｜转向管理岗｜压力上升',
+          resultText: '你想通了一件事：职称是评出来的，岗位是竞出来的，两者的规则完全不同。你把材料从"我发了几篇文章"改成了"我能让这个科室多接多少病人"，写完自己都觉得换了一个人。'
+        },
+        {
+          text: '接受停在副高，做一个安稳的临床专家',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'ending_senior_expert_rest',
+          effects: { health: 10, stress: -12, ethics: 8, skill: 6 },
+          impactHint: '健康大幅上升｜压力大幅下降｜职业天花板确定',
+          resultText: '你在一次科室会议上主动说"以后有名额先给年轻人"。会后有人说你想开了，有人说你放弃了。你自己知道，你只是终于把"我值不值得"这个问题，从别人的评审表上收了回来。'
+        },
+        {
+          text: '换个平台，去更需要你的地方重新开始',
+          label: '均衡',
+          target: 'career_mobility_county_chief',
+          effects: { network: 5, money: 6, ethics: 5, stress: -5, health: 4 },
+          career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2' },
+          impactHint: '压力下降｜收入上升｜平台层级下降',
+          resultText: '你接到地市医院的电话时正在写病历。对方说"我们这边正高名额还有"，你笑了。同样的资历，在这里是"再等等"，在那里是"快来"。这不是能力问题，是坐标问题。'
+        }
+      ]
+    },
+    {
+      id: 'chief_title_outcome',
+      stage: 'senior',
+      major: true,
+      title: '拿到主任医师之后',
+      text: '聘书是一张纸，装在一个红色的本子里。\n发下来的当天，你的排班没有变，门诊量没有变，唯一变了的是别人叫你的方式。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '竞聘科室负责人，从看病走向带队',
+          label: '激进',
+          target: 'dept_head_competition',
+          effects: { network: 8, stress: 7, money: 4, health: -3 },
+          impactHint: '人脉上升｜压力明显上升｜进入管理线',
+          resultText: '你去人事处领了竞聘表。填到"管理经验"那一栏时你写了排班、质控和带教，写完发现自己这些年其实一直在做管理，只是没有名分也没有加班费。'
+        },
+        {
+          text: '做纯粹的临床专家，把疑难病例做到极致',
+          label: '长期主义',
+          safeChoice: true,
+          target: 'ending_chief_physician_expert',
+          effects: { skill: 12, ethics: 8, health: 4, stress: -6, network: 4 },
+          impactHint: '医术大幅上升｜压力下降｜不进入管理线',
+          resultText: '你婉拒了竞聘邀请，理由是"我更想把时间花在病人身上"。这个理由在会议室里听起来很高尚，在你自己听来只是实话。此后十年，全院最难的会诊单最后都会停在你这里。'
+        },
+        {
+          text: '转到院级平台：教学、科研或医务管理岗',
+          label: '团队协作',
+          target: 'dept_head_coordination',
+          effects: { network: 10, research: 5, stress: 5, skill: -2 },
+          flagsSet: ['hospital_platform'],
+          impactHint: '人脉大幅上升｜医术轻微下降｜转向平台岗',
+          resultText: '你搬到了行政楼三层，办公室有窗户，还有一盆需要浇水的绿植。第一周你最不适应的是安静——没有监护仪，没有呼叫铃，只有打印机偶尔响一下。'
+        }
+      ]
+    },
+    {
+      id: 'dept_head_competition',
+      stage: 'senior',
+      major: true,
+      title: '科室负责人竞聘：一场讲给谁听的答辩',
+      text: '竞聘公告上写着"公开、公平、择优"。走廊里流传的版本是"其实已经定了"。\n两个说法都可能是对的——真正的问题是，你的方案有没有让"已经定了"变得不划算。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '拿出三年学科规划，用数据和方案说话',
+          label: '长期主义',
+          effects: { network: 6, research: 4, skill: 4, stress: 8, health: -3 },
+          impactHint: '判定：靠专业方案胜出｜压力明显上升',
+          check: {
+            baseChance: 54,
+            stats: { skill: 0.2, research: 0.2, network: 0.25, ethics: 0.15, stress: -0.2 },
+            minChance: 24,
+            maxChance: 86,
+            success: {
+              target: 'dept_head_coordination',
+              effects: { network: 12, money: 8, ethics: 5 },
+              career: { careerTitle: 'dept_head' },
+              flagsSet: ['dept_head_transparent'],
+              feedback: '你的方案太具体了，具体到没法用"再研究研究"糊过去。',
+              log: '判定成功（竞聘）：专业方案让你拿下了负责人岗位。',
+              resultText: '你的 PPT 有三十七页，其中十九页是数据。讲到第二十二页时，院长打断你问了一个很细的问题，你当场答了出来。散会后有位评委说："这个准备程度，不给他不好交代。"'
+            },
+            failure: {
+              target: 'dept_head_external_recruit',
+              effects: { stress: 11, network: 5, research: 3 },
+              feedback: '方案很好，但院里在同时谈一个外部人选。',
+              log: '判定失败（竞聘）：内部竞聘被外部引进打断。',
+              resultText: '结果公布前一周，院里来了位客人参观科室，被介绍为"来交流的专家"。你当时没多想。公示出来那天，你在名单上看到了那位"来交流的专家"的名字。'
+            }
+          }
+        },
+        {
+          text: '先把关键票拉稳，再谈方案',
+          label: '激进',
+          effects: { network: 9, ethics: -7, money: -8, stress: 6 },
+          flagsSet: ['dept_head_lobbying'],
+          impactHint: '人脉大幅上升｜医德明显下降｜经济成本｜后果延迟',
+          delayed: [{ turns: 3, effects: { ethics: -3, stress: 9, network: -5 }, log: '当年拉票的细节被翻出来，你在科室里的威信打了折扣。' }],
+          check: {
+            baseChance: 62,
+            stats: { network: 0.4, money: 0.1, stress: -0.2, ethics: -0.1 },
+            minChance: 30,
+            maxChance: 88,
+            success: {
+              target: 'dept_head_coordination',
+              effects: { network: 10, money: 6 },
+              career: { careerTitle: 'dept_head' },
+              flagsSet: ['dept_head_dark'],
+              feedback: '票数出来那一刻，你知道方案其实没那么重要。',
+              log: '判定成功（竞聘）：你靠关系网拿到了岗位。',
+              resultText: '答辩你只讲了十分钟，因为该谈的都在之前谈完了。宣布结果时你在鼓掌的人群里看到几张笑得很到位的脸，你也笑了，笑得同样到位。'
+            },
+            failure: {
+              target: 'dept_head_external_recruit',
+              effects: { stress: 13, ethics: -5, network: -6, money: -6 },
+              feedback: '你把宝押在了几个人身上，而他们临时改了主意。',
+              log: '判定失败（竞聘）：关系没兜住，你还赔了人情和钱。',
+              resultText: '有两位关键人物在最后一刻"因故请假"。你事后才知道，他们那天下午一起去了另一个饭局。人情这东西的问题在于，它同时欠着好几个人。'
+            }
+          }
+        },
+        {
+          text: '联合科里骨干一起提方案，谁上都推这套规划',
+          label: '团队协作',
+          effects: { network: 8, ethics: 8, stress: 5, skill: 3 },
+          impactHint: '判定：团队支持胜出｜医德明显上升｜结果不由你独占',
+          check: {
+            baseChance: 60,
+            stats: { network: 0.3, ethics: 0.3, skill: 0.15, stress: -0.2 },
+            minChance: 30,
+            maxChance: 88,
+            success: {
+              target: 'dept_head_coordination',
+              effects: { network: 12, ethics: 10, money: 5 },
+              career: { careerTitle: 'dept_head' },
+              flagsSet: ['dept_head_transparent', 'team_mandate'],
+              feedback: '五个人签名的方案递上去，院里很难忽略。',
+              log: '判定成功（竞聘）：团队共识把你推了上去。',
+              resultText: '你们五个人一起做了这份方案，署名按姓氏笔画排。宣布结果那天，另外四个人比你还激动。你上任后做的第一件事，是把那四个人的名字写进了科室工作分工表。'
+            },
+            failure: {
+              target: 'dept_head_external_recruit',
+              effects: { stress: 9, network: 8, ethics: 6 },
+              feedback: '方案被采纳了，负责人却另有其人。',
+              log: '判定失败（竞聘）：方案上了，人没上。',
+              resultText: '新负责人上任后第一次科会，PPT 用的是你们那份方案，连页脚都没改。他说"这是院里的统一部署"。你和另外四个人对视了一眼，谁也没说话。'
+            }
+          }
+        },
+        {
+          text: '退出竞聘，把位置让给更合适的人',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'ending_leave_management_line',
+          effects: { health: 9, stress: -12, ethics: 9, skill: 6, network: -3 },
+          impactHint: '健康明显上升｜压力大幅下降｜退出管理线',
+          resultText: '你在竞聘会前一天撤了材料，理由写的是"个人原因"。真实原因是你算了一笔账：当科主任每周要开十一个会，而你每周有十一台手术。你选了后者，并且再也没有后悔过。'
+        }
+      ]
+    },
+    {
+      id: 'dept_head_coordination',
+      stage: 'senior',
+      major: true,
+      title: '当上负责人的第一年：会议、指标与人',
+      text: '你以为负责人的工作是决定科室方向，实际上前六个月你在做三件事：开会、填表、劝人别辞职。\n院里给了你三个指标：出院人次、平均住院日、次均费用。这三个指标互相矛盾，但都要完成。',
+      yearDelta: 2,
+      options: [
+        {
+          text: '守住医疗质量，指标能完成多少算多少',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'dept_head_outcome',
+          effects: { ethics: 10, legalRisk: -8, skill: 5, network: -4, stress: 7, money: -4 },
+          flagsSet: ['quality_first_lead'],
+          impactHint: '医德大幅上升｜法律风险下降｜考核排名下降',
+          resultText: '季度考核你们科排在全院倒数第四，院长找你谈话。你带了一份数据：同期你们科的非计划再入院率是全院最低。院长看了很久，说"这个我知道，但排名是排名"。'
+        },
+        {
+          text: '按指标优化流程，把该压的都压下去',
+          label: '激进',
+          target: 'dept_head_outcome',
+          effects: { money: 10, network: 8, ethics: -8, legalRisk: 7, stress: 8, health: -4 },
+          flagsSet: ['metric_driven_lead'],
+          impactHint: '收入上升｜医德明显下降｜法律风险上升｜后果延迟',
+          delayed: [{ turns: 3, effects: { legalRisk: 6, ethics: -4, stress: 8 }, log: '压缩住院日带来的隐患终于变成了一次医疗纠纷和一次专项检查。' }],
+          resultText: '你把平均住院日压到了全院第二。做法是把康复期的病人尽早转出去，转到哪里不在你的考核范围内。数据很漂亮，你在庆功会上讲话时看了一眼台下年轻医生的表情，没敢多看。'
+        },
+        {
+          text: '把矛盾摆到院里去谈，争取资源和口径',
+          label: '团队协作',
+          effects: { network: 7, ethics: 6, stress: 8, health: -3 },
+          impactHint: '判定：争取到资源与口径调整｜可能被认为不服管理',
+          check: {
+            baseChance: 55,
+            stats: { network: 0.35, ethics: 0.25, skill: 0.15, stress: -0.2 },
+            minChance: 26,
+            maxChance: 86,
+            success: {
+              target: 'dept_head_outcome',
+              effects: { network: 12, money: 8, ethics: 6, stress: -5 },
+              flagsSet: ['resource_negotiator'],
+              feedback: '你把三个矛盾的指标摆在一页纸上，院里终于给了口径。',
+              log: '判定成功（协调）：你为科室争取到了资源与考核调整。',
+              resultText: '你做了一张只有一页的表，左边是院里的三个指标，右边是它们互相打架的地方。院长看完沉默了一会儿，说"你这个图做得挺清楚"。三周后考核口径调整了，你们科多了两个编制。'
+            },
+            failure: {
+              target: 'dept_head_outcome',
+              effects: { stress: 12, network: -6, ethics: 5, health: -4 },
+              feedback: '你说得都对，但"提要求"这件事本身就被记住了。',
+              log: '判定失败（协调）：诉求没被接受，你被贴上了"不好带"的标签。',
+              resultText: '会上你讲了八分钟，讲完之后是很长的安静。散会时有位老主任拍拍你肩膀说："年轻人，有些话心里知道就行。"你点点头，回科里把那页纸收进了抽屉。'
+            }
+          }
+        },
+        {
+          text: '把管理事务分权给团队，自己守住临床',
+          label: '长期主义',
+          target: 'dept_head_outcome',
+          effects: { network: 6, skill: 8, ethics: 6, health: 5, stress: -6, money: -3 },
+          flagsSet: ['delegating_lead'],
+          impactHint: '医术明显上升｜健康上升｜管理掌控力下降',
+          resultText: '你把质控、排班、教学分给了三个人，自己只保留最终拍板权。有人说你"当甩手掌柜"，两年后那三个人有两个评上了副高。你觉得这个评价可以接受。'
+        }
+      ]
+    },
+    {
+      id: 'dept_head_external_recruit',
+      stage: 'senior',
+      major: true,
+      title: '外面来的那个人',
+      text: '院里从外单位引进了一位学科带头人，直接空降科室负责人。\n欢迎会上他说"我来是为了和大家一起把学科做起来"，台下所有人都在鼓掌，包括你。',
+      yearDelta: 1,
+      options: [
+        {
+          text: '主动配合，做他最信任的执行者',
+          label: '团队协作',
+          safeChoice: true,
+          target: 'dept_head_outcome',
+          effects: { network: 9, skill: 5, stress: 5, ethics: 3 },
+          flagsSet: ['second_in_command'],
+          impactHint: '人脉明显上升｜压力上升｜位置从一号变二号',
+          resultText: '你成了新主任最依赖的人，因为整个科室只有你能说清楚每台设备的采购年份和每个人的排班偏好。三年后他调走时，向院里推荐了你。有些位置是站出来的，有些是熬出来的。'
+        },
+        {
+          text: '保持距离，把自己的亚专科做成独立品牌',
+          label: '长期主义',
+          target: 'dept_head_outcome',
+          effects: { skill: 9, research: 6, network: -4, stress: 6, health: -3 },
+          flagsSet: ['independent_brand'],
+          impactHint: '医术明显上升｜科研上升｜人脉下降',
+          resultText: '你不参与科室的权力重组，只管把自己的专病门诊做大。两年后你的门诊量占了科室的三分之一，新主任在一次会上说"这块我们要尊重专业意见"。实力是最不需要解释的立场。'
+        },
+        {
+          text: '接受院里给的另一个平台岗位',
+          label: '均衡',
+          target: 'ending_platform_transfer',
+          effects: { network: 10, money: 6, stress: -4, skill: -3, health: 4 },
+          flagsSet: ['hospital_platform'],
+          impactHint: '人脉大幅上升｜医术下降｜离开科室一线',
+          resultText: '院里给了你一个新岗位，级别不低，事情不少，就是离病人远了一点。你搬办公室那天，把听诊器留在了原来的抽屉里，然后又拿了回来——放在新办公室的抽屉里。'
+        },
+        {
+          text: '去地市/县域医院，直接当负责人',
+          label: '激进',
+          target: 'career_mobility_county_chief',
+          effects: { network: 6, money: 8, ethics: 6, stress: -3, health: 3 },
+          career: { cityTier: 'prefecture', hospitalTier: 'prefecture_tier3_strong2', careerTitle: 'dept_head' },
+          impactHint: '收入上升｜医德上升｜平台层级下降｜获得实权',
+          resultText: '你带着一份三年规划去了地市医院面试，对方院长听完只问了一句"你什么时候能来"。在这里你不用等三年，因为这里等你已经等了三年。'
+        }
+      ]
+    },
+    {
+      id: 'dept_head_outcome',
+      stage: 'senior',
+      major: true,
+      title: '五年之后，回头看这个科室',
+      text: '新来的规培生已经不知道五年前科室是什么样子了。\n有些东西是你留下的，有些东西是你没能拦住的。现在该决定，接下来怎么收尾。',
+      yearDelta: 2,
+      options: [
+        {
+          text: '继续带队，把学科做成区域标杆',
+          label: '激进',
+          target: 'ending_dept_head_builder',
+          effects: { network: 12, research: 8, money: 10, stress: 8, health: -5 },
+          conditions: { anyFlags: ['dept_head_transparent', 'team_mandate', 'resource_negotiator', 'quality_first_lead'] },
+          impactHint: '人脉大幅上升｜压力明显上升｜健康下降',
+          resultText: '五年后你们科成了区域会诊中心，每周有外院医生来进修。你在开班仪式上讲话，讲到一半忽然想起自己当年第一次来这个科室报到时，在门口站了三分钟不敢进去。'
+        },
+        {
+          text: '交棒给年轻人，自己退回临床与教学',
+          label: '长期主义',
+          target: 'ending_dept_head_handover',
+          effects: { ethics: 12, skill: 8, health: 8, stress: -12, network: -3 },
+          impactHint: '医德大幅上升｜健康明显上升｜交出管理权',
+          resultText: '你在四十九岁那年主动提出卸任，推荐了一位三十八岁的副主任。院里问你为什么，你说"我该做的做完了"。交接那天你只用了半小时，因为该交的东西早就都在制度里了。'
+        },
+        {
+          text: '离开管理线，回到纯粹的专家角色',
+          label: '稳妥',
+          safeChoice: true,
+          target: 'ending_leave_management_line',
+          effects: { health: 10, stress: -14, skill: 10, ethics: 8, money: -5 },
+          impactHint: '健康大幅上升｜压力大幅下降｜收入下降',
+          resultText: '你把负责人的钥匙还了回去，只留下门诊和手术。第一个不用开会的周三下午，你在办公室里坐了很久，然后想起来自己其实可以直接回家。'
+        },
+        {
+          text: '面对遗留问题，承担应该承担的责任',
+          label: '均衡',
+          target: 'ending_dept_head_reckoning',
+          effects: { ethics: 10, legalRisk: -6, stress: 10, network: -6, money: -8 },
+          conditions: { anyFlags: ['metric_driven_lead', 'dept_head_dark', 'dept_head_lobbying', 'promotion_lobbying', 'authorship_compromise'] },
+          impactHint: '医德大幅上升｜法律风险下降｜人脉与收入下降',
+          resultText: '专项检查来的时候，你没有推给任何人。谈话记录里有一句"相关决策由本人作出"，你签字时手很稳。处理结果下来后你被免去了负责人职务，但保留了执业资格。有人说你傻，你说总得有人签这个字。'
+        }
+      ]
+    },
+
+    // ===== 新增结局 =====
+    { id: 'ending_switch_industry_lead', stage: 'ending', type: 'ending', title: '结局：产业里的医学负责人', text: '你从写病历的人变成了写策略的人。会议室里你依然是唯一会问"这对患者意味着什么"的那个，而这个问题让你被需要。' },
+    { id: 'ending_switch_ops_stable', stage: 'ending', type: 'ending', title: '结局：稳定长跑的临床运营', text: '不追风口，不冲职级，你把一条线跑成了长跑。周末是真的周末，体检报告上没有箭头——这在你原来那个行业里，是一种奢侈。' },
+    { id: 'ending_switch_content_editor', stage: 'ending', type: 'ending', title: '结局：把专业翻译成人话的人', text: '你一年写的东西被几百万人读过。你救不了具体的某个人，但你让很多人少走了一段弯路。这笔账不好算，但你算得下去。' },
+    { id: 'ending_switch_return_clinic', stage: 'ending', type: 'ending', title: '结局：绕了一圈又回到病床边', text: '你带着产业世界的方法论回到了临床。同事说你变了，你说我只是学会了在做一件事之前先问"这能不能被复制"。' },
+    { id: 'ending_switch_reemployed', stage: 'ending', type: 'ending', title: '结局：第九次面试之后', text: '你重新有了工牌、工位和固定的收入。薪水比从前低，安全感比从前贵。你把那段空窗期存在了心里，作为一种随时可以取用的清醒。' },
+    { id: 'ending_switch_grassroots_return', stage: 'ending', type: 'ending', title: '结局：回到基层的听诊器', text: '兜了一大圈，你最后回到了最基础的那种工作：认识每一个病人，记得每一个人的药。这里没有职称竞争，也没有名额冻结，只有具体的人。' },
+    { id: 'ending_switch_freelance', stage: 'ending', type: 'ending', title: '结局：独立医学顾问', text: '你把自己做成了一个可持续的小机构。依然很忙，但排班表是自己写的。自由不是不工作，是你终于能决定为谁工作。' },
+    { id: 'ending_switch_probation_out', stage: 'ending', type: 'ending', title: '结局：试用期未通过', text: '你用力过猛，撞上了一堵看不见的墙。离开时你才知道，新赛道也有它的等级、边界和不成文的规矩，而且它们比医院的更隐蔽。' },
+    { id: 'ending_switch_long_unemployed', stage: 'ending', type: 'ending', title: '结局：长期空窗', text: '简历改到第十一版，你把最引以为傲的十年压缩成了三行字。工作日的上午十点依然安静、有阳光，你已经不再觉得那是松弛。' },
+    { id: 'ending_switch_gig_drift', stage: 'ending', type: 'ending', title: '结局：什么都接，什么都不够', text: '讲课、写稿、审稿、陪诊、线上答疑，你什么都能做。年底一算，工作时间更长了，收入更薄了。自由职业最难的部分不是接活，是拒绝。' },
+    { id: 'ending_chief_physician_expert', stage: 'ending', type: 'ending', title: '结局：主任医师，不当主任', text: '你拿到了正高，却主动放弃了管理岗。全院最难的会诊单最终都会停在你这里，你的名字后面没有职务，只有一串病例。' },
+    { id: 'ending_dept_head_builder', stage: 'ending', type: 'ending', title: '结局：把科室带成标杆', text: '五年时间，你把一个普通科室做成了区域会诊中心。代价是你的体检报告和你孩子的家长会出勤率。你说值得，说的时候声音有点哑。' },
+    { id: 'ending_dept_head_handover', stage: 'ending', type: 'ending', title: '结局：主动交棒的负责人', text: '你在最好的时候把位置让了出去。真正的制度建设不是你在的时候一切正常，而是你走了之后一切照常。' },
+    { id: 'ending_dept_head_reckoning', stage: 'ending', type: 'ending', title: '结局：签下那个字的人', text: '当年为了指标压下去的那些东西，最后都回来了。你没有推给任何人，在谈话记录上签了自己的名字。职务没了，脊梁还在。' },
+    { id: 'ending_platform_transfer', stage: 'ending', type: 'ending', title: '结局：转到院级平台', text: '你离开了科室一线，去了一个能影响更多科室的地方。听诊器还在抽屉里，只是很久没拿出来了。你偶尔会想念被病人叫住的那种感觉。' },
+    { id: 'ending_leave_management_line', stage: 'ending', type: 'ending', title: '结局：退出管理线的专家', text: '你把钥匙还了回去，只留下门诊和手术。有人觉得你不够有野心，你觉得自己终于把时间买了回来。这笔交易，你签得很痛快。' },
+    { id: 'ending_senior_expert_rest', stage: 'ending', type: 'ending', title: '结局：停在副高，也挺好', text: '你不再追那张纸。查房、门诊、带学生，日子稳稳地过。评审表上没有你的名字，但科室每次遇到难办的病人，第一个想到的还是你。' }
+  );
+
+  // 把副高评审的成功出口接入新的晋升链
+  {
+    const chiefCompetition = findEvent('chief_competition');
+    for (const option of chiefCompetition?.options || []) {
+      if (option.check?.success?.target === 'senior_outcome') {
+        option.check.success.target = 'assoc_subspecialty_focus';
+      }
+    }
+    // 主任医师职称只能通过新的评审链取得，副高评审只给副高
+    setCareerOnBranch('chief_competition', 1, 'success', { careerTitle: 'associate_chief' });
+
+    const altCareer = findEvent('alt_career_track');
+    if (altCareer) {
+      altCareer.options = [
+        {
+          text: '系统看看所有转轨方向再做决定',
+          label: '长期主义',
+          target: 'career_switch_gateway',
+          effects: { network: 5, stress: -3, health: 3 },
+          impactHint: '打开完整转轨路径',
+          resultText: '你把猎头、老同学和招聘公告的信息整理成了一张表，第一次认真比较了每条路的收入、风险和退出成本。做完这张表你发现，最难的不是选，是承认自己真的想走。'
+        },
+        { text: '直接进入药械企业医学事务岗', label: '均衡', target: 'career_switch_probation', effects: { money: 12, stress: -4, health: 6, ethics: -3 }, flagsSet: ['switch_industry_ma'], career: { hospitalType: 'industry' }, impactHint: '收入明显上升｜进入试用期', resultText: '你在两周内办完了离职手续，最后一天科里给你订了个蛋糕。走出住院部大楼时你回头看了一眼那扇永远关不严的自动门，觉得它这些年确实尽力了。' },
+        { text: '加入互联网医疗平台', label: '激进', target: 'career_switch_probation', effects: { money: 10, network: 8, stress: 5, ethics: -2 }, flagsSet: ['switch_internet'], career: { hospitalType: 'industry' }, impactHint: '收入上升｜压力上升｜进入试用期', resultText: '入职第一天你领到了一台性能极好的笔记本电脑，比你在医院用了六年的那台工作站强十倍。你花了整整一分钟消化这个事实，然后开始学习什么叫"用户旅程"。' },
+        { text: '考公进入卫生健康管理部门', label: '长期主义', target: 'career_switch_public_pick', effects: { network: 8, stress: -3, money: 4, ethics: 5 }, impactHint: '压力下降｜进入公共部门路径', resultText: '你买了一套行测和申论，摆在书架上原来放指南和教材的位置。翻开第一页时你笑了——三十几岁重新做选择题，题目却比当年简单得多，难的是那个竞争比。' },
+        { text: '自己开一家规范的门诊部', label: '稳妥', target: 'private_track', effects: { money: -18, stress: 8, skill: 6, network: 6 }, impactHint: '经济成本高｜压力上升｜自主性上升', resultText: '你把工作十几年的积蓄拿出来交了半年房租。装修那天你站在空荡荡的诊室中间，第一次意识到以后没有人给你排班了——也没有人给你发工资了。' }
+      ];
+    }
+
+    // 晋升受挫也能通向完整的转轨链条
+    const promotionSetback = findEvent('promotion_setback');
+    for (const option of promotionSetback?.options || []) {
+      if (option.target === 'alt_career_track') option.target = 'career_switch_gateway';
+    }
+  }
+
+
+
+  // ===== 科室体验章节标记：把已有的住院阶段专属事件并入章节池 =====
+  for (const specialtyId of Object.keys(specialtyProfiles)) {
+    for (const suffix of ['frontline', 'craft']) {
+      const target = randomEvents.find((event) => event.id === `re_sp_${specialtyId}_${suffix}`);
+      if (target && target.stage === 'resident') {
+        target.specialtyChapter = specialtyId;
+        target.chapterTheme = target.chapterTheme || (suffix === 'frontline' ? 'clinical' : 'team');
+      }
+    }
+  }
+
+  // ===== 统一遍历器（带下标，便于生成稳定文案） =====
+  function walkIndexedContainers(visitor) {
+    const visitList = (list, scope) => {
+      for (const event of list) {
+        for (const [index, option] of (event.options || []).entries()) {
+          visitor(option, event, scope, 'option', index);
+          if (option.check) {
+            if (option.check.success) visitor(option.check.success, event, scope, 'success', index);
+            if (option.check.failure) visitor(option.check.failure, event, scope, 'failure', index);
+          }
+        }
+      }
+    };
+    visitList(events, 'main');
+    visitList(randomEvents, 'random');
+  }
+
+  // ===== 成长再平衡：医术/科研/人脉的基础收益整体降速 =====
+  const GROWTH_KEYS = ['skill', 'research', 'network'];
+
+  function rescaleGrowthValue(value) {
+    if (typeof value !== 'number' || value <= 0) return value;
+    if (value <= 3) return value;
+    if (value <= 8) return Math.min(6, Math.max(3, Math.round(value * 0.6)));
+    return Math.min(10, Math.max(7, Math.round(value * 0.55)));
+  }
+
+  function rescaleGrowthEffects(effects) {
+    if (!effects || typeof effects !== 'object') return;
+    for (const key of GROWTH_KEYS) {
+      if (typeof effects[key] === 'number' && effects[key] > 0) {
+        effects[key] = rescaleGrowthValue(effects[key]);
+      }
+    }
+  }
+
+  walkIndexedContainers((container) => {
+    rescaleGrowthEffects(container.effects);
+    for (const delayed of container.delayed || []) {
+      rescaleGrowthEffects(delayed.effects);
+    }
+  });
+
+  // ===== 高收益必有代价：收益越大，代价越硬 =====
+  function totalGrowthGain(effects) {
+    if (!effects) return 0;
+    return GROWTH_KEYS.reduce((sum, key) => sum + Math.max(0, effects[key] || 0), 0);
+  }
+
+  function countCosts(container, option) {
+    const effects = container.effects || {};
+    let costs = 0;
+    if ((effects.health || 0) < 0) costs += 1;
+    if ((effects.stress || 0) > 0) costs += 1;
+    if ((effects.money || 0) < 0) costs += 1;
+    if (typeof option?.yearDelta === 'number' && option.yearDelta > 0) costs += 1;
+    if ((effects.ethics || 0) < 0 || (effects.legalRisk || 0) > 0) costs += 1;
+    return costs;
+  }
+
+  function injectCost(container, slot) {
+    container.effects = container.effects || {};
+    const effects = container.effects;
+    if (slot === 0) {
+      effects.stress = (effects.stress || 0) + 3;
+      return;
+    }
+    if (slot === 1) {
+      effects.health = (effects.health || 0) - 3;
+      return;
+    }
+    effects.money = Math.max(-25, (effects.money || 0) - 2);
+  }
+
+  walkIndexedContainers((container, event, scope, branch, index) => {
+    const option = (event.options || [])[index];
+    const gain = totalGrowthGain(container.effects);
+    if (gain <= 4) return;
+    const required = gain > 7 ? 2 : 1;
+    let slot = (index + (branch === 'failure' ? 1 : 0)) % 2;
+    let guard = 0;
+    while (countCosts(container, option) < required && guard < 4) {
+      injectCost(container, slot);
+      slot += 1;
+      guard += 1;
+    }
+  });
+
+  // ===== 选择结果叙事（resultText）自动补全 =====
+  function stableHash(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  const NEUTRAL_LINES = [
+    '科室群里立刻多了一条「已阅」，没人解释「阅」的是什么。',
+    '这件事在你的人生里只占三行字，在排班表上却占了一整格。',
+    '你把它写进了工作日志，标题栏自动填成了「常规」。',
+    '流程走完了，流程为什么是这样，仍然没有人知道。',
+    '系统提示「保存成功」，然后卡了八秒才真的保存。',
+    '你意识到成年人的世界里，大部分选择都不发朋友圈。',
+    '第二天早交班时，没有人提起这件事，包括你自己。',
+    '通知发下来时写着「即日起执行」，落款日期是上周。',
+    '你在 Excel 里给它填了个颜色，橙色，代表「说不清」。',
+    '事情办完了，你收获了一条经验和两条待办。',
+    '你把这一页翻过去，纸背面还有下一页。',
+    '院内 OA 弹了个窗，标题是「关于进一步做好相关工作的通知」。',
+    '这件事最后被总结成一句话：「按规定办」。',
+    '你按下确认键，屏幕右下角弹出天气预报：明日有雨。',
+    '你忽然觉得，人生和病历一样，都得写「诊疗计划」。',
+    '走廊尽头的自动售货机又卡了一次，和你的心情同步。'
+  ];
+
+  const SUCCESS_LINES = [
+    '成了。你没敢庆祝太久，因为下一条医嘱已经在等你。',
+    '结果不错，代价是你今晚又要靠泡面维持体面。',
+    '有人在群里发了个「厉害」，然后立刻@你接下一个活。',
+    '这次是你赢了。奖励是：更多的工作机会。',
+    '事情落地了，你在心里给自己发了一朵不存在的小红花。',
+    '效果很好，好到主任决定以后这类事都交给你。',
+    '你完成得漂亮，漂亮到没人再问你累不累。',
+    '结果超出预期，超出的部分被写进了别人的汇报材料。',
+    '你稳住了局面，也顺便稳住了自己发抖的手。',
+    '这一次，经验和运气站在了同一边。',
+    '成功了。表格里那格终于可以填绿色。',
+    '你听见自己长长地吐了口气，那口气比结论更真实。'
+  ];
+
+  const FAILURE_LINES = [
+    '没成。你把这件事记进了一个只有自己会看的文件夹。',
+    '失败的代价不算致命，但足够让你今晚睡不好。',
+    '事情崩了一半，另一半靠同事替你兜住了。',
+    '结果不如预期，复盘会上你学会了「客观原因」这个词。',
+    '你没做成，但至少知道了下次别怎么做。',
+    '这次是运气不站在你这边，虽然运气从来也没跟你打过招呼。',
+    '你被现实按了一下头，头没破，自信破了点。',
+    '结局是坏的，好在坏得很有教育意义。',
+    '你写了份情况说明，字数比事情本身还多。',
+    '事情没办成，倒是把流程摸熟了。',
+    '你安慰自己：医学是经验科学，经验就是这么来的。',
+    '失败像夜班一样，来了就得接着。'
+  ];
+
+  const CONSEQUENCE_PREFIX = '必然后果：';
+
+  function cleanFeedback(text) {
+    if (!text) return '';
+    return String(text)
+      .replace(/^判定(成功|失败)(（[^）]*）)?[:：]?\s*/, '')
+      .replace(/^[（(][^）)]*[）)]\s*/, '')
+      .trim();
+  }
+
+  function optionSummary(option) {
+    const raw = String(option?.text || '').trim();
+    if (!raw) return '这个决定';
+    return raw.length > 26 ? `${raw.slice(0, 26)}…` : raw;
+  }
+
+  function ensureSentence(text) {
+    if (!text) return '';
+    return /[。！？…」）)]$/.test(text) ? text : `${text}。`;
+  }
+
+  function buildResultText(container, event, branch, index, option) {
+    const seed = stableHash(`${event.id}|${index}|${branch}|${optionSummary(option)}`);
+    const pool = branch === 'success' ? SUCCESS_LINES : branch === 'failure' ? FAILURE_LINES : NEUTRAL_LINES;
+    const humor = pool[seed % pool.length];
+    let lead = cleanFeedback(container.feedback) || cleanFeedback(container.log);
+    if (!lead) {
+      if (branch === 'success') {
+        lead = `你选了「${optionSummary(option)}」，而这一次它真的走通了`;
+      } else if (branch === 'failure') {
+        lead = `你选了「${optionSummary(option)}」，路走到一半塌了`;
+      } else {
+        lead = `你选了「${optionSummary(option)}」，日子就顺着这个方向往前挪了一格`;
+      }
+    }
+    return `${ensureSentence(lead)}${humor}`;
+  }
+
+  walkIndexedContainers((container, event, scope, branch, index) => {
+    if (typeof container.resultText === 'string' && container.resultText.trim()) return;
+    const option = (event.options || [])[index];
+    container.resultText = buildResultText(container, event, branch, index, option);
+  });
+
+  // 必然后果类事件补充语气标签
+  for (const event of randomEvents) {
+    if (!event.forced && !/^re_forced_/.test(event.id)) continue;
+    for (const option of event.options || []) {
+      if (option.resultText && !option.resultText.startsWith(CONSEQUENCE_PREFIX)) {
+        option.resultText = `${CONSEQUENCE_PREFIX}${option.resultText}`;
+      }
+    }
+  }
+
+
+
   const GAME_DATA = {
     title: '一个中国医学生的一生',
     disclaimer: '本作是虚构与讽刺作品，不构成医学、法律或职业建议。不同地区与机构在 DRG/DIP、医保与管理实践上存在差异；院校层级、城市层级与医院层级均为游戏化抽象。',
