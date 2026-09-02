@@ -24,6 +24,565 @@
       senior: '副高/主任或转行分支',
       ending: '人生终局'
     },
+    randomEvents: [
+      {
+        id: 're_dorm_conflict',
+        stage: 'undergrad',
+        title: '🎲 宿舍熄灯之争',
+        text: '室友的键盘声和你的早八水火不容，气氛降到冰点。',
+        rarity: 'common',
+        weight: 10,
+        returnTo: 'anatomy_lab',
+        options: [
+          { text: '开个宿舍会，把规则谈清楚', effects: { network: 6, stress: -4, ethics: 2 } },
+          { text: '忍着，戴上降噪耳塞硬扛', effects: { stress: 6, health: -3, skill: 2 } },
+          { text: '申请调宿舍，换个环境', effects: { stress: -6, health: 4, network: -3 } }
+        ]
+      },
+      {
+        id: 're_scholarship_race',
+        stage: 'undergrad',
+        title: '🎲 奖学金最后一名之差',
+        text: '综测排名公布，你和奖学金只差 0.2 分。',
+        rarity: 'common',
+        weight: 9,
+        returnTo: 'biochem_week',
+        options: [
+          { text: '复盘加分项，明年卷回来', effects: { skill: 8, stress: 6 } },
+          { text: '找辅导员核对算分细节', effects: { network: 5, money: 4, stress: 2 } },
+          { text: '看开点，钱不是唯一的意义', effects: { stress: -8, health: 5, ethics: 3 } }
+        ]
+      },
+      {
+        id: 're_mentor_bias',
+        stage: 'undergrad',
+        title: '🎲 见习导师的偏心',
+        text: '带教明显更喜欢会来事的同学，你的操作机会被挤没了。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'clerkship_intro',
+        options: [
+          { text: '主动争取，多问多练刷存在感', effects: { skill: 8, network: 4, stress: 4 } },
+          { text: '默默把基本功练扎实', effects: { skill: 6, ethics: 4, stress: 2 } },
+          { text: '心态崩一下，怀疑要不要学医', effects: { stress: 8, ethics: -4, health: -2 } }
+        ]
+      },
+      {
+        id: 're_part_time',
+        stage: 'undergrad',
+        title: '🎲 家教兼职机会',
+        text: '一份高中生物家教找上门，时薪不错但很占时间。',
+        rarity: 'common',
+        weight: 9,
+        returnTo: 'freshman_life',
+        options: [
+          { text: '接下来，缓解生活费压力', effects: { money: 10, stress: 4, health: -3 } },
+          { text: '只接周末，平衡时间', effects: { money: 5, network: 3, stress: 1 } },
+          { text: '拒绝，专注学业', effects: { skill: 5, stress: -2 } }
+        ]
+      },
+      {
+        id: 're_club_viral',
+        stage: 'undergrad',
+        title: '🎲 社团活动上了热搜',
+        text: '你参与策划的义诊活动被校媒转发，小小地火了一把。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'campus_meme_night',
+        options: [
+          { text: '趁热度扩大公益影响', effects: { network: 10, ethics: 6, stress: 3 } },
+          { text: '低调收尾，回去上课', effects: { skill: 4, stress: -2 } }
+        ]
+      },
+      {
+        id: 're_library_encounter',
+        stage: 'undergrad',
+        title: '🎲 图书馆的偶遇',
+        text: '你和一个总坐老位置的同学因为抢同一本《病理学》聊了起来。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'clerkship_intro',
+        options: [
+          { text: '组个学习搭子，互相抽背', effects: { skill: 7, network: 5, stress: -3 } },
+          { text: '礼貌点头，各刷各的', effects: { skill: 3, stress: 1 } }
+        ]
+      },
+      {
+        id: 're_advisor_pivot',
+        stage: 'graduate',
+        title: '🎲 导师突然换方向',
+        text: '组会上导师宣布课题整体转向，你半年的积累要推倒重来。',
+        rarity: 'uncommon',
+        weight: 7,
+        returnTo: 'lab_entry',
+        options: [
+          { text: '快速跟上新方向，抢占先机', effects: { research: 10, stress: 8, health: -3 } },
+          { text: '争取保留部分旧课题', effects: { research: 5, network: 4, stress: 4 } },
+          { text: '情绪爆发后被迫接受', effects: { stress: 10, ethics: -3, research: 2 } }
+        ]
+      },
+      {
+        id: 're_lab_fire',
+        stage: 'graduate',
+        title: '🎲 隔壁实验室着火了',
+        text: '警报大作，全楼疏散，你的细胞培养箱前途未卜。',
+        rarity: 'rare',
+        weight: 3,
+        returnTo: 'experiment_failure',
+        options: [
+          { text: '冷静按流程疏散并记录损失', effects: { ethics: 6, network: 4, stress: 5 } },
+          { text: '冒险冲回去抢救样本', effects: { research: 6, health: -8, legalRisk: 6, stress: 8 } }
+        ]
+      },
+      {
+        id: 're_fraud_pressure',
+        stage: 'graduate',
+        title: '🎲 “把数据改好看一点”',
+        text: '师兄暗示你，把几个离群点删掉，文章就能上一个档次。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'paper_deadline',
+        options: [
+          { text: '坚决拒绝，宁慢勿假', effects: { ethics: 10, research: 4, stress: 5 } },
+          { text: '装作没听懂，绕开话题', effects: { stress: 3, network: -2 } },
+          { text: '心动了，动了手脚', effects: { research: 6, legalRisk: 12, ethics: -12 }, flagsSet: ['questionable_research'], delayed: [{ turns: 3, effects: { legalRisk: 10, stress: 8 }, log: '一封匿名举报邮件让你彻夜难眠。' }] }
+        ]
+      },
+      {
+        id: 're_rotation',
+        stage: 'graduate',
+        title: '🎲 临床轮转月',
+        text: '你被轮到一个以“魔鬼带教”闻名的科室，节奏拉满。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'grad_admission',
+        options: [
+          { text: '死磕两周，能力肉眼可见地涨', effects: { skill: 10, stress: 8, health: -4 } },
+          { text: '稳扎稳打，保住身心', effects: { skill: 5, health: 3, stress: 1 } }
+        ]
+      },
+      {
+        id: 're_roommate_breakup',
+        stage: 'graduate',
+        title: '🎲 室友失恋了',
+        text: '深夜，室友哭着敲你的门，情绪濒临崩溃。',
+        rarity: 'common',
+        weight: 7,
+        returnTo: 'conference_choice',
+        options: [
+          { text: '陪聊到天亮，第二天顶着黑眼圈', effects: { ethics: 6, network: 6, health: -4, stress: 3 } },
+          { text: '安慰几句，劝其早睡', effects: { network: 3, stress: 1 } }
+        ]
+      },
+      {
+        id: 're_exam_anxiety',
+        stage: 'training',
+        title: '🎲 执医考前焦虑',
+        text: '距离考试还有两周，你开始失眠、心慌、看不进书。',
+        rarity: 'common',
+        weight: 9,
+        returnTo: 'license_exam_prep',
+        options: [
+          { text: '调整作息，规律运动减压', effects: { health: 8, stress: -10, skill: 2 } },
+          { text: '硬刷题到深夜', effects: { skill: 8, stress: 8, health: -5 } },
+          { text: '找上岸的师兄取经', effects: { skill: 5, network: 5, stress: -4 } }
+        ]
+      },
+      {
+        id: 're_first_night_shift',
+        stage: 'training',
+        title: '🎲 规培第一个独立夜班',
+        text: '带教去休息了，值班室只剩你和一整层的患者。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'drg_bootcamp',
+        options: [
+          { text: '一丝不苟处理每一个呼叫', effects: { skill: 10, stress: 8, legalRisk: -4, health: -3 } },
+          { text: '拿不准就电话请示上级', effects: { skill: 5, network: 5, legalRisk: -3, stress: 3 } }
+        ]
+      },
+      {
+        id: 're_teacher_strict',
+        stage: 'training',
+        title: '🎲 带教是严格型',
+        text: '你的带教查房像庭审，每个细节都要你说清楚为什么。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'residency_match',
+        options: [
+          { text: '把每次盘问当作免费特训', effects: { skill: 10, ethics: 4, stress: 6 } },
+          { text: '按要求做，尽量别出错', effects: { skill: 5, stress: 3 } }
+        ]
+      },
+      {
+        id: 're_teacher_handsoff',
+        stage: 'training',
+        title: '🎲 带教是放养型',
+        text: '带教把你丢进临床就消失了，全靠自己摸索。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'grassroots_early',
+        options: [
+          { text: '主动出击，抓住每个学习机会', effects: { skill: 8, network: 5, stress: 4 } },
+          { text: '边做边查，稳中求进', effects: { skill: 5, health: 2, stress: 1 } },
+          { text: '缺乏指导，进步缓慢', effects: { skill: 2, stress: 5, ethics: -2 } }
+        ]
+      },
+      {
+        id: 're_sudden_overtime',
+        stage: 'resident',
+        title: '🎲 突发批量加班',
+        text: '一场事故送来大批伤员，你的下班时间无限延后。',
+        rarity: 'common',
+        weight: 9,
+        returnTo: 'ward_rounds',
+        options: [
+          { text: '顶上去，全力抢救', effects: { skill: 10, ethics: 8, health: -8, stress: 10 } },
+          { text: '有序分诊，量力而为', effects: { skill: 6, network: 4, stress: 5 } }
+        ]
+      },
+      {
+        id: 're_minor_dispute',
+        stage: 'resident',
+        title: '🎲 一次小小的医患摩擦',
+        text: '家属觉得你态度冷淡，当场提高了嗓门。',
+        rarity: 'common',
+        weight: 9,
+        returnTo: 'patient_talk',
+        options: [
+          { text: '放下手头事，耐心解释安抚', effects: { ethics: 8, legalRisk: -6, stress: 4 } },
+          { text: '公事公办，走流程', effects: { legalRisk: 4, ethics: -3, stress: -2 } }
+        ]
+      },
+      {
+        id: 're_ai_tool',
+        stage: 'resident',
+        title: '🎲 新上线的 AI 辅诊',
+        text: '医院推了一款 AI 辅助诊断工具，同事们态度两极。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'ai_and_online',
+        options: [
+          { text: '当参考，关键结论人工复核', effects: { skill: 8, legalRisk: -4, stress: -2 }, flagsSet: ['ai_prudent'] },
+          { text: '图省事，基本照搬', effects: { stress: -4, legalRisk: 10, ethics: -4 }, flagsSet: ['ai_overtrust'] }
+        ]
+      },
+      {
+        id: 're_drg_pressure',
+        stage: 'resident',
+        title: '🎲 DRG 病组超支预警',
+        text: '系统弹窗提示你管的病组成本又超了，绩效面临扣分。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'performance_review',
+        options: [
+          { text: '优化路径，合理控费不伤诊疗', effects: { skill: 6, money: 4, ethics: 4, stress: 4 } },
+          { text: '压检查、压耗材冲指标', effects: { money: 8, ethics: -6, legalRisk: 8, stress: 3 } }
+        ]
+      },
+      {
+        id: 're_colleague_wedding',
+        stage: 'resident',
+        title: '🎲 同事的婚礼',
+        text: '科室难得凑齐人去喝喜酒，可你正好排了班。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'night_shift_call',
+        options: [
+          { text: '换班去参加，联络感情', effects: { network: 8, stress: -6, money: -3, health: 3 } },
+          { text: '留守值班，发个大红包', effects: { network: 3, money: -4, stress: 2 } }
+        ]
+      },
+      {
+        id: 're_overseas_conf',
+        stage: 'senior',
+        title: '🎲 出境参加国际会议',
+        text: '你的摘要被大会接收，可以去做一次口头汇报。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'research_track',
+        options: [
+          { text: '认真准备，借机拓展国际人脉', effects: { research: 10, network: 10, money: -6, stress: 4 } },
+          { text: '线上汇报，省时省钱', effects: { research: 5, money: 2, stress: -2 } }
+        ]
+      },
+      {
+        id: 're_patient_banner',
+        stage: 'senior',
+        title: '🎲 一面迟到的锦旗',
+        text: '多年前你救治的患者带着家人回来道谢，送上一面锦旗。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'grassroots_track',
+        options: [
+          { text: '这一刻，觉得一切都值了', effects: { ethics: 10, stress: -12, health: 6 }, flagsSet: ['patient_recognized'] },
+          { text: '谦逊收下，继续出诊', effects: { ethics: 5, stress: -4 } }
+        ]
+      },
+      {
+        id: 're_rare_case',
+        stage: 'senior',
+        title: '🎲 教科书级罕见病例',
+        text: '门诊来了一个罕见病患者，诊断难度极高，也是绝佳的学术素材。',
+        rarity: 'rare',
+        weight: 3,
+        returnTo: 'promotion_gate',
+        options: [
+          { text: '多学科会诊，一查到底', effects: { skill: 12, network: 8, research: 6, stress: 6 } },
+          { text: '转诊上级，稳妥为先', effects: { legalRisk: -4, ethics: 3, stress: -2 } }
+        ]
+      },
+      {
+        id: 're_academic_viral',
+        stage: 'senior',
+        title: '🎲 你的科普突然爆火',
+        text: '你随手拍的一条科普视频冲上热榜，粉丝暴涨。',
+        rarity: 'rare',
+        weight: 3,
+        returnTo: 'research_track',
+        options: [
+          { text: '严谨做号，坚持循证科普', effects: { network: 12, ethics: 6, money: 6, stress: 5 } },
+          { text: '恰饭接广，注意合规边界', effects: { money: 14, legalRisk: 8, ethics: -6, stress: 4 } },
+          { text: '关掉评论，回归临床', effects: { stress: -6, health: 4 } }
+        ]
+      },
+      {
+        id: 're_teaching_students',
+        stage: 'senior',
+        title: '🎲 带一群规培生',
+        text: '科室把新一届规培生交给你带，青涩又充满干劲。',
+        rarity: 'common',
+        weight: 8,
+        returnTo: 'senior_outcome',
+        options: [
+          { text: '倾囊相授，做他们的引路人', effects: { ethics: 10, network: 8, skill: 4, stress: 3 } },
+          { text: '按规矩带，不多不少', effects: { skill: 4, stress: 1 } }
+        ]
+      },
+      {
+        id: 're_romance_undergrad',
+        stage: 'undergrad',
+        title: '🎲 自习室的心动',
+        text: '一次通宵复习后，那个总帮你占座的人递来一杯热奶茶。',
+        rarity: 'uncommon',
+        weight: 7,
+        returnTo: 'clerkship_intro',
+        conditions: { notFlags: ['has_partner', 'single_choice'] },
+        options: [
+          {
+            text: '鼓起勇气，认真开始一段关系',
+            check: {
+              baseChance: 55,
+              stats: { stress: -0.4, ethics: 0.2, network: 0.3, health: 0.1 },
+              minChance: 20,
+              maxChance: 90,
+              success: { effects: { stress: -8, health: 5 }, flagsSet: ['has_partner'], delayed: [{ turns: 2, effects: { stress: -6, health: 3 }, log: '有人分担情绪，你的压力被慢慢稀释。' }], feedback: '你们彼此靠近，成了对方的减压阀。', log: '💞 你开始了人生第一段认真的感情。' },
+              failure: { effects: { stress: 4 }, feedback: '时机不对，你们只是擦肩而过。', log: '感情的事，急不来。' }
+            }
+          },
+          { text: '现在重心还是学业', effects: { skill: 5, stress: 2 } }
+        ]
+      },
+      {
+        id: 're_romance_graduate',
+        stage: 'graduate',
+        title: '🎲 组会外的暧昧',
+        text: '隔壁课题组的 TA 总在食堂和你“恰好”同桌。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'conference_choice',
+        conditions: { notFlags: ['has_partner', 'single_choice'] },
+        options: [
+          {
+            text: '把握机会，主动约一次',
+            check: {
+              baseChance: 52,
+              stats: { stress: -0.4, network: 0.3, ethics: 0.2, health: 0.1 },
+              minChance: 20,
+              maxChance: 88,
+              success: { effects: { stress: -8, health: 4 }, flagsSet: ['has_partner'], delayed: [{ turns: 2, effects: { stress: -5, health: 3 }, log: '两个人一起熬科研的夜，好像没那么难熬了。' }], feedback: '你们成了彼此的实验室战友与港湾。', log: '💞 你在读研期间收获了一段感情。' },
+              failure: { effects: { stress: 3 }, feedback: '对方似乎另有安排，你识趣地退回了朋友区。', log: '缘分未到，先做同行朋友。' }
+            }
+          },
+          { text: '不想分心，先保课题', effects: { research: 5, stress: 2 } }
+        ]
+      },
+      {
+        id: 're_romance_training',
+        stage: 'training',
+        title: '🎲 规培基地的同期',
+        text: '同期规培里，有个人总在你崩溃的夜班默默递上关东煮。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'drg_bootcamp',
+        conditions: { notFlags: ['has_partner', 'single_choice'] },
+        options: [
+          {
+            text: '同是天涯规培人，试着在一起',
+            check: {
+              baseChance: 56,
+              stats: { stress: -0.35, network: 0.3, ethics: 0.2, health: 0.1 },
+              minChance: 22,
+              maxChance: 90,
+              success: { effects: { stress: -9, health: 5 }, flagsSet: ['has_partner'], delayed: [{ turns: 2, effects: { stress: -6, health: 3 }, log: '有人和你一起吐槽夜班，压力被消化了一半。' }], feedback: '你们在最累的阶段成了彼此的支撑。', log: '💞 你在规培期间收获了一段感情。' },
+              failure: { effects: { stress: 4 }, feedback: '排班错开、聚少离多，最终没能走近。', log: '规培太忙，感情被排班拆散。' }
+            }
+          },
+          { text: '现在自顾不暇，先扛过规培', effects: { skill: 5, stress: 3 } }
+        ]
+      },
+      {
+        id: 're_romance_resident',
+        stage: 'resident',
+        title: '🎲 相亲角的邀约',
+        text: '亲戚安排的相亲对象条件不错，也理解医生的作息。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'ward_rounds',
+        conditions: { notFlags: ['has_partner', 'single_choice'] },
+        options: [
+          {
+            text: '认真接触，看看能否长久',
+            check: {
+              baseChance: 54,
+              stats: { stress: -0.3, network: 0.25, ethics: 0.2, money: 0.05 },
+              minChance: 22,
+              maxChance: 88,
+              success: { effects: { stress: -8, health: 4 }, flagsSet: ['has_partner'], delayed: [{ turns: 2, effects: { stress: -5, health: 3 }, log: '有个理解你作息的人，日子多了一点盼头。' }], feedback: '对方理解医生的辛苦，你们稳稳走到了一起。', log: '💞 你通过相亲开启了一段稳定关系。' },
+              failure: { effects: { stress: 3 }, feedback: '聊得来，但节奏对不上，这次没成。', log: '合适的人，也要合适的时间。' }
+            }
+          },
+          { text: '暂时不想将就', effects: { stress: 2, ethics: 2 } }
+        ]
+      },
+      {
+        id: 're_single_life',
+        stage: 'graduate',
+        title: '🎲 关于“一个人”的想法',
+        text: '看着身边人忙着脱单，你却越来越享受一个人的清净。',
+        rarity: 'common',
+        weight: 5,
+        returnTo: 'conference_choice',
+        conditions: { notFlags: ['has_partner', 'married', 'single_choice'] },
+        options: [
+          { text: '坦然选择单身，把人生过给自己', effects: { stress: -8, health: 6, skill: 4 }, flagsSet: ['single_choice'] },
+          { text: '顺其自然，不急', effects: { stress: -2 } }
+        ]
+      },
+      {
+        id: 're_relationship_longdistance',
+        stage: 'graduate',
+        title: '🎲 异地的考验',
+        text: '你和 TA 被分到了不同城市，见面成了奢侈。',
+        rarity: 'common',
+        weight: 6,
+        returnTo: 'conference_choice',
+        conditions: { flags: ['has_partner'], notFlags: ['married'] },
+        options: [
+          { text: '用心经营，每周雷打不动视频', effects: { stress: -4, network: 3, money: -3 } },
+          { text: '聚少离多，感情降温', effects: { stress: 6, ethics: -2 } }
+        ]
+      },
+      {
+        id: 're_relationship_nightshift',
+        stage: 'resident',
+        title: '🎲 又一次爽约',
+        text: '说好的纪念日晚餐，你又因为一台急诊放了 TA 鸽子。',
+        rarity: 'common',
+        weight: 6,
+        returnTo: 'patient_talk',
+        conditions: { flags: ['has_partner'] },
+        options: [
+          { text: '事后真诚补偿，坦白医生的身不由己', effects: { stress: -4, ethics: 4, money: -3 } },
+          { text: '习惯性地说“下次一定”', effects: { stress: 6, ethics: -3 }, delayed: [{ turns: 2, effects: { stress: 6 }, log: 'TA 终于说出了“我们是不是不合适”。' }] }
+        ]
+      },
+      {
+        id: 're_relationship_house',
+        stage: 'resident',
+        title: '🎲 买房的抉择',
+        text: '到了谈婚论嫁的阶段，两个家庭都在看你们的“诚意”——首付。',
+        rarity: 'uncommon',
+        weight: 5,
+        returnTo: 'performance_review',
+        conditions: { flags: ['has_partner'], notFlags: ['married'] },
+        options: [
+          { text: '掏空积蓄付首付，扛起房贷', effects: { money: -14, stress: 8, network: 4 } },
+          { text: '坦诚沟通，先租房过渡', effects: { stress: -3, ethics: 4, money: -2 } }
+        ]
+      },
+      {
+        id: 're_marriage',
+        stage: 'training',
+        title: '🎲 要不要领证',
+        text: '感情稳定了几年，双方父母开始催促：什么时候把证领了？',
+        rarity: 'uncommon',
+        weight: 7,
+        returnTo: 'drg_bootcamp',
+        conditions: { flags: ['has_partner'], notFlags: ['married'] },
+        options: [
+          { text: '步入婚姻，成家立业', effects: { stress: -6, health: 4, money: -8, network: 6 }, flagsSet: ['married'], delayed: [{ turns: 2, effects: { stress: -4, health: 3 }, log: '成家之后，你有了一个真正意义上的后盾。' }] },
+          { text: '再等等，事业稳一点再说', effects: { stress: 3, skill: 3 } }
+        ]
+      },
+      {
+        id: 're_marriage_resident',
+        stage: 'resident',
+        title: '🎲 婚礼提上日程',
+        text: '拖了又拖，你们决定不再等一个“不忙”的时机。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'ward_rounds',
+        conditions: { flags: ['has_partner'], notFlags: ['married'] },
+        options: [
+          { text: '办一场简单而温暖的婚礼', effects: { stress: -8, health: 5, money: -10, network: 8 }, flagsSet: ['married'], delayed: [{ turns: 2, effects: { stress: -4, health: 3 }, log: '婚后有人替你分担生活，压力慢了下来。' }] },
+          { text: '裸婚，先领证一切从简', effects: { stress: -2, money: -2, ethics: 3 }, flagsSet: ['married'] }
+        ]
+      },
+      {
+        id: 're_child_choice',
+        stage: 'resident',
+        title: '🎲 要不要孩子',
+        text: '婚后绕不开的话题摆上台面：在医生这个职业里，养孩子谈何容易。',
+        rarity: 'uncommon',
+        weight: 7,
+        returnTo: 'performance_review',
+        conditions: { flags: ['married'], notFlags: ['has_child', 'dink'] },
+        options: [
+          { text: '迎接新生命，成为父母', effects: { stress: 8, health: -4, money: -12, ethics: 6 }, flagsSet: ['has_child'], delayed: [{ turns: 3, effects: { stress: 6, money: -6 }, log: '孩子半夜发烧，你在值班和奶粉钱之间连轴转。' }] },
+          { text: '慎重考虑，先立业再说', effects: { skill: 4, stress: 3 } },
+          { text: '和伴侣商定丁克', effects: { stress: -6, health: 4, money: 6 }, flagsSet: ['dink'] }
+        ]
+      },
+      {
+        id: 're_dink_choice',
+        stage: 'senior',
+        title: '🎲 关于丁克的共识',
+        text: '事业进入正轨，你们再次认真讨论了“两个人的生活”。',
+        rarity: 'common',
+        weight: 5,
+        returnTo: 'grassroots_track',
+        conditions: { flags: ['married'], notFlags: ['has_child', 'dink'] },
+        options: [
+          { text: '坚定丁克，把资源留给彼此和事业', effects: { stress: -6, health: 4, money: 10, research: 3 }, flagsSet: ['dink'] },
+          { text: '再想想，留一个开放的可能', effects: { stress: 2 } }
+        ]
+      },
+      {
+        id: 're_childcare_cost',
+        stage: 'senior',
+        title: '🎲 学区房与补习班',
+        text: '孩子到了上学的年纪，教育开销像新的一台“碎钞机”。',
+        rarity: 'uncommon',
+        weight: 6,
+        returnTo: 'grassroots_track',
+        conditions: { flags: ['has_child'] },
+        options: [
+          { text: '拼一把，给孩子更好的资源', effects: { money: -16, stress: 8, health: -3 } },
+          { text: '量力而行，重视陪伴而非砸钱', effects: { money: -6, ethics: 6, stress: -2, health: 3 } }
+        ]
+      }
+    ],
     events: [
       {
         id: 'gaokao_choice',
@@ -33,9 +592,53 @@
         text: '家庭群像 ICU 抢救一样刷新页面。分数够上一本，但离“稳上顶流”差一点。',
         yearDelta: 1,
         options: [
-          { text: '冲临床医学（5+3）', target: 'major_confirm', effects: { stress: 6, money: -2, ethics: 4 } },
-          { text: '选口腔/影像等相对热门方向', target: 'major_confirm', effects: { stress: 3, money: -1, skill: 2 } },
-          { text: '听劝选计算机，退出医疗线', target: 'ending_tech_escape', effects: { health: 5, stress: -20, money: 12 } }
+          {
+            text: '稳妥填报：临床医学（5+3），量力而行',
+            safeChoice: true,
+            effects: { stress: 8, money: -3, ethics: 8 },
+            check: {
+              baseChance: 68,
+              stats: { ethics: 0.2, health: 0.08, stress: -0.2, skill: 0.1 },
+              minChance: 40,
+              maxChance: 92,
+              success: {
+                target: 'major_confirm',
+                effects: { ethics: 8, skill: 6, stress: -4 },
+                feedback: '志愿踏实落地，你顺利进入医学主线，心态也稳。',
+                log: '判定成功（志愿）：稳妥填报让你踏实进入医学主线。'
+              },
+              failure: {
+                target: 'major_confirm',
+                effects: { stress: 8, skill: 3 },
+                feedback: '录取略有波折，但你仍进入了医学主线，只是起步更紧张。',
+                log: '判定失败（志愿）：录取有点波折，你仍进入医学主线，属普通开局。'
+              }
+            }
+          },
+          {
+            text: '冲刺顶尖名校临床（滑档风险高）',
+            riskyChoice: true,
+            effects: { stress: 12, money: -4, skill: 8 },
+            check: {
+              baseChance: 32,
+              stats: { skill: 0.5, network: 0.25, stress: -0.3 },
+              minChance: 10,
+              maxChance: 70,
+              success: {
+                target: 'major_confirm',
+                effects: { skill: 12, network: 10, ethics: 6 },
+                feedback: '你压线冲进了顶级平台，起点直接拉满。',
+                log: '判定成功（志愿）：你冲进了顶尖名校临床，开局平台极高。'
+              },
+              failure: {
+                target: 'major_confirm',
+                effects: { stress: 14, health: -8, money: -3 },
+                feedback: '志愿滑档到冷门院校，你只能带着不甘继续。',
+                log: '判定失败（志愿）：冲高失败滑档，你以更被动的姿态进入医学主线。'
+              }
+            }
+          },
+          { text: '听劝选计算机，退出医疗线', target: 'ending_tech_escape', effects: { health: 12, stress: -22, money: 18 } }
         ]
       },
       {
@@ -128,9 +731,32 @@
         text: '你需要决定未来：临床深耕、科研导向，还是先就业后看。',
         yearDelta: 1,
         options: [
-          { text: '冲考研：目标三甲平台', target: 'entrance_exam_prep', effects: { stress: 8, skill: 4, research: 2 }, flagsSet: ['postgrad_track'] },
-          { text: '争取保研：提前进实验室', target: 'recommendation_panel', effects: { research: 6, network: 4, stress: 5 }, flagsSet: ['postgrad_track'] },
-          { text: '先就业：准备执业考试与规培', target: 'license_exam_prep', effects: { money: 3, stress: 3, skill: 3 }, flagsSet: ['direct_training'] }
+          { text: '冲考研：目标三甲平台', target: 'entrance_exam_prep', effects: { stress: 12, skill: 8, research: 4 }, flagsSet: ['postgrad_track'] },
+          { text: '争取保研：提前进实验室', target: 'recommendation_panel', effects: { research: 10, network: 8, stress: 8 }, flagsSet: ['postgrad_track'] },
+          {
+            text: '稳妥就业：先考执医再规培',
+            safeChoice: true,
+            effects: { money: 6, skill: 6, stress: 4 },
+            flagsSet: ['direct_training'],
+            check: {
+              baseChance: 66,
+              stats: { health: 0.12, ethics: 0.15, stress: -0.2, skill: 0.08 },
+              minChance: 40,
+              maxChance: 90,
+              success: {
+                target: 'license_exam_prep',
+                effects: { skill: 8, money: 4, stress: -3 },
+                feedback: '你早早锁定就业路线，节奏稳、目标清晰。',
+                log: '判定成功（分流）：稳妥就业路线让你提前进入执医与规培节奏。'
+              },
+              failure: {
+                target: 'license_exam_prep',
+                effects: { stress: 8, skill: 3 },
+                feedback: '求职信息有点乱，但你仍走上了就业与规培的普通路线。',
+                log: '判定失败（分流）：就业规划略有波折，你走上普通就业路线。'
+              }
+            }
+          }
         ]
       },
       {
@@ -163,7 +789,7 @@
               }
             }
           },
-          { text: '别等结果了，直接全力准备统考', target: 'entrance_exam_prep', effects: { skill: 3, stress: 3 } }
+          { text: '别等结果了，直接全力准备统考', target: 'entrance_exam_prep', effects: { skill: 8, stress: 6 }, safeChoice: true }
         ]
       },
       {
@@ -239,6 +865,12 @@
                 log: '判定失败（考研）：经验可以借，但分数终究要自己考出来。'
               }
             }
+          },
+          {
+            text: '稳妥求稳：接受调剂/延后，先保住上岸路线',
+            target: 'grad_waiting_year',
+            effects: { stress: -4, health: 4, skill: 4 },
+            safeChoice: true
           }
         ]
       },
@@ -287,6 +919,13 @@
           {
             text: '复盘流程，找统计老师帮忙',
             effects: { research: 5, network: 3, stress: 3 },
+            retry: {
+              maxAttempts: 3,
+              yearCostPerRetry: 1,
+              costPerRetry: { stress: 8, money: -1 },
+              bonusPerRetry: 12,
+              alternativeTarget: 'project_delay'
+            },
             check: {
               baseChance: 55,
               stats: { research: 0.55, network: 0.3, ethics: 0.15, stress: -0.3 },
@@ -294,15 +933,15 @@
               maxChance: 90,
               success: {
                 target: 'paper_deadline',
-                effects: { research: 3, stress: -2 },
+                effects: { research: 8, stress: -4 },
                 feedback: '你终于找到了关键 bug，课题重新转起来了。',
                 log: '判定成功（实验）：你在外援帮助下找到了实验卡点。'
               },
               failure: {
                 target: 'project_delay',
-                effects: { stress: 6, health: -2 },
-                feedback: '问题比想象中更深，课题被迫延期。',
-                log: '判定失败（实验）：实验仍然反复失败，只能接受延期。'
+                effects: { stress: 8, health: -4 },
+                feedback: '问题比想象中更深，可以明年再战，或先接受延期。',
+                log: '判定失败（实验）：实验仍然反复失败，你可以再战或接受延期。'
               }
             }
           },
@@ -448,6 +1087,13 @@
           {
             text: '点开成绩页面，面对真正结果',
             effects: { stress: -3, skill: 2 },
+            retry: {
+              maxAttempts: 3,
+              yearCostPerRetry: 1,
+              costPerRetry: { stress: 9, money: -1, health: -2 },
+              bonusPerRetry: 14,
+              alternativeTarget: 'license_retake'
+            },
             check: {
               baseChance: 52,
               stats: { skill: 0.65, health: 0.1, stress: -0.3, money: 0.05 },
@@ -455,15 +1101,15 @@
               maxChance: 92,
               success: {
                 target: 'residency_match',
-                effects: { stress: -3 },
+                effects: { stress: -6, skill: 4 },
                 feedback: '你顺利通过执业医师考试，可以正式进入下一轮竞争。',
                 log: '判定成功（执医）：你顺利通过执业医师考试。'
               },
               failure: {
                 target: 'license_retake',
-                effects: { stress: 7, health: -1 },
-                feedback: '成绩差了几分，你需要补考一年。',
-                log: '判定失败（执医）：成绩差了几分，你不得不进入补考年。'
+                effects: { stress: 9, health: -3 },
+                feedback: '成绩差了几分，你可以明年再战，或先转入补考年安排。',
+                log: '判定失败（执医）：成绩差了几分，你可以再战或进入补考年。'
               }
             }
           },
@@ -477,17 +1123,23 @@
               maxChance: 90,
               success: {
                 target: 'residency_match',
-                effects: { network: 2, stress: -2 },
+                effects: { network: 6, stress: -4 },
                 feedback: '分数过线，而且你还提前摸到了规培情报。',
                 log: '判定成功（执医）：成绩过线，人脉也让你更快进入下一步。'
               },
               failure: {
                 target: 'license_retake',
-                effects: { network: 1, stress: 6 },
+                effects: { network: 3, stress: 6 },
                 feedback: '消息打听到了，但分数还是没有撑住。',
                 log: '判定失败（执医）：你知道了岗位信息，却还是先得补考。'
               }
             }
+          },
+          {
+            text: '稳扎稳打：考前系统冲刺，稳过线',
+            target: 'residency_match',
+            effects: { skill: 10, stress: 6, health: -3 },
+            safeChoice: true
           }
         ]
       },
@@ -556,6 +1208,7 @@
           },
           {
             text: '去基层先扎根社区',
+            safeChoice: true,
             check: {
               baseChance: 68,
               stats: { ethics: 0.35, network: 0.25, stress: -0.1, health: 0.1 },
@@ -563,7 +1216,7 @@
               maxChance: 92,
               success: {
                 target: 'grassroots_early',
-                effects: { ethics: 6, network: 4, money: 2 },
+                effects: { ethics: 10, network: 8, money: 4 },
                 flagsSet: ['grassroots_path'],
                 feedback: '基层岗位更看重意愿和稳定性，你顺利签下了机会。',
                 log: '判定成功（规培竞争）：你拿到了基层发展机会。'
@@ -696,8 +1349,8 @@
         text: '病人暂时稳住，晨会里第一次有人认真听你复盘整个判断过程。',
         yearDelta: 0,
         options: [
-          { text: '把病例整理成完整复盘，顺手请教上级', target: 'ward_rounds', effects: { skill: 3, network: 2, stress: 1 } },
-          { text: '低调略过，先让自己喘口气', target: 'ward_rounds', effects: { health: 2, stress: -2 } }
+          { text: '把病例整理成完整复盘，顺手请教上级', target: 'ward_rounds', effects: { skill: 8, network: 6, stress: 2 } },
+          { text: '低调略过，先让自己喘口气', target: 'ward_rounds', effects: { health: 8, stress: -8 }, safeChoice: true }
         ]
       },
       {
@@ -878,12 +1531,12 @@
           {
             text: '冲副高/科室管理路线',
             target: 'chief_competition',
-            effects: { stress: 6, skill: 4, network: 4 },
+            effects: { stress: 10, skill: 10, network: 10 },
             conditions: { stats: { skill: { min: 45 } } }
           },
-          { text: '走科研与教学路线', target: 'research_track', effects: { research: 8, stress: 5 }, conditions: { stats: { research: { min: 35 } } } },
-          { text: '去基层长期发展', target: 'grassroots_track', effects: { ethics: 6, health: 2, money: -2 } },
-          { text: '转向企业/互联网/考公', target: 'alt_career_track', effects: { stress: -3, money: 5 } }
+          { text: '走科研与教学路线', target: 'research_track', effects: { research: 12, stress: 8 }, conditions: { stats: { research: { min: 35 } } } },
+          { text: '去基层长期发展', target: 'grassroots_track', effects: { ethics: 10, health: 6, money: -3 }, safeChoice: true },
+          { text: '转向企业/互联网/考公', target: 'alt_career_track', effects: { stress: -6, money: 8 } }
         ]
       },
       {
@@ -897,6 +1550,13 @@
           {
             text: '长期打磨带教与疑难病例能力',
             effects: { skill: 8, ethics: 4, stress: 5 },
+            retry: {
+              maxAttempts: 3,
+              yearCostPerRetry: 2,
+              costPerRetry: { stress: 10, health: -3 },
+              bonusPerRetry: 10,
+              alternativeTarget: 'promotion_setback'
+            },
             check: {
               baseChance: 50,
               stats: { skill: 0.5, ethics: 0.25, health: 0.1, stress: -0.2, network: 0.15 },
@@ -904,16 +1564,16 @@
               maxChance: 86,
               success: {
                 target: 'senior_outcome',
-                effects: { skill: 3, ethics: 2 },
+                effects: { skill: 8, ethics: 6 },
                 flagsSet: ['chief_candidate'],
                 feedback: '你的临床与带教口碑终于开始转化为晋升筹码。',
                 log: '判定成功（副高竞争）：你靠硬实力拿到了继续冲刺主任的资格。'
               },
               failure: {
                 target: 'promotion_setback',
-                effects: { stress: 5 },
-                feedback: '这轮评审没有站到你这边，你得决定下一步怎么补。',
-                log: '判定失败（副高竞争）：你在这一轮竞争中失手了。'
+                effects: { stress: 8 },
+                feedback: '这轮评审没有站到你这边，你可以明年再战，或先换个补法。',
+                log: '判定失败（副高竞争）：你在这一轮竞争中失手了，可再战或转补救。'
               }
             }
           },
@@ -943,7 +1603,8 @@
           {
             text: '疲惫不堪，考虑提前离开一线',
             target: 'alt_career_track',
-            effects: { health: 2, stress: -5 }
+            effects: { health: 8, stress: -10 },
+            safeChoice: true
           }
         ]
       },
@@ -955,9 +1616,9 @@
         text: '名单公布，没有你的名字。你还可以继续补课、换路，或暂时稳住。',
         yearDelta: 1,
         options: [
-          { text: '继续补病例、补教学，等下一轮', target: 'senior_outcome', effects: { skill: 4, stress: 3 } },
-          { text: '转去科研项目找突破口', target: 'research_track', effects: { research: 4, stress: 2 } },
-          { text: '接受管理副职，先把位置站稳', target: 'senior_outcome', effects: { network: 4, ethics: 1, stress: 1 } }
+          { text: '继续补病例、补教学，等下一轮', target: 'senior_outcome', effects: { skill: 8, stress: 6 } },
+          { text: '转去科研项目找突破口', target: 'research_track', effects: { research: 8, stress: 4 } },
+          { text: '接受管理副职，先把位置站稳', target: 'senior_outcome', effects: { network: 8, ethics: 3, stress: -4 }, safeChoice: true }
         ]
       },
       {
@@ -1014,7 +1675,7 @@
               }
             }
           },
-          { text: '转去医工交叉企业', target: 'alt_career_track', effects: { money: 8, stress: -2 } }
+          { text: '转去医工交叉企业', target: 'alt_career_track', effects: { money: 12, stress: -6 }, safeChoice: true }
         ]
       },
       {
@@ -1058,7 +1719,7 @@
               }
             }
           },
-          { text: '不追头衔，回归带教与临床', target: 'senior_outcome', effects: { skill: 4, ethics: 4, stress: -2 } }
+          { text: '不追头衔，回归带教与临床', target: 'senior_outcome', effects: { skill: 8, ethics: 8, stress: -6 }, safeChoice: true }
         ]
       },
       {
@@ -1144,7 +1805,7 @@
               }
             }
           },
-          { text: '回归临床再拼一把', target: 'private_track', effects: { stress: 5, skill: 3 } }
+          { text: '回归临床再拼一把', target: 'private_track', effects: { stress: 6, skill: 8, health: -3 }, safeChoice: true }
         ]
       },
       {
@@ -1234,7 +1895,8 @@
           {
             text: '转向更平衡的生活',
             target: 'ending_balanced_life',
-            effects: { health: 8, stress: -12 }
+            effects: { health: 12, stress: -16 },
+            safeChoice: true
           }
         ]
       },
@@ -1322,6 +1984,41 @@
         type: 'ending',
         title: '结局：初心掉线',
         text: '你还在岗位上，却不再相信这份职业。名义上的成功无法抵消内耗。'
+      },
+      {
+        id: 'ending_crisis_read_receipts',
+        stage: 'ending',
+        type: 'ending',
+        title: '结局：已读不回工作群',
+        text: '你暂时离岗，工作群消息 99+ 却一条都不想点开。你把手机调成灰度，第一次听见了自己的呼吸。休息不是逃避，是维修。'
+      },
+      {
+        id: 'ending_crisis_phone_reflex',
+        stage: 'ending',
+        type: 'ending',
+        title: '结局：听到电话铃就条件反射',
+        text: '任何铃声都让你手心冒汗、心跳加速。你主动预约了心理门诊，开始规律作息与康复。先把自己救活，才谈得上救别人。'
+      },
+      {
+        id: 'ending_crisis_night_shift_ghost',
+        stage: 'ending',
+        type: 'ending',
+        title: '结局：夜班仙人',
+        text: '连轴转到分不清白天黑夜，身体终于发出停机公告：强制下线。你在病床上第一次成了被照顾的人，也第一次认真想“值不值”。'
+      },
+      {
+        id: 'ending_crisis_badge_off',
+        stage: 'ending',
+        type: 'ending',
+        title: '结局：我先把工牌摘了',
+        text: '你把工牌轻轻放在护士站，转身走出旋转门。多年积累的人脉成了新赛道的底牌，你带着临床训练出的钝感力，去别处重新开始。'
+      },
+      {
+        id: 'ending_crisis_pc_crash',
+        stage: 'ending',
+        type: 'ending',
+        title: '结局：门诊电脑比我先死机',
+        text: '系统卡死、叫号停摆、患者排到走廊尽头，而你在蓝屏前笑出了声。你被调去做流程与信息化，从此和 bug、审批与荒诞的表格共处一室。'
       }
     ]
   };

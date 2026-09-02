@@ -15,6 +15,8 @@
   --border: #2a3b62;
 }
 
+[hidden] { display: none !important; }
+
 * { box-sizing: border-box; }
 
 body {
@@ -88,6 +90,49 @@ h1, h2, h3 { margin-top: 0; }
   border-color: rgba(159, 140, 255, 0.45);
   color: #e3dcff;
   font-weight: 700;
+}
+
+.random-tag {
+  background: rgba(244, 184, 96, 0.18);
+  border-color: rgba(244, 184, 96, 0.5);
+  color: #ffe0a8;
+  font-weight: 700;
+}
+
+.choice-tag {
+  display: inline-block;
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.choice-tag-safe {
+  background: rgba(79, 209, 165, 0.16);
+  border: 1px solid rgba(79, 209, 165, 0.5);
+  color: #9ff0d1;
+}
+
+.choice-tag-risky {
+  background: rgba(255, 122, 122, 0.16);
+  border: 1px solid rgba(255, 122, 122, 0.5);
+  color: #ffb3b3;
+}
+
+.choice-tag-retry {
+  background: rgba(103, 214, 255, 0.16);
+  border: 1px solid rgba(103, 214, 255, 0.5);
+  color: #bfefff;
+}
+
+.safe-choice { border-color: rgba(79, 209, 165, 0.55); }
+.risky-choice { border-color: rgba(255, 122, 122, 0.55); }
+
+.nextgen-btn {
+  margin-top: 12px;
+  border-color: rgba(159, 140, 255, 0.55);
+  background: linear-gradient(180deg, rgba(70, 58, 130, 0.98), rgba(44, 36, 92, 0.98));
 }
 
 .options {

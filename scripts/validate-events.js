@@ -4,9 +4,11 @@ const gameData = require('../events.js');
 const checkSystem = require('../check-system.js');
 
 const events = gameData.events;
+const randomEvents = gameData.randomEvents || [];
 const map = new Map();
 const issues = [];
 const validStats = new Set(checkSystem.STAT_KEYS);
+const DEFAULT_STATS = { health: 80, stress: 20, money: 10, skill: 10, research: 5, network: 8, ethics: 70, legalRisk: 5 };
 
 function collectTargets(option) {
   const targets = [];
@@ -187,6 +189,108 @@ if (cappedHigh !== 75) {
   issues.push(`概率测试失败：上限未生效（得到 ${cappedHigh}%）`);
 }
 
+// --- 新增校验：安全选项（safeChoice） ---
+for (const event of events) {
+  if (!event.major) continue;
+  const options = event.options || [];
+  const safeOptions = options.filter((option) => option.safeChoice === true);
+  if (safeOptions.length === 0) {
+    issues.push(`重大事件 ${event.id} 缺少 safeChoice: true 的安全选项`);
+    continue;
+  }
+  for (const safe of safeOptions) {
+    if (safe.check) {
+      const details = checkSystem.computeCheckDetails(safe.check, DEFAULT_STATS);
+      if (!details || details.chance < 65) {
+        issues.push(`重大事件 ${event.id} 的安全选项默认成功率不足 65%（当前 ${details ? details.chance : 'N/A'}%）`);
+      }
+    }
+  }
+}
+
+// --- 新增校验：随机事件池（randomEvents） ---
+if (!Array.isArray(randomEvents) || randomEvents.length < 20) {
+  issues.push(`随机事件不足 20 个，当前 ${Array.isArray(randomEvents) ? randomEvents.length : 0}`);
+}
+const randomIds = new Set();
+const validRarities = new Set(['common', 'uncommon', 'rare']);
+for (const re of randomEvents) {
+  if (!re || typeof re !== 'object') {
+    issues.push('随机事件存在非法条目');
+    continue;
+  }
+  if (randomIds.has(re.id)) issues.push(`随机事件重复 ID: ${re.id}`);
+  randomIds.add(re.id);
+  if (map.has(re.id)) issues.push(`随机事件 ID 与主事件冲突: ${re.id}`);
+  if (!re.stage || !gameData.stages || !gameData.stages[re.stage]) {
+    issues.push(`随机事件 ${re.id} 的 stage 非法: ${re.stage}`);
+  }
+  if (typeof re.weight !== 'number' || re.weight <= 0) {
+    issues.push(`随机事件 ${re.id} 的 weight 非法`);
+  }
+  if (re.rarity && !validRarities.has(re.rarity)) {
+    issues.push(`随机事件 ${re.id} 的 rarity 非法: ${re.rarity}`);
+  }
+  if (!map.has(re.returnTo)) {
+    issues.push(`随机事件 ${re.id} 的 returnTo 目标不存在: ${re.returnTo}`);
+  }
+  const reOptions = re.options || [];
+  if (reOptions.length < 2 || reOptions.length > 4) {
+    issues.push(`随机事件 ${re.id} 选项数不在 2-4: ${reOptions.length}`);
+  }
+  for (const [index, option] of reOptions.entries()) {
+    const hasEffect = option.effects && typeof option.effects === 'object';
+    const hasFlags = Array.isArray(option.flagsSet) && option.flagsSet.length > 0;
+    if (!hasEffect && !hasFlags && !option.check) {
+      issues.push(`随机事件 ${re.id} 选项 ${index + 1} 缺少 effects/flagsSet/check`);
+    }
+    if (option.check) {
+      const normalized = checkSystem.normalizeCheck(option.check);
+      if (!normalized) issues.push(`随机事件 ${re.id} 选项 ${index + 1} 的 check 非法`);
+      if (Object.keys(option.check.stats || {}).length === 0) {
+        issues.push(`随机事件 ${re.id} 选项 ${index + 1} 的 check 缺少属性权重`);
+      }
+    }
+  }
+}
+
+// --- 新增校验：重试配置（retry） ---
+for (const event of events) {
+  for (const [index, option] of (event.options || []).entries()) {
+    if (!option.retry) continue;
+    const retry = option.retry;
+    if (typeof retry.maxAttempts !== 'number' || retry.maxAttempts < 1 || retry.maxAttempts > 5) {
+      issues.push(`事件 ${event.id} 选项 ${index + 1} 的 retry.maxAttempts 非法（应为 1-5）`);
+    }
+    if (!option.check) {
+      issues.push(`事件 ${event.id} 选项 ${index + 1} 配置了 retry 但缺少 check`);
+    }
+    if (!retry.alternativeTarget || !map.has(retry.alternativeTarget)) {
+      issues.push(`事件 ${event.id} 选项 ${index + 1} 的 retry.alternativeTarget 不存在: ${retry.alternativeTarget}`);
+    }
+    if (retry.bonusPerRetry !== undefined && typeof retry.bonusPerRetry !== 'number') {
+      issues.push(`事件 ${event.id} 选项 ${index + 1} 的 retry.bonusPerRetry 非法`);
+    }
+  }
+}
+
+// --- 新增校验：家庭系统相关事件与结局 ID ---
+const familyRandomIds = ['re_marriage', 're_child_choice', 're_dink_choice'];
+for (const id of familyRandomIds) {
+  if (!randomIds.has(id)) issues.push(`家庭系统随机事件缺失: ${id}`);
+}
+const memeCrisisEndings = [
+  'ending_crisis_read_receipts',
+  'ending_crisis_phone_reflex',
+  'ending_crisis_night_shift_ghost',
+  'ending_crisis_badge_off',
+  'ending_crisis_pc_crash'
+];
+for (const id of memeCrisisEndings) {
+  const target = map.get(id);
+  if (!target || target.type !== 'ending') issues.push(`梗结局缺失或类型错误: ${id}`);
+}
+
 if (issues.length) {
   console.error('❌ 数据校验失败:');
   for (const issue of issues) console.error('-', issue);
@@ -197,4 +301,5 @@ console.log('✅ 数据校验通过');
 console.log(`事件总数: ${events.length}`);
 console.log(`结局总数: ${events.filter((event) => event.type === 'ending').length}`);
 console.log(`可达结局数: ${reachableEndings.length}`);
+console.log(`随机事件数: ${randomEvents.length}`);
 console.log(`判定选项数: ${events.reduce((sum, event) => sum + (event.options || []).filter((option) => option.check).length, 0)}`);
