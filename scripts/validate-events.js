@@ -193,9 +193,9 @@ if (cappedHigh !== 75) {
 for (const event of events) {
   if (!event.major) continue;
   const options = event.options || [];
-  const safeOptions = options.filter((option) => option.safeChoice === true);
+  const safeOptions = options.filter((option) => option.safeChoice === true || option.label === '稳妥');
   if (safeOptions.length === 0) {
-    issues.push(`重大事件 ${event.id} 缺少 safeChoice: true 的安全选项`);
+    issues.push(`重大事件 ${event.id} 缺少 safeChoice: true 或 label: '稳妥' 的安全选项`);
     continue;
   }
   for (const safe of safeOptions) {
@@ -209,11 +209,14 @@ for (const event of events) {
 }
 
 // --- 新增校验：随机事件池（randomEvents） ---
-if (!Array.isArray(randomEvents) || randomEvents.length < 20) {
-  issues.push(`随机事件不足 20 个，当前 ${Array.isArray(randomEvents) ? randomEvents.length : 0}`);
+if (!Array.isArray(randomEvents) || randomEvents.length < 105) {
+  issues.push(`随机事件不足 105 个，当前 ${Array.isArray(randomEvents) ? randomEvents.length : 0}`);
 }
 const randomIds = new Set();
-const validRarities = new Set(['common', 'uncommon', 'rare']);
+const validRarities = new Set(['common', 'uncommon', 'rare', 'very-rare']);
+// Per-stage minimums
+const stageMins = { gaokao: 8, undergrad: 18, graduate: 14, training: 10, resident: 20, senior: 10 };
+const stageCounts = {};
 for (const re of randomEvents) {
   if (!re || typeof re !== 'object') {
     issues.push('随机事件存在非法条目');
@@ -224,6 +227,8 @@ for (const re of randomEvents) {
   if (map.has(re.id)) issues.push(`随机事件 ID 与主事件冲突: ${re.id}`);
   if (!re.stage || !gameData.stages || !gameData.stages[re.stage]) {
     issues.push(`随机事件 ${re.id} 的 stage 非法: ${re.stage}`);
+  } else {
+    stageCounts[re.stage] = (stageCounts[re.stage] || 0) + 1;
   }
   if (typeof re.weight !== 'number' || re.weight <= 0) {
     issues.push(`随机事件 ${re.id} 的 weight 非法`);
@@ -251,6 +256,13 @@ for (const re of randomEvents) {
         issues.push(`随机事件 ${re.id} 选项 ${index + 1} 的 check 缺少属性权重`);
       }
     }
+  }
+}
+// Check per-stage minimums
+for (const [stage, min] of Object.entries(stageMins)) {
+  const count = stageCounts[stage] || 0;
+  if (count < min) {
+    issues.push(`随机事件 ${stage} 阶段不足 ${min} 个，当前 ${count}`);
   }
 }
 
@@ -303,3 +315,4 @@ console.log(`结局总数: ${events.filter((event) => event.type === 'ending').l
 console.log(`可达结局数: ${reachableEndings.length}`);
 console.log(`随机事件数: ${randomEvents.length}`);
 console.log(`判定选项数: ${events.reduce((sum, event) => sum + (event.options || []).filter((option) => option.check).length, 0)}`);
+console.log(`各阶段随机事件: ${JSON.stringify(stageCounts)}`);

@@ -120,6 +120,30 @@ h1, h2, h3 { margin-top: 0; }
   color: #ffb3b3;
 }
 
+.choice-tag-balanced {
+  background: rgba(255, 210, 100, 0.16);
+  border: 1px solid rgba(255, 210, 100, 0.5);
+  color: #ffe59e;
+}
+
+.choice-tag-team {
+  background: rgba(103, 170, 255, 0.16);
+  border: 1px solid rgba(103, 170, 255, 0.5);
+  color: #b3d4ff;
+}
+
+.choice-tag-longterm {
+  background: rgba(180, 140, 255, 0.16);
+  border: 1px solid rgba(180, 140, 255, 0.5);
+  color: #d4b8ff;
+}
+
+.choice-tag-rest {
+  background: rgba(130, 210, 140, 0.16);
+  border: 1px solid rgba(130, 210, 140, 0.5);
+  color: #b8e8be;
+}
+
 .choice-tag-retry {
   background: rgba(103, 214, 255, 0.16);
   border: 1px solid rgba(103, 214, 255, 0.5);
