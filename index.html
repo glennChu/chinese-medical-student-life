@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>一个中国医学生的一生</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="start-screen" class="card">
+        <h1>一个中国医学生的一生</h1>
+        <p class="intro">点击选项推进剧情：从高考志愿到职业终局，每次选择都会改变你的属性、路径与结局。</p>
+        <p id="disclaimer-text" class="disclaimer"></p>
+        <div class="btn-row">
+          <button id="start-btn" type="button">开始新人生</button>
+          <button id="continue-btn" type="button">继续游戏</button>
+          <button id="clear-btn" type="button" class="danger">清除存档</button>
+        </div>
+      </section>
+
+      <section id="game-screen" class="layout" hidden>
+        <article class="card event-card" aria-live="polite">
+          <header class="event-meta">
+            <span id="stage-tag" class="tag"></span>
+            <span id="age-tag" class="tag"></span>
+          </header>
+          <h2 id="event-title"></h2>
+          <p id="event-text" class="event-text"></p>
+          <div id="change-feedback" class="feedback" aria-live="polite"></div>
+          <div id="options" class="options" role="group" aria-label="剧情选项"></div>
+          <button id="reset-btn" type="button" class="ghost">重新开始</button>
+        </article>
+
+        <aside class="side-panel">
+          <section class="card" aria-labelledby="stats-title">
+            <h3 id="stats-title">属性面板</h3>
+            <ul id="stats" class="stats-list"></ul>
+          </section>
+
+          <section class="card" aria-labelledby="log-title">
+            <h3 id="log-title">人生病历（关键日志）</h3>
+            <ol id="log-list" class="log-list"></ol>
+          </section>
+        </aside>
+      </section>
+
+      <section id="ending-screen" class="card" hidden>
+        <h2 id="ending-title"></h2>
+        <p id="ending-text" class="event-text"></p>
+        <h3>关键统计</h3>
+        <ul id="ending-stats" class="stats-list"></ul>
+        <h3>已解锁结局</h3>
+        <p id="unlocked-endings" class="summary"></p>
+        <h3>已解锁成就</h3>
+        <p id="unlocked-achievements" class="summary"></p>
+        <button id="restart-from-ending" type="button">再来一局</button>
+      </section>
+    </main>
+
+    <script src="events.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>
